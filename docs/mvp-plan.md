@@ -1,7 +1,7 @@
 # OCLR-ref-tools MVP 開發任務與驗收
 
-- 文件版本：0.3（產品決策確認與本機保存修訂）；日期：2026-10-27
-- 狀態：任務規劃；下列實作、migration、測試及部署均未開始
+- 文件版本：0.4（M0 驗證與條件式契約基線）；日期：2026-10-27
+- 狀態：SPEC-00 已盤點、SPIKE-01／02 部分實測、SPEC-01 已更新未凍結；產品實作、migration 與部署未開始
 - 關聯：[專案設計](project-design.md)、[桌面授權](contracts/desktop-authorization.md)、[context API](contracts/referee-context-api.md)、[審查及已確認決策](design-review.md)
 
 ## 1. MVP 完成定義
@@ -29,7 +29,7 @@ P0 自動操作支援 osu! standard、Head To Head 1v1／Team VS、Score V2；�
 - S：約 0.5–1 人日；M：約 1–2 人日；L：約 2–3 人日；XL：約 4–6 人日；屬初估，不是排程承諾。多人共同負責一列時為該任務合計工作量，不分別重複計算。
 - 以表列量級逐項加總，桌面主責、後端主責、共同規格與驗收發行分開估算；這四類不可把並行工作量直接相加當作日曆天。各功能任務已包含自身必要單元／契約驗證，QA-01 是整合故障與實際演練。
 - 以 1 位 D、1 位可配合的 B 及共享 Q 為假設，完整整合測試版本暫抓 8–12 週；6–8 週僅可作範圍較小里程碑的目標。真實 OAuth、三平台加密儲存與重大 Bancho 差異可能延長；D08 已確認先交付內部測試版，公開簽章／更新另行規劃。
-- 本輪交付是設計草案；SPEC 任務的聯合定版仍待進行。不得將文件存在視為後端已上線。
+- 本輪交付含 M0 隔離實驗與證據；SPEC-01 聯合定版仍待進行。不得將文件存在視為後端已上線。
 
 | 工作類別 | 任務數 | 表列人日區間 |
 | --- | --- | --- |
@@ -45,12 +45,23 @@ P0 自動操作支援 osu! standard、Head To Head 1v1／Team VS、Score V2；�
 
 | ID | 負責／量級 | 依賴 | 工作與交付物 | 驗收條件 |
 | --- | --- | --- | --- | --- |
-| SPEC-00 | D＋B／M | 無 | 確認需求邊界、待驗證假設與合成資料，納入已確認 D01–D08 與 D06 保存配套 | 目前 0.3 文件是輸入；產品政策已確認，技術 spike 待開始，不宣稱契約已凍結 |
+| SPEC-00 | D＋B／M | 無 | 確認需求邊界、待驗證假設與合成資料，納入已確認 D01–D08 與 D06 保存配套 | 已完成需求／假設盤點，見 M0 SPEC-00；產品政策已確認，技術缺口不宣稱已通過 |
 | SPIKE-01 | D／L | SPEC-00 | 在指定測試房蒐集登入、settings、map／mods、start／abort、make／close、權限錯誤與重連樣本 | 確認可信 sender、訊息邊界、可觀測狀態、MP／頻道 ID、UID 證據可用性、#UID 行為及房名限制；未知項列出 |
 | SPIKE-02 | D／L | SPEC-00 | 三平台 callback 頂層導覽、SQLite driver、系統憑證儲存、日誌加密與 WAL／暫存去明文、IME／快捷鍵及打包驗證 | 產生選型記錄；loopback 不對外綁定；安全儲存不可用時不保存秘密 |
 | SPEC-01 | D＋B／M | SPEC-00、SPIKE-01、SPIKE-02 | 依實測審閱兩份契約、欄位來源、預設期限、角色與 null 語意，依已確認產品決策與儲存實測定版 | 欄位標明既有／新增／缺漏；意圖檢查、模式、隱私、期限與錯誤碼一致；未定案不得當成實作事實 |
 
 SPIKE-01 若無法可靠取得特定狀態，正式規格使用 unknown／人工檢查，不能以猜測補齊。D05 已確認採登入暱稱匹配及裁判核對，並明示不等於 UID 證明；後續若變更為嚴格 UID 證明，需在 SPEC-01 增補可靠來源與任務估算，不讓未存在的身份服務隱性卡住 MVP。mismatched／unavailable 一律阻擋 OCLR 衍生變更，手動模式另有標示。
+
+本輪狀態（2026-10-27）：
+
+| 任務 | 狀態 | 證據／未完成條件 |
+| --- | --- | --- |
+| SPEC-00 | 本輪盤點完成 | [需求、假設與操作邊界](m0/spec-00.md) |
+| SPIKE-01 | partial | 真實登入、入房、唯讀指令已送；無設定回覆，mutation／權限／重連／UID 等仍缺證據 |
+| SPIKE-02 | partial | macOS arm64 callback、SQLite／加密／same-build key restart、實驗打包通過；其餘平台／IME／升版未測 |
+| SPEC-01 | 已更新，未聯合凍結 | [來源映射、選型與 G01–G06](m0/spec-01.md)；M0 出口仍未通過 |
+
+完整結果見 [SPIKE 報告](m0/spike-results.md)。產品任務的依賴不因本輪有 commit 就視為滿足。
 
 ### 3.2 OCLR 後端與網站
 
@@ -79,11 +90,11 @@ SPIKE-01 若無法可靠取得特定狀態，正式規格使用 unknown／人工
 
 | ID | 負責／量級 | 依賴 | 工作與交付物 | 驗收條件 |
 | --- | --- | --- | --- | --- |
-| CORE-01 | D／L | STATE-01、SPEC-01、LOG-01 | 操作計畫、逐意圖前置條件、固定 room ID、回覆匹配、每房間序列化及全連線節流 | queued／sending／awaiting／success／failure／unknown 可區分；開房送出前保存最小 pending 記錄；無重複排入 |
+| CORE-01 | D／L | STATE-01、SPEC-01、LOG-01 | 操作計畫、逐意圖前置條件、固定 room ID、回覆匹配、每房間序列化及全連線節流 | queued／sending／awaiting／success／failure／unknown 可區分；開房送出前保存最小 pending 記錄；無重複排入；恢復記錄被清除後 recovery_uncertain 未解除不得開房 |
 | CORE-02 | D／M | CORE-01 | 部分失敗、取消、超時與重連恢復 | 在途不明先核對；不自動重送 make／start／abort；已完成步驟不假裝回滾 |
 | MANUAL-01 | D／M | CORE-02、IRC-03 | 手動 slash／!mp 指令閘道、共用佇列、緊急控制優先序與模式標示 | 手動變更先停止衝突計畫；不能繞過節流或注入多行；不把傳出 echo 視為成功 |
 | LOBBY-01 | D／M | CORE-02 | 綁定現有房、開房、房名、模式／槽位／密碼／鎖房、房間權限資訊 | 等待實際 room ID 再初始化；重連／本機重啟不重開；無 addref 權限不顯示成功 |
-| PLAYER-01 | D／M | LOBBY-01 | 正式名單對照、批次邀請、選擇 lineup、顏色及槽位、必要的換人政策人工核對 | 使用穩定 UID；bench 不自動上場；邀請不等於到場；不默認 home=red；不宣稱能自動判定熱身或換人時機 |
+| PLAYER-01 | D／M | LOBBY-01 | 正式名單對照、批次邀請、選擇 lineup、顏色及槽位、必要的換人政策人工核對 | 使用 OCLR roster 穩定 UID；#UID 傳送行為仍待 SPIKE-01 實測，未驗不放行；bench 不自動上場；邀請不等於到場；不默認 home=red；不宣稱能自動判定熱身或換人時機 |
 | MAP-01 | D／M | CORE-02 | 圖池槽位 UI、beatmap ID、完整 room Mods／FM profile、差異與人工政策檢查 | 切圖與 Mods 都確認才完成；NF 不硬編碼；未知 FM 政策阻擋，metadata 缺失不誤判 ID |
 | CONTROL-01 | D／M | PLAYER-01、MAP-01 | timer／start／aborttimer／abort、目前比賽階段與防誤觸 | 一般 timer 與開始倒數分開；Start 需完成規則與本地檢查；取消不回報成已開始 |
 | UX-01 | D／M | CONTROL-01、MANUAL-01 | 常用訊息、應用內快捷鍵、指令搜尋、兩種身分狀態與失敗提示 | IME 組字與輸入欄不誤觸操作；危險按鈕顯示目標與影響 |
@@ -137,7 +148,7 @@ SPIKE-01 若無法可靠取得特定狀態，正式規格使用 unknown／人工
 | AC-17 | 手動指令與快捷計畫競爭、應急 abort、假 echo | 共用佇列、停止衝突後續步驟；手動不冒充 OCLR 已核對操作 | MANUAL-01、CORE-02 |
 | AC-18 | 開房無既有 room、Head To Head、單張壞 FM 地圖 | 開房檢查可滿足；Head To Head 無顏色要求；其他可選圖不被單一壞 entry 全域阻擋 | CTX-02、INT-03 |
 | AC-19 | startPolicy 缺失／required／optional；15／60 秒輪詢及 Start 連點重讀 | 缺值不猜測；依明確直播政策；最小輪詢不阻擋 preflight，連點只合併一次讀取 | OCLR-01、CTX-02、INT-03 |
-| AC-20 | 登出／切帳號／切場次後舊 API 回應抵達；開房送達後 App 崩潰 | 舊 generation 無法回填；pending／unknown 需人工核對，不自動再開；不還原已撤權資料 | LOG-01、INT-01／02／03 |
+| AC-20 | 登出／切帳號／切場次後舊 API 回應抵達；開房送達後 App 崩潰 | 舊 generation 無法回填；pending／unknown 需人工核對；清理後 recovery_uncertain 仍阻擋自動再開；不還原已撤權資料 | LOG-01、INT-01／02／03 |
 | AC-21 | 初次啟動、關閉保存、7 天到期、手動刪除、Linux 無安全金鑰、寫入失敗 | 預設偏好開啟且實際保存狀態可見；關閉清既有日誌但保留最小防重送記錄；到期清理；無金鑰不落明文；pending 寫入失敗不開房 | SPIKE-02、LOG-01、CORE-01 |
 | AC-22 | 重啟讀歷史、跨帳號、單場撤權／全域撤權、離線登出與晚到寫入 | 同帳號重新登入，OCLR 日誌逐場驗權後才展示；無權立即清受影響日誌／恢復記錄／緩衝；離線不假報遠端撤銷；舊 generation 不重新落盤 | LOG-01、INT-01／02／03 |
 

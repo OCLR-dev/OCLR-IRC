@@ -1,7 +1,7 @@
 # OCLR 桌面授權資料契約
 
-- 契約草案：1.0.0（尚未發布）；文件版本：0.3；日期：2026-10-27
-- 狀態：待實作與聯合審閱；本文件沒有建立任何授權端點
+- 契約草案：1.0.0（尚未發布）；文件版本：0.4；日期：2026-10-27
+- 狀態：M0 本機 callback 已部分驗證；待聯合審閱與實作，沒有建立正式授權端點
 - 使用者代理：OCLR-ref-tools 桌面 Main process 與系統瀏覽器
 - HTTPS 基底：`https://oclr.org`；桌面 API 前綴：`/api/desktop/v1`
 
@@ -14,6 +14,8 @@
 現有 `/auth/osu` 與 `/auth/osu/callback` 可沿用；現有回呼固定回到 dashboard，需新增由伺服器保存、僅允許返回指定桌面授權頁的登入延續資訊。不得接受任意 return URL，也不得把桌面 code 轉交 osu!。
 
 ## 2. 授權模型與預設值
+
+M0 已驗證 macOS 本機 HTTP origin 的系統瀏覽器 form POST→303→loopback，以及錯 state／重放拒絕；尚未驗證正式 HTTPS 起點、CSRF、osu! OAuth、其他平台或真實 token 端點。見 [SPIKE 結果](../m0/spike-results.md)。
 
 D02／D03 已由使用者確認，見 [設計決策](../design-review.md)。以下作為 MVP 授權基線；端點仍待前後端技術驗證與聯合定版，不代表已部署：
 

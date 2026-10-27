@@ -1,0 +1,9 @@
+{
+  "evidence": "live-transport-only",
+  "host": "irc.ppy.sh",
+  "port": 6667,
+  "connected": true,
+  "receivedBytes": 0,
+  "sentApplicationBytes": 0,
+  "limitation": "Does not establish login, identity, room permission, or Bancho response grammar."
+}

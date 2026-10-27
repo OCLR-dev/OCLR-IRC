@@ -1,0 +1,35 @@
+{
+  "evidence": "live-readonly-bancho",
+  "roomId": 122076167,
+  "loginConfirmed": true,
+  "joined": true,
+  "commandsSent": [
+    "!mp settings",
+    "!mp listrefs"
+  ],
+  "observations": [
+    {
+      "kind": "numeric",
+      "command": "001"
+    }
+  ],
+  "protocolShapes": [
+    {
+      "command": "001",
+      "roomMentioned": false,
+      "senderIsSelf": false
+    },
+    {
+      "command": "353",
+      "roomMentioned": true,
+      "senderIsSelf": false
+    },
+    {
+      "command": "366",
+      "roomMentioned": true,
+      "senderIsSelf": false
+    }
+  ],
+  "redaction": "Account, room name, map IDs, player lines and referee names omitted; no raw capture retained.",
+  "limitation": "Membership observations do not prove referee permission or trusted bot-prefix policy. No mutation, make, reconnect, UID identity proof or complete parser grammar tested."
+}

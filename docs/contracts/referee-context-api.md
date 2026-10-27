@@ -1,7 +1,7 @@
 # OCLR 裁判 context API 資料契約
 
-- 契約草案：1.0.0（尚未發布）；文件版本：0.3；日期：2026-10-27
-- 狀態：待實作與聯合審閱；所有 `/api/referee/v1` 路徑均為提案
+- 契約草案：1.0.0（尚未發布）；文件版本：0.4；日期：2026-10-27
+- 狀態：依 M0 SPEC-01 更新，尚未聯合凍結／實作；所有 `/api/referee/v1` 路徑均為提案
 - 基底：`https://oclr.org/api/referee/v1`
 - 認證：[OCLR 桌面授權](desktop-authorization.md)發行的 Bearer access token
 
@@ -30,6 +30,8 @@
 同 major 的新增非必要欄位可提高 minor；破壞性欄位／型別／語意更動需新 major。回應須以執行期 schema 驗證，契約不相容不得悄悄改抓舊端點。正式實作階段由共用 schema 產生 OpenAPI 與契約測試，本輪僅保留 Markdown。
 
 ## 2. 授權及投影規則
+
+M0 固定來源映射見 [SPEC-01](../m0/spec-01.md)。現有 importer 的 Admin／Developer assignment 例外、未定案隊伍 409 及部分交易外檢查均不符合本契約；CTX-01 必須新增同一讀取邊界內的本人指派檢查與 tolerant projection，不能直接包裝舊回應。
 
 每次列表、分頁及 context 請求均依序檢查：token、desktop session、scope、有效帳號與裁判能力、本人指派。Admin 使用本 API 也只讀本人指派；未指派場次的管理沿用網站。
 
@@ -184,7 +186,7 @@ requiredLocalChecks 的 key 必須與 allowedIntents 完全相同；blocked inte
 
 | 意圖 | 固定本地檢查（除共通條件） |
 | --- | --- |
-| create_lobby | no_local_lobby_reference：沒有 bound／pending／unknown 本機記錄；操作前另成功重讀 context |
+| create_lobby | no_local_lobby_reference：沒有 bound／pending／unknown 本機記錄，且 recovery_uncertain 已經裁判核對解除；資料清除不能推定從未開房；操作前另成功重讀 context |
 | configure_lobby | room_binding、room_permission、room_snapshot |
 | invite_players | room_binding、room_permission；目標須為有效本場 roster，與目前地圖無關 |
 | place_players | room_binding、room_permission、room_snapshot、lineup_selected；Team VS 另要 team_colours_verified |
@@ -197,7 +199,7 @@ room_binding 是「本機選定且已核對的目標房間」，不是 P1 遠端
 
 Team VS 的 Start 額外需要 team_colours_verified；Head To Head 的 P0 只支援每隊一名玩家，不做 team 顏色檢查。當前 entry 的 individualModsCheck=manual 時，再加入 individual_mods_verified；policyText 必須是完整且已核准的人工檢查說明，不能當成可自動解析的規則。語意不明則 entry blocked。
 
-P0 不自動辨識熱身／正式局或裁定換人時機。若本機已選 lineup 後再變更出賽人員，place_players 額外加入 substitution_policy_reviewed，由裁判核對已知政策及時機；null／未知政策阻擋該換人計畫，prohibited 不提供衍生換人。單純將相同選手換槽不等同換人。這是人工檢查，不是 P1 的完整換人工作流。
+P0 不自動辨識熱身／正式局或裁定換人時機。既有 allowSubstitutions=false 可映射 prohibited；true 不足以證明 roster_only_between_games，需額外核准政策。即使 OCLR 官方賽果政策允許少人出賽，P0 衍生 Start 仍要求完整 lineup；少人出賽由明示手動流程處理，不偷偷擴大自動操作。若本機已選 lineup 後再變更出賽人員，place_players 額外加入 substitution_policy_reviewed，由裁判核對已知政策及時機；null／未知政策阻擋該換人計畫，prohibited 不提供衍生換人。單純將相同選手換槽不等同換人。這是人工檢查，不是 P1 的完整換人工作流。
 
 ### 5.3 合成完整範例
 

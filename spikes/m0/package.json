@@ -1,0 +1,17 @@
+{
+  "name": "oclr-m0-spikes",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Isolated M0 experiments; not the referee application",
+  "main": "electron.cjs",
+  "scripts": {
+    "test": "node --test protocol.test.cjs",
+    "probe": "node run-probe.cjs",
+    "package:mac": "electron-packager . OCLR-M0-Spike --platform=darwin --arch=arm64 --out=out --overwrite --ignore=^/out --ignore=^/runtime"
+  },
+  "devDependencies": {
+    "electron": "45.0.0",
+    "@electron/packager": "20.3.0"
+  }
+}

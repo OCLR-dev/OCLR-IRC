@@ -1,0 +1,7 @@
+{
+  "evidence": "synthetic-system-default-browser",
+  "platform": "darwin",
+  "loopback": "127.0.0.1",
+  "formPost303Callback": true,
+  "limitation": "Local HTTP origin only; not production HTTPS OAuth, CSRF, browser matrix, or Electron shell.openExternal."
+}

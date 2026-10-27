@@ -2,7 +2,7 @@
 
 專注於 osu! Chinese League Rookie（OCLR）賽事的裁判用 IRC 桌面客戶端，規劃使用 Electron，支援 Windows、macOS 與 Linux。
 
-目前處於方案設計階段，尚未建立應用程式或實作 API。
+目前進行 M0 技術驗證，已有隔離實驗；尚未建立產品應用程式或正式 API。
 
 ## 設計文件
 
@@ -14,8 +14,17 @@
 | [裁判 context API 契約](docs/contracts/referee-context-api.md) | 本人指派場次、原子資料快照、規則與權限、版本及錯誤處理 |
 | [設計審查與決策紀錄](docs/design-review.md) | 跨文件修訂紀錄、已確認 D01–D08、本機保存政策及影響任務 |
 
-API 路徑、欄位與預設值屬設計提案；文件會區分已查證的 OCLR 能力與待新增功能。所有 JSON 範例均為合成資料，不可直接用於真實 IRC 操作。
+API 路徑、欄位與預設值屬設計提案；文件會區分已查證的 OCLR 能力與待新增功能。契約文件中的 JSON 範例均為合成資料，不可直接用於真實 IRC 操作。
 
 ## 授權
 
 本專案自有程式碼與設計文件採用 [MIT License](LICENSE)，SPDX 識別字為 `MIT`。第三方原始碼、字型、圖片與依賴套件各依其原授權；本專案的 MIT 授權不會重新授權這些素材。
+
+## M0 開發驗證
+
+目前 SPEC-00 已盤點，SPIKE-01／02 部分實測，SPEC-01 已更新但未凍結；M0 尚未整體完成。
+
+- [SPEC-00：需求與驗證邊界](docs/m0/spec-00.md)
+- [SPIKE 實測結果與證據](docs/m0/spike-results.md)
+- [SPEC-01：欄位映射與待補資訊](docs/m0/spec-01.md)
+- [隔離實驗執行方式](spikes/m0/README.md)

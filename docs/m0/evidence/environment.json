@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-27",
+  "os": "macOS 27.0.1 (26A434)",
+  "arch": "arm64",
+  "hostNode": "26.12.0",
+  "npm": "11.20.0",
+  "python": "3.15.0",
+  "xcode": "27.1 (27A9275)",
+  "electron": "45.0.0",
+  "packager": "20.3.0",
+  "packagedSignature": "adhoc/linker-signed; no TeamIdentifier; no notarization",
+  "oclrSourceCommit": "14ab070450afb4b81b28eb075386428eab94e31f",
+  "mpPublicPage": {
+    "roomId": 122076167,
+    "name": "test",
+    "httpStatus": 200,
+    "startTime": "2026-10-27T07:41:54Z",
+    "endTime": null,
+    "observedAt": "2026-10-27T07:43Z",
+    "limitation": "Public HTML observation, not proof of IRC permission"
+  }
+}
