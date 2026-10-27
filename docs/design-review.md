@@ -54,3 +54,7 @@ D06 的本機保存開關由使用者確認；下列配套是本輪補齊的工�
 ## 4. M0 後續紀錄（2026-10-27）
 
 使用者已授權開始 M0；本輪新增隔離實驗並更新四份文件為 0.4，D01–D08 維持已確認。SPEC-00 已盤點，SPIKE-01／02 為部分實測，SPEC-01 已更新而未聯合凍結；詳見 [M0 結果](m0/spike-results.md)及 [SPEC-01](m0/spec-01.md)。新增明確缺口：現有 Admin 例外及未定案隊伍錯誤不可直接沿用、Linux async secret provider 待驗、恢復記錄清除後仍須 recovery_uncertain 人工核對。
+
+## 5. 唯讀排查與登入初版（2026-10-27）
+
+使用者改指定 MP 122076210，舊房 122076167 已 abandoned；新房實測證明 bare-LF PRIVMSG 被舊 CRLF-only probe 滯留，已修正並新增回歸。History／channel 對應及當前帳號 listrefs 列名已核對；變更權限仍未演練。使用者另明確要求可登入介面，確認採免費 HeroUI、不得引入 Pro；因此先交付登入與唯讀初版，不宣稱完整 MVP、D06 持久保存或三平台完成。詳見 [初版說明](initial-preview.md)及 [更新後 SPEC-01](m0/spec-01.md)。

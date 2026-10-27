@@ -1,0 +1,17 @@
+{
+  "evidence": "live-public-mp",
+  "recordedAt": "2026-10-27T08:16:22.341844+00:00",
+  "url": "https://osu.ppy.sh/community/matches/122076210",
+  "httpStatus": 200,
+  "match": {
+    "id": 122076210,
+    "name": "test1",
+    "start_time": "2026-10-27T08:14:32Z",
+    "end_time": null
+  },
+  "eventCount": 1,
+  "creatorMatchesAuthorizedAccount": true,
+  "channelCandidate": "#mp_122076210",
+  "channelBindingVerifiedByPage": false,
+  "limitation": "Public creation event is historical evidence, not current IRC referee permission. No user IDs or other player names retained."
+}

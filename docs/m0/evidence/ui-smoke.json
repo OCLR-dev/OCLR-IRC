@@ -1,0 +1,24 @@
+{
+  "evidence": "synthetic-desktop-ui",
+  "platform": "darwin",
+  "arch": "arm64",
+  "electron": "45.0.0",
+  "recordedAt": "2026-10-27T08:47:59.612Z",
+  "passed": [
+    "renderer and sandboxed preload loaded",
+    "form login to local fake IRC",
+    "LF-only settings binding",
+    "split-line referee membership",
+    "logout and secret clearing",
+    "no renderer console errors"
+  ],
+  "sent": [
+    "PASS <synthetic-redacted>",
+    "NICK SyntheticRef",
+    "USER SyntheticRef 0 * :OCLR-ref-tools",
+    "JOIN #mp_900000001",
+    "PRIVMSG #mp_900000001 :!mp settings",
+    "PRIVMSG #mp_900000001 :!mp listrefs"
+  ],
+  "limitation": "Local fake server only; no live account credentials, no OCLR OAuth, no Windows/Linux verification."
+}

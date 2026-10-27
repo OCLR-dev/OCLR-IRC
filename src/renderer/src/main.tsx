@@ -1,0 +1,127 @@
+import React, { useEffect, useRef, useState } from 'react'
+import { createRoot } from 'react-dom/client'
+import { Button, Description, FieldError, Input, Label, Spinner, TextField } from '@heroui/react'
+import type { DesktopAPI, Snapshot } from '../../shared/types'
+import './styles.css'
+
+declare global { interface Window { oclr?: DesktopAPI } }
+const initial: Snapshot = { connection: 'offline', username: '', room: null, pending: null, error: null, messages: [] }
+const statusText = { offline: '未連線', connecting: '正在連線', online: '已連線', error: '連線失敗' }
+function Icon({ name }: { name: 'connect' | 'room' | 'arrow' | 'logout' | 'key' | 'eye' }) {
+  const paths = {
+    connect: <><path d="M8 7V3m8 4V3M6 7h12v4a6 6 0 0 1-12 0V7Zm6 10v4" /></>,
+    room: <><path d="M4 5h16v12H9l-5 4V5Z" /><path d="M8 9h8M8 13h5" /></>,
+    arrow: <path d="M5 12h14m-6-6 6 6-6 6" />,
+    logout: <><path d="M9 4H4v16h5m5-13 5 5-5 5m-5-5h14" /></>,
+    key: <><circle cx="8" cy="8" r="4" /><path d="m11 11 9 9m-3-3 3-3m-6 0 3-3" /></>,
+    eye: <><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></>
+  }
+  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>
+}
+
+function App() {
+  const [state, setState] = useState(initial)
+  const [page, setPage] = useState<'account' | 'room'>('account')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [room, setRoom] = useState('')
+  const [formError, setFormError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const log = useRef<HTMLDivElement>(null)
+  const follow = useRef(true)
+  const desktop = Boolean(window.oclr)
+  const online = state.connection === 'online'
+  const connecting = state.connection === 'connecting'
+
+  useEffect(() => {
+    if (!window.oclr) return
+    let eventArrived = false
+    const off = window.oclr.onState(next => { eventArrived = true; setState(next) })
+    void window.oclr.snapshot().then(next => { if (!eventArrived) setState(next) })
+    return off
+  }, [])
+  useEffect(() => { if (online) { setPage('room'); setFormError(null) } }, [online])
+  useEffect(() => { if (follow.current && log.current) log.current.scrollTop = log.current.scrollHeight }, [state.messages])
+
+  async function login(event: React.FormEvent) {
+    event.preventDefault()
+    if (!window.oclr || busy || connecting) return
+    setFormError(null); setBusy(true)
+    const submitted = password
+    setPassword(''); setShowPassword(false)
+    try { const result = await window.oclr.login({ username, password: submitted }); if (!result.ok) setFormError(result.error || '登入未完成。') }
+    catch { setFormError('無法連接桌面服務，請重新開啟應用程式。') }
+    finally { setBusy(false) }
+  }
+  async function join(event: React.FormEvent) {
+    event.preventDefault()
+    if (!window.oclr || busy) return
+    setFormError(null); setBusy(true); follow.current = true
+    try { const result = await window.oclr.join(room); if (!result.ok) setFormError(result.error || '未能加入房間。') }
+    catch { setFormError('桌面服務無法回應。') }
+    finally { setBusy(false) }
+  }
+  async function query(kind: 'settings' | 'listrefs') {
+    if (!window.oclr) return
+    setFormError(null)
+    try { const result = await window.oclr.query(kind); if (!result.ok) setFormError(result.error || '查詢未完成。') }
+    catch { setFormError('桌面服務無法回應。') }
+  }
+  async function logout() { setPassword(''); setFormError(null); setPage('account'); await window.oclr?.logout() }
+  const error = formError || state.error
+
+  return <div className="app-shell">
+    <aside className="sidebar">
+      <div className="brand"><span className="brand-symbol">O</span><div><strong>OCLR</strong><span>ref tools</span></div></div>
+      <div className="workspace-label">裁判工作台 <span>01</span></div>
+      <nav aria-label="主要導覽">
+        <button className={page === 'account' ? 'nav-item selected' : 'nav-item'} onClick={() => setPage('account')}><Icon name="connect" />帳號連線<span className={`tiny-dot ${online ? 'active' : ''}`} /></button>
+        <button className={page === 'room' ? 'nav-item selected' : 'nav-item'} disabled={!online} onClick={() => setPage('room')}><Icon name="room" />房間記錄</button>
+      </nav>
+      <div className="sidebar-note"><span className="small-label">初版預覽</span><p>登入 IRC、連接比賽房間，<br />讀取設定與裁判資訊。</p></div>
+      <div className="sidebar-footer"><span className={`status-dot ${online ? 'online' : connecting ? 'connecting' : ''}`} /><div><strong>{online ? state.username : 'osu! IRC'}</strong><span>{statusText[state.connection]}</span></div>{online && <Button isIconOnly variant="ghost" aria-label="登出 IRC" onPress={() => void logout()}><Icon name="logout" /></Button>}</div>
+    </aside>
+    <div className="workspace">
+      <header className="topbar"><div><span>工作台</span><span className="breadcrumb-slash">/</span><strong>{page === 'account' ? '帳號連線' : '房間記錄'}</strong></div><span className="version">v0.1.0 <span>PREVIEW</span></span></header>
+      <main>
+        {page === 'account' ? <div className="account-view enter">
+          <section className="login-section">
+            <div className="section-kicker">ACCOUNT CONNECTION</div>
+            <h1>{online ? 'IRC 已連線' : '連接 osu! IRC'}</h1>
+            <p className="intro">使用你的 osu! 帳號，進入裁判工作台。</p>
+            {online ? <div className="connected-panel"><span className="account-avatar">{state.username.slice(0, 1)}</span><h2>{state.username}</h2><p>連線已建立，可以開始讀取比賽房間。</p><Button className="primary-button" onPress={() => setPage('room')}>前往房間記錄 <Icon name="arrow" /></Button><Button variant="ghost" onPress={() => void logout()}>登出</Button></div> : <form onSubmit={login} className="login-form">
+              <TextField name="username" value={username} onChange={setUsername} isRequired isDisabled={connecting || busy} className="field">
+                <Label>osu! 使用者名稱</Label><Input placeholder="你的 osu! 名稱" autoComplete="username" maxLength={32} /><FieldError />
+              </TextField>
+              <TextField name="password" value={password} onChange={setPassword} isRequired isDisabled={connecting || busy} className="field">
+                <Label>IRC 專用密碼</Label><div className="password-wrap"><Input type={showPassword ? 'text' : 'password'} placeholder="輸入 IRC 專用密碼" autoComplete="off" maxLength={128} /><button type="button" className="password-eye" aria-label={showPassword ? '隱藏密碼' : '顯示密碼'} aria-pressed={showPassword} disabled={connecting} onClick={() => setShowPassword(!showPassword)}><Icon name="eye" /></button></div>
+                <Description>使用 IRC 專用密碼，非網站登入密碼。</Description><FieldError />
+              </TextField>
+              {error && <div className="error-message" role="alert">{error}</div>}
+              {!desktop && <div className="error-message" role="status">這是介面預覽。請在桌面應用程式中登入。</div>}
+              <Button type="submit" className="primary-button login-button" isDisabled={!desktop || connecting || busy || !username.trim() || !password}>{connecting ? <><Spinner size="sm" />正在登入…</> : <>登入 IRC <Icon name="arrow" /></>}</Button>
+              {connecting && <Button variant="ghost" className="cancel-button" onPress={() => void logout()}>取消連線</Button>}
+              <p className="privacy-caption"><Icon name="key" />密碼僅用於本次登入，不會儲存。</p>
+            </form>}
+          </section>
+          <aside className="connection-info"><span className="small-label">連線資訊</span><dl><div><dt>服務</dt><dd>osu! Bancho</dd></div><div><dt>伺服器</dt><dd className="mono">irc.ppy.sh</dd></div><div><dt>連接埠</dt><dd className="mono">6667</dd></div></dl><div className="info-divider" /><h3>取得 IRC 專用密碼</h3><p>前往 osu! 帳號設定，查看或重設你的 IRC 密碼。</p><Button variant="ghost" className="text-button" isDisabled={!desktop} onPress={() => void window.oclr?.openAccountSettings()}>開啟帳號設定 <span aria-hidden="true">↗</span></Button><p className="transport-note">osu! IRC 目前使用未加密連線。</p></aside>
+        </div> : <div className="room-view enter">
+          <div className="room-heading"><div><div className="section-kicker">MATCH ROOM</div><h1>{state.room?.name || '房間記錄'}</h1></div><span className="read-only-label">唯讀模式</span></div>
+          <form className="join-form" onSubmit={join}><TextField aria-label="MP 編號或比賽連結" value={room} onChange={setRoom} className="room-input" isDisabled={Boolean(state.pending)}><Input placeholder="貼上 osu! MP 連結或輸入房間編號" /></TextField><Button type="submit" className="primary-button" isDisabled={!online || !room.trim() || Boolean(state.pending) || busy}>{state.pending === 'join' ? '加入中…' : '加入房間'}<Icon name="arrow" /></Button></form>
+          {error && <div className="error-message room-error" role="alert">{error}</div>}
+          <div className="room-grid"><section className="conversation" aria-label="房間訊息">
+            <div className="conversation-header"><span className="channel-name">{state.room?.channel || '# 尚未加入房間'}</span><div className="query-actions"><Button size="sm" variant="ghost" isDisabled={!online || !state.room?.joined || Boolean(state.pending)} onPress={() => void query('settings')}>讀取設定</Button><Button size="sm" variant="ghost" isDisabled={!online || !state.room?.joined || Boolean(state.pending)} onPress={() => void query('listrefs')}>裁判名單</Button></div></div>
+            <div className="message-list" ref={log} role="log" aria-label="IRC 訊息" aria-live="polite" aria-relevant="additions" onScroll={() => { const element = log.current; if (element) follow.current = element.scrollHeight - element.scrollTop - element.clientHeight < 70 }}>
+              {!state.messages.length ? <div className="empty-state"><div className="empty-icon"><Icon name="room" /></div><h2>連接你的比賽房間</h2><p>貼上 MP 連結，讀取房間設定與裁判名單。<br />此初版不會變更比賽設定或開始比賽。</p></div> : state.messages.map(message => <div className={`message-row ${message.kind}`} key={message.id}><time dateTime={message.time}>{new Date(message.time).toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time><span className="message-sender">{message.sender}</span><span className="message-text">{message.text}</span></div>)}
+            </div>
+            <div className="conversation-footer"><span className={state.pending ? 'pending-state' : ''}>{state.pending ? '正在等待伺服器回覆…' : '僅接收訊息與執行唯讀查詢'}</span><span>本次連線記錄 · 最多 200 則</span></div>
+          </section><aside className="room-inspector"><span className="small-label">房間資訊</span><dl><div><dt>MP 編號</dt><dd className="mono">{state.room?.id || '—'}</dd></div><div><dt>房間核對</dt><dd className={state.room?.binding === 'verified' ? 'accent-text' : ''}>{state.room?.binding === 'verified' ? 'History 連結相符' : state.room?.binding === 'mismatch' ? '連結不符' : '尚未核對'}</dd></div><div><dt>裁判身分</dt><dd className={state.room?.referee === 'listed' ? 'accent-text' : ''}>{state.room?.referee === 'listed' ? '已列於裁判名單' : '尚未核對'}</dd></div><div><dt>比賽模式</dt><dd>{state.room?.mode || '—'}</dd></div><div><dt>房內玩家</dt><dd>{state.room?.players ?? '—'}</dd></div></dl><p className="inspector-note">加入頻道不代表擁有裁判權限，請以伺服器回覆核對。</p></aside></div>
+        </div>}
+      </main>
+      <footer className="app-footer"><span><span className={`tiny-dot ${online ? 'active' : ''}`} />{statusText[state.connection]}</span><span>本次記錄僅保留於記憶體 · OCLR 帳號連結尚未開放</span></footer>
+    </div>
+  </div>
+}
+
+createRoot(document.getElementById('root')!).render(<App />)

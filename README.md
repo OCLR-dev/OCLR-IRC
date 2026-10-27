@@ -2,7 +2,19 @@
 
 專注於 osu! Chinese League Rookie（OCLR）賽事的裁判用 IRC 桌面客戶端，規劃使用 Electron，支援 Windows、macOS 與 Linux。
 
-目前進行 M0 技術驗證，已有隔離實驗；尚未建立產品應用程式或正式 API。
+已有 0.1.0 IRC 登入與唯讀房間初版，使用免費 HeroUI（無 Pro）。完整 MVP、OCLR API 與三平台驗收尚未完成。
+
+## 啟動初版
+
+需要 Node 24+：
+
+```sh
+npm ci
+npm run build
+npm start
+```
+
+以 osu! **IRC 專用密碼**登入後，可加入 MP 房間、讀取設定及裁判名單。初版不提供比賽變更指令；訊息僅保留於本次連線，OCLR 登入尚未開放。macOS arm64 App 可用 `npm run package:mac` 建立，詳見 [初版使用與驗證說明](docs/initial-preview.md)。
 
 ## 設計文件
 
@@ -22,7 +34,7 @@ API 路徑、欄位與預設值屬設計提案；文件會區分已查證的 OCL
 
 ## M0 開發驗證
 
-目前 SPEC-00 已盤點，SPIKE-01／02 部分實測，SPEC-01 已更新但未凍結；M0 尚未整體完成。
+SPEC-00 已盤點；SPIKE-01 已定位 CRLF-only 導致漏讀 bare-LF 回覆，並於新房完成唯讀核對。SPIKE-01／02 其他缺口仍在，SPEC-01 已更新但未凍結；使用者另授權先交付登入初版。
 
 - [SPEC-00：需求與驗證邊界](docs/m0/spec-00.md)
 - [SPIKE 實測結果與證據](docs/m0/spike-results.md)

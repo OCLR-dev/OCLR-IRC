@@ -3,3 +3,7 @@ spikes/m0/out/
 spikes/m0/runtime/
 *.log
 .DS_Store
+/out/
+/release/
+/artifacts/
+__pycache__/

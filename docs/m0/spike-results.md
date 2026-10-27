@@ -2,24 +2,33 @@
 
 - 日期：2026-10-27；狀態：部分實測完成，M0 出口未通過。
 - 環境：[environment.json](evidence/environment.json)。本機 macOS 27.0.1／arm64、Node 26.12.0、npm 11.20.0、Python 3.15.0、Xcode 27.1。
-- 隔離實驗：[執行說明](../../spikes/m0/README.md)。沒有產品 App、正式 API、正式資料 migration 或公開發行。
+- 隔離實驗：[執行說明](../../spikes/m0/README.md)。此段保留最初實驗紀錄；本輪追加使用者授權的 [0.1.0 登入初版](../initial-preview.md)，正式 API、migration 及公開發行仍未完成。
 
-## SPIKE-01：Bancho 與 IRC
+## SPIKE-01：Bancho 與 IRC（已完成本輪唯讀排查）
+
+**結論：先前「沒有回覆」是 probe 未正確分行，不能解讀為 Bancho 沒有送出回覆。** 在使用者新指定的 MP `122076210`，同一份接收 byte stream 經新舊解析器並行比較：新解析器讀到 5 行 PRIVMSG，CRLF-only 舊解析器為 0，結束時仍有 2,186 bytes 滯留。這 5 行全部以 bare LF 結尾；登入／JOIN／NAMES 等則為 CRLF。修正為以 LF 分行、只移除行尾可選 CR，並保留 UTF-8 跨 chunk 解碼與緩衝界限。
 
 | 項目 | 證據分類／結果 | 實際觀察及限制 |
 | --- | --- | --- |
-| irc.ppy.sh:6667 | live / passed | TCP 連線成功；[報告](evidence/bancho-connectivity.json)的應用層送出量為 0，這一步不代表登入 |
-| 指定 MP 122076167 | live public / passed | 公開頁名為 test，觀察時 end_time=null；不保存玩家資料，也不能由此證明 Bancho 權限 |
-| 登入 | live / passed | 使用者明確授權的帳號收到 numeric 001；密碼透過 getpass，無原始 transcript |
-| 加入房間 | live / partial | 最終觀察到 353／366 含指定 channel；前次亦見 self JOIN。只證明本次 IRC 回覆，不把 NAMES 當完整房間狀態 |
-| settings／listrefs | live / inconclusive | 已送出這兩個唯讀指令；最終 30 秒觀察窗口未收到 PRIVMSG，因此沒有設定內容、referee 名單或操作權限證據。不能將 socket 寫入成功當查詢成功 |
-| 可信 BanchoBot prefix、設定 grammar | not verified | 無實際 bot 回覆可定案；不能把 probe 的 senderNick 比對當正式可信來源判斷 |
-| UTF-8、半行、多行、緩衝界限 | synthetic / passed | 每個 UTF-8 byte 分割位置都測試；[4 項測試輸出](evidence/protocol-tests.txt)。512 bytes 是實驗值，**未證實為 Bancho 上限** |
-| 暱稱空格→底線 | source-reviewed | 官方 IRC 文件支持；本次帳號無空格，未實測空格／改名案例 |
-| make、map／mods、start／abort、close | not-run | 未獲本次變更操作授權，未送出；亦未邀請或移動任何玩家 |
-| #UID、權限錯誤、斷線重連、限流、房名上限 | not-run | 沒有對應真實樣本；不能由官方語法說明推定全部回覆與限制 |
+| 舊 MP 122076167 | live / unavailable | 本輪 16:13:58 +08:00 開始的診斷收到 403；使用者隨後確認 abandoned 並改指定新房。未繼續向舊房查詢；舊公開頁 end_time=null 的先前快照不代表目前房間仍開放 |
+| 新 MP 122076210 | live public / passed | 公開頁名 test1；建立事件與已授權帳號相符。此來源只佐證歷史身分，不獨立證明 IRC 權限 |
+| 登入與加入 | live / passed | 001、self JOIN、353／366；新房頻道為 #mp_122076210。NAMES 出現重複 self／+ 前綴，不能當裁判或完整玩家名單 |
+| MP／IRC 對應 | live / passed for this room | 在 #mp_122076210 收到 settings 的 History https://osu.ppy.sh/mp/122076210，與請求 MP 完全相符。不是只因字串拼接或 topic 就宣布核對成功 |
+| settings | live / passed within observed fields | Team mode: TeamVs、Win condition: ScoreV2、Players: 0；沒有地圖／Mods／slot 回覆，相關值仍未知，不自行補預設 |
+| listrefs | live / passed for current account | BanchoBot 在本頻道先回 Match referees:，再以獨立一行列出目前帳號；報告保留 selfListedCandidate=true，不保存姓名。使用者提供的截圖與此時序一致，未將截圖複製入 repository |
+| 分行根因 | live differential / reproduced | 28 行 CRLF、56 行 bare LF（含 51 行 QUIT 與 5 行 PRIVMSG）；新 parser 無 parse failure／剩餘 bytes。新房報告中的 legacy counter 直接重播原 CRLF-only buffer 邏輯 |
+| 較舊診斷盲點 | corrected | 原報告沒有 bare-LF／剩餘 buffer 計數，不能證明真的沒收到資料。沒有保存當時原始封包，所以不宣稱已重建舊房每次回覆，只確認同一缺陷於新房重現 |
+| 可信來源與權限邊界 | partial | 只處理連線內 prefix 的 BanchoBot 並匹配 room／查詢；訊息 body 假冒姓名不算。listrefs 證明當次列名，不保證所有變更權限、永久權限或跨系統 UID |
+| 變更／#UID／故障 | not-run | 沒有 make、map、mods、start、abort、close、addref、邀請或移動操作；權限拒絕、重連、限流、房名上限仍待獨立樣本 |
 
-最終去密證據：[bancho-readonly.json](evidence/bancho-readonly.json)。共進行三次短連線：第一次登入但 probe 未辨識到 JOIN，未送查詢；第二次觀察 self JOIN／353／366 並送查詢；第三次加入 1／3 秒查詢排程，仍無 PRIVMSG。沒有強行重送 mutation，也沒有推定無回覆一定是帳號權限或 Bancho 故障。下一輪需核對 IRC channel／MP 對應及 referee 身分，取得設定回覆後才定版解析器。
+證據：
+
+- [舊房 403 診斷](evidence/bancho-diagnostic-122076167.json)（歷史讀取，使用者改房前執行）
+- [新房公開佐證](evidence/mp-122076210-public-check.json)
+- [新房實測與新舊解析差異](evidence/bancho-diagnostic-122076210.json)，16:16:29 +08:00 起、45 秒窗口
+- [Node 5 項測試](evidence/protocol-tests-lf-fix.txt)、[Python 6 項回歸測試](evidence/bancho-parser-tests.txt)：UTF-8 分段、混合行尾、原缺陷重現、tags／空白、假 bot、去密及緩衝界限
+
+原 [bancho-readonly.json](evidence/bancho-readonly.json) 保留為舊 parser 的歷史輸出；其「無 PRIVMSG」表示未解析到，不是 wire-level 無回覆。新的 read-only probe 增加 framing／command counts／topic／NAMES 去密摘要，仍只送出 settings 與 listrefs，不提供任意指令介面。5／15 秒查詢排程只是實驗選擇，不是已證實的 Bancho 限流契約。
 
 ## SPIKE-02：Electron、授權回呼與保存
 

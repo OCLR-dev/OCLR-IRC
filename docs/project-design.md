@@ -2,7 +2,7 @@
 
 - 文件版本：0.4（M0 驗證與條件式契約基線）
 - 日期：2026-10-27（Asia/Taipei）
-- 狀態：M0 隔離實驗已開始；產品 App／正式 API 尚未實作
+- 狀態：M0 部分實測；使用者另授權的 0.1.0 登入／唯讀初版已建立，正式 API 尚未實作
 - 範圍：桌面客戶端、OCLR 整合及 MVP；本輪已另獲指定帳號／房間唯讀驗證授權；不包含部署或房間變更
 
 ## 1. 產品目標與使用流程
@@ -18,7 +18,7 @@
 5. 由裁判執行計時、開始及必要的中止操作。
 6. 保存操作記錄，複製 MP 連結並開啟 OCLR 審核頁。
 
-MVP 以一名主控裁判、一個 IRC 帳號與單一目前操作場次為驗收範圍；IRC 仍可開啟多個頻道與私訊。多裁判操作鎖與跨裝置交接列為 P1。D01–D08 已由使用者確認，見 [設計決策](design-review.md)；本輪開始 M0 隔離實驗，結果見 [M0 報告](m0/spike-results.md)。
+MVP 以一名主控裁判、一個 IRC 帳號與單一目前操作場次為驗收範圍；IRC 仍可開啟多個頻道與私訊。多裁判操作鎖與跨裝置交接列為 P1。D01–D08 已由使用者確認，見 [設計決策](design-review.md)；本輪另依使用者授權完成有限的 [登入初版](initial-preview.md)，M0 結果見 [驗證報告](m0/spike-results.md)。
 
 ## 2. 查證基線與參考專案
 
@@ -70,7 +70,7 @@ P0 不自動發布正式賽果、不決定未知規則、不在重連時自動�
 
 ## 4. Electron 跨平台架構
 
-建議技術基線：Electron、TypeScript、React、electron-vite；Zod 或等價工具進行執行期契約驗證；本機 SQLite 保存設定及最小恢復記錄，聊天與去密操作日誌預設加密保存本機。M0 已在 macOS arm64 驗證 Electron 45.0.0／node:sqlite／async safeStorage 及打包後載入；跨平台與升版仍待驗，詳見 [SPEC-01](m0/spec-01.md)。
+技術基線：Electron、TypeScript、React、electron-vite，初版採免費 HeroUI 3.2.6（不引入 Pro）；Zod 或等價工具進行執行期契約驗證；本機 SQLite 保存設定及最小恢復記錄，聊天與去密操作日誌預設加密保存本機。M0 已在 macOS arm64 驗證 Electron 45.0.0／node:sqlite／async safeStorage 及打包後載入；跨平台與升版仍待驗，詳見 [SPEC-01](m0/spec-01.md)。
 
 ```mermaid
 flowchart TB
@@ -97,7 +97,7 @@ flowchart TB
 | --- | --- |
 | Desktop shell | 視窗、選單、通知、縮放、系統瀏覽器、loopback callback |
 | Identity service | IRC 與 OCLR 登入狀態分開；秘密只在 Main 及必要網路模組使用 |
-| IRC transport | 行緩衝、編碼、心跳、連線生命週期、節流 |
+| IRC transport | 依 LF 分行並移除可選 CR、UTF-8 跨 chunk、心跳、生命週期、節流；出站仍為 CRLF |
 | Bancho parser | 只將可信 BanchoBot／伺服器事件用於狀態；保留未知事件供診斷 |
 | Lobby state | 槽位、隊伍、地圖、Mods、比賽階段與觀測時間；允許 unknown |
 | Command planner | 將核准規則與意圖轉為固定房間的操作步驟 |
@@ -158,6 +158,8 @@ IRC 官方設定為 `irc.ppy.sh:6667`、SSL 關閉；帳號空格轉底線，使
 | 切圖 | map、mods、settings | 使用 beatmap ID；整組 Mods 符合規則，不能只累加 |
 | 開始／計時 | start、timer、aborttimer | 開始倒數與一般計時分開；顯示實際事件 |
 | 中止／關房 | abort、close | 明確顯示目標與影響，再由裁判確認 |
+
+本輪已由 #mp_122076210 回傳的 settings History 核對 MP 對應，listrefs 分行回覆確認當前帳號列名；這只屬當次唯讀證據，不能將 NAMES 前綴或公開建立事件當成所有操作權限。失效房間的 403 需清除本機可用狀態。
 
 Bancho 無交易／冪等保證。重連後暫停未完成操作，以 settings／listrefs 等重新取得可觀測狀態；開始、中止、開房及倒數等不因超時自動重送。已執行步驟不假裝回滾。更換 UI 分頁不能改變已排定操作的目的地。
 

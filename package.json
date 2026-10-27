@@ -1,0 +1,37 @@
+{
+  "name": "oclr-ref-tools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OCLR referee desktop — IRC login preview",
+  "license": "MIT",
+  "main": "out/main/index.js",
+  "engines": { "node": ">=24.0.0" },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "test:ui": "npm run build && node scripts/run-smoke.cjs",
+    "package:mac": "npm run build && electron-packager . OCLR-ref-tools --platform=darwin --arch=arm64 --out=release --overwrite --ignore=^/release --ignore=^/spikes --ignore=^/docs --ignore=^/tests --ignore=^/src --ignore=^/scripts"
+  },
+  "dependencies": {
+    "@heroui/react": "3.2.6",
+    "@heroui/styles": "3.2.6",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "@tailwindcss/vite": "4.3.3",
+    "@types/node": "24.10.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "electron": "45.0.0",
+    "electron-vite": "6.0.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "7.0.2",
+    "vite": "8.3.5"
+  }
+}

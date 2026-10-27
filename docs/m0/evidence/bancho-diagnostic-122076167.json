@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 2,
+  "evidence": "live-readonly-bancho",
+  "recordedAt": "2026-10-27T08:13:58.199057+00:00",
+  "roomId": 122076167,
+  "requestedChannel": "#mp_122076167",
+  "loginConfirmed": true,
+  "selfJoinObserved": false,
+  "namesComplete": false,
+  "commandsSent": [],
+  "observations": [
+    {
+      "kind": "error-numeric",
+      "command": "403",
+      "targetIsSelf": true,
+      "roomParameter": true
+    },
+    {
+      "kind": "unclassified-bot-response",
+      "content": "<redacted>",
+      "queryPhase": null,
+      "targetIsRoom": false,
+      "historyIdsMatchRequested": false
+    }
+  ],
+  "protocolShapes": [
+    {
+      "command": "001",
+      "senderIsSelf": false,
+      "senderIsBanchoBot": false,
+      "roomParameter": false,
+      "targetIsSelf": true,
+      "elapsedSeconds": 1.13
+    },
+    {
+      "command": "375",
+      "senderIsSelf": false,
+      "senderIsBanchoBot": false,
+      "roomParameter": false,
+      "targetIsSelf": true,
+      "elapsedSeconds": 1.13
+    },
+    {
+      "command": "376",
+      "senderIsSelf": false,
+      "senderIsBanchoBot": false,
+      "roomParameter": false,
+      "targetIsSelf": true,
+      "elapsedSeconds": 1.297
+    },
+    {
+      "command": "403",
+      "senderIsSelf": false,
+      "senderIsBanchoBot": false,
+      "roomParameter": true,
+      "targetIsSelf": true,
+      "elapsedSeconds": 1.465
+    },
+    {
+      "command": "PRIVMSG",
+      "senderIsSelf": false,
+      "senderIsBanchoBot": true,
+      "roomParameter": false,
+      "targetIsSelf": true,
+      "elapsedSeconds": 34.159
+    }
+  ],
+  "wire": {
+    "receivedBytes": 3457,
+    "parseFailures": 0,
+    "lineEndings": {
+      "crlf": 23,
+      "bare_lf": 55
+    },
+    "trailingBufferBytes": 0,
+    "commandCounts": {
+      "001": 1,
+      "375": 1,
+      "372": 19,
+      "376": 1,
+      "403": 1,
+      "QUIT": 54,
+      "PRIVMSG": 1
+    },
+    "shapeDetailExcludes": [
+      "372",
+      "QUIT"
+    ],
+    "lineSplitPrivmsgCandidateCount": 1
+  },
+  "redaction": "Only protocol shapes and allowlisted summaries; no credentials, raw transcript, player or referee names.",
+  "durationSeconds": 45.364,
+  "limitation": "Names completion is not room binding or referee permission. Candidate bot sender nick and query phase are observations, not authenticated identity or response transaction IDs. No room mutations.",
+  "note": "Historical target, tested before user reported abandonment. This earlier diagnostic candidate count was after LF framing, not the raw legacy-buffer replay used in the new-room report. Unrelated MOTD/QUIT per-line shapes omitted; aggregate counts retained."
+}

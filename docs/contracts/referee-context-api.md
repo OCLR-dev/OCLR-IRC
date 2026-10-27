@@ -195,7 +195,7 @@ requiredLocalChecks 的 key 必須與 allowedIntents 完全相同；blocked inte
 | manage_timer | room_binding、room_permission；不要求 lineup、目前地圖或隊伍顏色 |
 | abort_game／close_lobby | room_binding、room_permission、room_snapshot；明確確認影響，不要求出賽 lineup |
 
-room_binding 是「本機選定且已核對的目標房間」，不是 P1 遠端 binding；room_snapshot 在此指該步派送前 10 秒內完成、未被後續事件判定失效的 Bancho 觀測。serverTime 與 10 秒皆用單調時鐘計算；API 不能代替 Bancho 觀測。無法取得足夠資訊時不自動 Start。
+room_binding 是「本機選定且已核對的目標房間」，不是 P1 遠端 binding；至少以目前 channel 的 settings History ID 比對請求 MP，JOIN／NAMES／topic 本身不夠。room_permission 依當次查詢範圍內 listrefs 列名與實際 Bancho 權限核對，不將 creator-only 操作、UID 身分或永久權限一起放行；缺失保持 unknown。room_snapshot 在此指該步派送前 10 秒內完成、未被後續事件判定失效的 Bancho 觀測。serverTime 與 10 秒皆用單調時鐘計算；API 不能代替 Bancho 觀測。無法取得足夠資訊時不自動 Start。
 
 Team VS 的 Start 額外需要 team_colours_verified；Head To Head 的 P0 只支援每隊一名玩家，不做 team 顏色檢查。當前 entry 的 individualModsCheck=manual 時，再加入 individual_mods_verified；policyText 必須是完整且已核准的人工檢查說明，不能當成可自動解析的規則。語意不明則 entry blocked。
 

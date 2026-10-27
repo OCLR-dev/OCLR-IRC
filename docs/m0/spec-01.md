@@ -42,11 +42,27 @@
 - 未簽內測 app 的 Keychain 跨 build 身分／升級存取可能不同。D08 不要求先公開發行，但 D06 的升級可讀性仍需測試；無金鑰不明文降級、不自動刪除以冒充恢復成功。
 - 恢復記錄到期／登出清除後不能當作「從未開房」：啟動／登入建立 recovery_uncertain 狀態，重新核對已存在房間或由裁判明確確認沒有既有房間後才解除開房阻擋。只測資料庫 pending 寫入不足以保證跨清理防重複。
 
+### 2.1 SPIKE-01 分行、房間與權限核對更新
+
+- 入站 TCP 依 LF 分行，若前一字元是 CR 才移除；CRLF 與 bare LF 可混用。不能等待 CRLF 才送入 parser；UTF-8 要跨 chunk 保留。出站維持 CRLF，拒絕輸入中 CR／LF／NUL。限制是防護值，未視為 Bancho 協定上限。
+- IRC parser 先解析可選 tags／prefix、command、middle／trailing parameters，不能將訊息 body 的 BanchoBot 文字當 sender。無法解析的內容保持 unknown，不猜測設定。
+- 122076167 已 abandoned，本輪收到 403；403 要將該房標為不可用、取消該房待送唯讀查詢。不能將先前 353／366 或公開 end_time=null 視為持續可用。
+- 122076210 ↔ #mp_122076210 已由該頻道 settings 回傳的 History URL 核對。P0 room_binding 至少比對目前 channel、請求的 MP ID、當次回覆 History ID；切房／重連後重新核對，topic／房名／加入成功本身不夠。
+- listrefs 本次是 header 與獨立姓名行，需在同一連線／房間／查詢範圍收集。當前帳號正規化匹配只表示「本次列於 referee 名單」，不是 UID 證明；沒有列名或回覆不完整時保持 unknown，而非直接宣判無權。
+- 標準房間權限與 creator-only addref／removeref 分開；本次唯讀查詢不證明開賽、關房或加裁判已獲授權。未知權限不能因 NAMES 的 +／@、公開建立事件或一次查詢成功而放行變更。
+- settings 實測回覆 Players: 0，但沒有 Beatmap／Active mods；缺欄位不得重用舊值或默認 NM。初版只顯示觀察到的欄位，完整 room_snapshot gate 仍待 STATE-01。
+
+### 2.2 使用者追加的登入初版範圍
+
+使用者在本輪明確要求完成可登入介面，並確認只用免費 HeroUI、不用 Pro。因此在 M0 尚未全面通過時，允許先交付 **IRC 登入與唯讀房間預覽**；這是明確的分段授權，不等於取消全部 M0 gate。詳細交付與驗證見 [初版說明](../initial-preview.md)。
+
+React 19.3.1、HeroUI／styles 3.2.6、Tailwind 4.3.3、electron-vite 6.0.0；產品 root 與 M0 實驗各有鎖檔。登入、取消、登出、固定 Bancho 連線及 settings／listrefs 可用；未實作 OCLR OAuth、完整 IRC 聊天輸入／多頻道、變更指令佇列、重連或持久日誌。D06 預設保存政策仍屬 MVP 要求，初版明示「本次記錄僅記憶體」，不提供虛假的保存開關。
+
 ## 3. 仍需補充的資訊與證據
 
 | ID | 缺口 | 提供者／下一步 | 未完成時限制 |
 | --- | --- | --- | --- |
-| G01 | make、map／mods、start／abort、close、權限錯誤與重連的真實回覆 | 裁判指定可變更測試房、操作範圍、測試選手／地圖；工程再錄去密樣本 | 不固定 parser grammar、sender allowlist、房名／字節上限、逾時與節流常數 |
+| G01 | make、map／mods、start／abort、close、權限錯誤與重連的真實回覆 | 裁判指定可變更測試房、操作範圍、測試選手／地圖；工程再錄去密樣本 | 唯讀 LF framing／History／listrefs 已有樣本；變更 grammar、權限錯誤、上限及節流仍不定版 |
 | G02 | #UID 邀請／移槽／分隊行為及可靠身分來源 | 指定測試選手及允許操作；保留 D05 暱稱＋人工核對 | 不宣稱 UID 配對已驗證，不自動操作未驗證指令 |
 | G03 | Windows x64、Linux x64、macOS x64 實機／runner | 團隊提供可執行桌面與系統 secret store 的環境 | 不標記三平台 callback、加密或打包成功 |
 | G04 | 真正中文 IME、Cmd／Ctrl、縮放與通知 | 三平台人工操作紀錄；目前無產品工作區 | 合成 keyboard event 不算 IME 驗證 |
@@ -57,8 +73,8 @@
 
 - SPEC-00：本輪盤點完成；不代表後端已批准實作細節。
 - SPIKE-01／02：依結果表逐項判定，缺失證據保持 partial／not-run。
-- SPEC-01：本輪已更新來源映射、候選選型及風險；前後端聯合定版與所有必要技術證據未齊，**M0 未整體完成，不自動解除依賴此 gate 的產品實作任務**。
-- 下輪優先補 G01／G03／G06，OCLR 團隊確認 G05 與欄位新增方案；若要分段允許獨立模組開發，需另記錄明確 gate，不把缺測項改標完成。
+- SPEC-01：本輪已更新來源映射、候選選型及風險；前後端聯合定版與所有必要技術證據未齊，**M0 未整體完成；僅依 §2.2 的使用者追加授權交付登入／唯讀預覽，其他依賴不自動解除**。
+- 下輪優先補 G01／G03／G06，OCLR 團隊確認 G05 與欄位新增方案；本輪分段範圍已記錄於 §2.2，不把缺測項改標完成。
 
 ## 來源
 

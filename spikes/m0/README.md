@@ -28,11 +28,13 @@ node run-probe.cjs "$PWD/out/OCLR-M0-Spike-darwin-arm64/OCLR-M0-Spike.app/Conten
 python3 bancho-readonly.py --username YOUR_OSU_USERNAME --room YOUR_TEST_MP_ID --report /absolute/path/report.json
 ```
 
-專用 IRC 密碼由 `getpass` 在終端隱藏讀入，不接受命令列密碼、不記錄原始 transcript。程式最多觀察 30 秒，登入成功後 JOIN；有 self JOIN 或 366 才排程唯讀 settings／listrefs，回覆只保留去密白名單及協定形狀。沒有 make、map、mods、start、abort、close 或邀請指令。登入／加入／socket 寫入不代表查詢成功，以 report 的實際 observations 判讀。此程式不具 production parser 的完整可信來源、防洪與身分驗證能力。
+專用 IRC 密碼由 `getpass` 在終端隱藏讀入，不接受命令列密碼、不記錄原始 transcript。程式最多觀察 45 秒，登入成功後 JOIN；有 self JOIN 或 366 才排程唯讀 settings／listrefs，回覆只保留去密白名單及協定形狀。沒有 make、map、mods、start、abort、close 或邀請指令。登入／加入／socket 寫入不代表查詢成功，以 report 的實際 observations 判讀。此程式不具 production parser 的完整可信來源、防洪與身分驗證能力。
 
 ## 限制
 
-- 合成 IRC collector 的 512-byte cap 不是驗證過的 Bancho 上限；只測傳輸分段，不提供房間 reducer。
+- 入站 collector 已依真實證據支援 CRLF／bare LF 混用，並保留 UTF-8 分段；512-byte cap 是合成實驗值，不是驗證過的 Bancho 上限。Python 診斷會並行重播舊 CRLF-only buffer，僅輸出計數，不保存原始 transcript。
 - SQLite 只測少量合成 encrypted BLOB、WAL 與 AAD；尚未實作保存設定、7 天清理、撤權刪除、migration 或產品恢復佇列。
 - macOS async safeStorage 的兩程序讀回不等於升版或 Linux 安全 provider 已通過。
 - 自動化測試不能替代真實 IME、三平台通知／快捷鍵、安裝包升版或賽事演練。
+
+Python 診斷回歸測試：`python3 -B -m unittest discover -s spikes/m0 -p "test_*.py"`（從 repository 根目錄執行）。新房與舊房的結果分檔，不能用過時房間狀態放行操作。

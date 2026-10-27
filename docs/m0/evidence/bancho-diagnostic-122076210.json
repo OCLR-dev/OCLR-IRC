@@ -1,0 +1,237 @@
+{
+  "schemaVersion": 2,
+  "evidence": "live-readonly-bancho",
+  "recordedAt": "2026-10-27T08:16:29.540464+00:00",
+  "roomId": 122076210,
+  "requestedChannel": "#mp_122076210",
+  "loginConfirmed": true,
+  "selfJoinObserved": true,
+  "namesComplete": true,
+  "commandsSent": [
+    {
+      "command": "!mp settings",
+      "target": "#mp_122076210",
+      "elapsedSeconds": 6.729
+    },
+    {
+      "command": "!mp listrefs",
+      "target": "#mp_122076210",
+      "elapsedSeconds": 16.85
+    }
+  ],
+  "observations": [
+    {
+      "kind": "topic",
+      "historyIds": [],
+      "textBytes": 22
+    },
+    {
+      "kind": "names",
+      "count": 3,
+      "selfPresent": true,
+      "selfPrefixes": [
+        "+",
+        "+"
+      ],
+      "banchoBotPresent": true
+    },
+    {
+      "kind": "settings-header",
+      "historyIds": [
+        122076210
+      ],
+      "queryPhase": "!mp settings",
+      "targetIsRoom": true,
+      "historyIdsMatchRequested": true
+    },
+    {
+      "kind": "settings-field",
+      "text": "Team mode: TeamVs, Win condition: ScoreV2",
+      "queryPhase": "!mp settings",
+      "targetIsRoom": true,
+      "historyIdsMatchRequested": false
+    },
+    {
+      "kind": "settings-field",
+      "text": "Players: 0",
+      "queryPhase": "!mp settings",
+      "targetIsRoom": true,
+      "historyIdsMatchRequested": false
+    },
+    {
+      "kind": "referee-header",
+      "inlineSelfListed": false,
+      "hasInlineNames": false,
+      "queryPhase": "!mp listrefs",
+      "targetIsRoom": true,
+      "historyIdsMatchRequested": false
+    },
+    {
+      "kind": "self-name-line",
+      "selfListedCandidate": true,
+      "queryPhase": "!mp listrefs",
+      "targetIsRoom": true,
+      "historyIdsMatchRequested": false
+    }
+  ],
+  "protocolShapes": [
+    {
+      "command": "001",
+      "senderIsSelf": false,
+      "senderIsBanchoBot": false,
+      "roomParameter": false,
+      "targetIsSelf": true,
+      "elapsedSeconds": 1.144,
+      "lineEnding": "crlf"
+    },
+    {
+      "command": "375",
+      "senderIsSelf": false,
+      "senderIsBanchoBot": false,
+      "roomParameter": false,
+      "targetIsSelf": true,
+      "elapsedSeconds": 1.144,
+      "lineEnding": "crlf"
+    },
+    {
+      "command": "376",
+      "senderIsSelf": false,
+      "senderIsBanchoBot": false,
+      "roomParameter": false,
+      "targetIsSelf": true,
+      "elapsedSeconds": 1.311,
+      "lineEnding": "crlf"
+    },
+    {
+      "command": "JOIN",
+      "senderIsSelf": true,
+      "senderIsBanchoBot": false,
+      "roomParameter": true,
+      "targetIsSelf": false,
+      "elapsedSeconds": 1.537,
+      "lineEnding": "crlf"
+    },
+    {
+      "command": "MODE",
+      "senderIsSelf": false,
+      "senderIsBanchoBot": true,
+      "roomParameter": true,
+      "targetIsSelf": false,
+      "elapsedSeconds": 1.537,
+      "lineEnding": "crlf"
+    },
+    {
+      "command": "332",
+      "senderIsSelf": false,
+      "senderIsBanchoBot": false,
+      "roomParameter": true,
+      "targetIsSelf": true,
+      "elapsedSeconds": 1.537,
+      "lineEnding": "crlf"
+    },
+    {
+      "command": "333",
+      "senderIsSelf": false,
+      "senderIsBanchoBot": false,
+      "roomParameter": true,
+      "targetIsSelf": true,
+      "elapsedSeconds": 1.537,
+      "lineEnding": "crlf"
+    },
+    {
+      "command": "353",
+      "senderIsSelf": false,
+      "senderIsBanchoBot": false,
+      "roomParameter": true,
+      "targetIsSelf": true,
+      "elapsedSeconds": 1.537,
+      "lineEnding": "crlf"
+    },
+    {
+      "command": "366",
+      "senderIsSelf": false,
+      "senderIsBanchoBot": false,
+      "roomParameter": true,
+      "targetIsSelf": true,
+      "elapsedSeconds": 1.538,
+      "lineEnding": "crlf"
+    },
+    {
+      "command": "PRIVMSG",
+      "senderIsSelf": false,
+      "senderIsBanchoBot": true,
+      "roomParameter": true,
+      "targetIsSelf": false,
+      "elapsedSeconds": 6.998,
+      "lineEnding": "bare_lf"
+    },
+    {
+      "command": "PRIVMSG",
+      "senderIsSelf": false,
+      "senderIsBanchoBot": true,
+      "roomParameter": true,
+      "targetIsSelf": false,
+      "elapsedSeconds": 6.998,
+      "lineEnding": "bare_lf"
+    },
+    {
+      "command": "PRIVMSG",
+      "senderIsSelf": false,
+      "senderIsBanchoBot": true,
+      "roomParameter": true,
+      "targetIsSelf": false,
+      "elapsedSeconds": 6.998,
+      "lineEnding": "bare_lf"
+    },
+    {
+      "command": "PRIVMSG",
+      "senderIsSelf": false,
+      "senderIsBanchoBot": true,
+      "roomParameter": true,
+      "targetIsSelf": false,
+      "elapsedSeconds": 17.195,
+      "lineEnding": "bare_lf"
+    },
+    {
+      "command": "PRIVMSG",
+      "senderIsSelf": false,
+      "senderIsBanchoBot": true,
+      "roomParameter": true,
+      "targetIsSelf": false,
+      "elapsedSeconds": 17.195,
+      "lineEnding": "bare_lf"
+    }
+  ],
+  "wire": {
+    "receivedBytes": 3911,
+    "parseFailures": 0,
+    "legacyPrivmsgCount": 0,
+    "lineEndings": {
+      "crlf": 28,
+      "bare_lf": 56
+    },
+    "trailingBufferBytes": 0,
+    "legacyTrailingBufferBytes": 2186,
+    "commandCounts": {
+      "001": 1,
+      "375": 1,
+      "372": 19,
+      "376": 1,
+      "QUIT": 51,
+      "JOIN": 1,
+      "MODE": 1,
+      "332": 1,
+      "333": 1,
+      "353": 1,
+      "366": 1,
+      "PRIVMSG": 5
+    },
+    "shapeDetailExcludes": [
+      "372",
+      "QUIT"
+    ]
+  },
+  "redaction": "Only protocol shapes and allowlisted summaries; no credentials, raw transcript, player or referee names.",
+  "durationSeconds": 45.255,
+  "limitation": "Names completion is not room binding or referee permission. Candidate bot sender nick and query phase are observations, not authenticated identity or response transaction IDs. No room mutations."
+}

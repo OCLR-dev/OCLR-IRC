@@ -10,11 +10,13 @@ function lineCollector(limit = 512) {
     pending += decoder.write(chunk);
     const lines = [];
     let end;
-    while ((end = pending.indexOf('\r\n')) !== -1) {
-      const line = pending.slice(0, end);
-      if (Buffer.byteLength(line) + 2 > limit) throw new Error('line too long');
+    while ((end = pending.indexOf('\n')) !== -1) {
+      const framed = pending.slice(0, end);
+      const hasCR = framed.endsWith('\r');
+      const line = hasCR ? framed.slice(0, -1) : framed;
+      if (Buffer.byteLength(framed) + 1 > limit) throw new Error('line too long');
       lines.push(line);
-      pending = pending.slice(end + 2);
+      pending = pending.slice(end + 1);
     }
     if (Buffer.byteLength(pending) > limit) throw new Error('buffer too long');
     return lines;

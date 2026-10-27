@@ -1,0 +1,17 @@
+
+> oclr-m0-spikes@0.0.0 test
+> node --test protocol.test.cjs
+
+✔ SYNTHETIC: UTF-8 split at every byte boundary and CRLF framing (1.376ms)
+✔ SYNTHETIC: bounded buffering; 512 is an experiment limit, not verified Bancho limit (0.219833ms)
+✔ REGRESSION: CRLF registration followed by LF-only Bancho replies must not stall (1.661ms)
+✔ PUBLIC RFC 7636 vector: S256 challenge (0.573417ms)
+✔ LOCAL HTTP: bind loopback, reject wrong/duplicate state, accept once (44.922084ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 200.120458

@@ -1,7 +1,7 @@
 # OCLR-ref-tools MVP 開發任務與驗收
 
 - 文件版本：0.4（M0 驗證與條件式契約基線）；日期：2026-10-27
-- 狀態：SPEC-00 已盤點、SPIKE-01／02 部分實測、SPEC-01 已更新未凍結；產品實作、migration 與部署未開始
+- 狀態：SPEC-00 已盤點、SPIKE-01／02 部分實測、SPEC-01 已更新未凍結；使用者另授權登入／唯讀初版；正式 API、migration 與部署未開始
 - 關聯：[專案設計](project-design.md)、[桌面授權](contracts/desktop-authorization.md)、[context API](contracts/referee-context-api.md)、[審查及已確認決策](design-review.md)
 
 ## 1. MVP 完成定義
@@ -57,11 +57,11 @@ SPIKE-01 若無法可靠取得特定狀態，正式規格使用 unknown／人工
 | 任務 | 狀態 | 證據／未完成條件 |
 | --- | --- | --- |
 | SPEC-00 | 本輪盤點完成 | [需求、假設與操作邊界](m0/spec-00.md) |
-| SPIKE-01 | partial | 真實登入、入房、唯讀指令已送；無設定回覆，mutation／權限／重連／UID 等仍缺證據 |
+| SPIKE-01 | partial | 新房已核對 History／listrefs，定位並修正 LF 漏讀；mutation／拒權／重連／UID 等仍缺證據 |
 | SPIKE-02 | partial | macOS arm64 callback、SQLite／加密／same-build key restart、實驗打包通過；其餘平台／IME／升版未測 |
 | SPEC-01 | 已更新，未聯合凍結 | [來源映射、選型與 G01–G06](m0/spec-01.md)；M0 出口仍未通過 |
 
-完整結果見 [SPIKE 報告](m0/spike-results.md)。產品任務的依賴不因本輪有 commit 就視為滿足。
+完整結果見 [SPIKE 報告](m0/spike-results.md)。產品任務的依賴不因本輪有 commit 就視為滿足。使用者隨後明確授權先完成登入介面，並確認免費 HeroUI／不引入 Pro；DESK-01、IRC-01／02／03、STATE-01 的有限子集已有初版，均不標為完整完成，範圍及測試見 [初版說明](initial-preview.md)。
 
 ### 3.2 OCLR 後端與網站
 
@@ -81,10 +81,10 @@ SPIKE-01 若無法可靠取得特定狀態，正式規格使用 unknown／人工
 | ID | 負責／量級 | 依賴 | 工作與交付物 | 驗收條件 |
 | --- | --- | --- | --- | --- |
 | DESK-01 | D／M | SPEC-01 | Electron／TypeScript／React 專案、Main／Preload／Renderer、IPC、三欄工作區 | context isolation／sandbox／CSP；無任意 socket／IPC、URL 或檔案代理；Renderer reload 不終止核心 |
-| IRC-01 | D／L | DESK-01、SPIKE-01 | TCP transport、行緩衝、UTF-8／長度驗證、PING／PONG、關閉及退避 | 半行、多行、Unicode、斷線與心跳測試通過；全連線共享節流 |
+| IRC-01 | D／L | DESK-01、SPIKE-01 | TCP transport、行緩衝、UTF-8／長度驗證、PING／PONG、關閉及退避 | 半行、多行、混合 CRLF／bare LF、Unicode、斷線與心跳測試通過；全連線共享節流 |
 | IRC-02 | D／M | IRC-01、SPIKE-02 | 帳號正規化、IRC 專用密碼、登入錯誤、可選安全保存 | 伺服器確認才顯示已登入；密碼錯誤不重連風暴；PASS 永不入日誌 |
 | IRC-03 | D／M | IRC-02 | 頻道／私訊、補完、未讀、提及、連結、歷史與分頁 | 使用者文字不能執行 HTML；不因切分頁改變已排定房間 |
-| STATE-01 | D／L | IRC-03、SPIKE-01 | Bancho parser、事件模型、房間 reducer、settings 快照重建 | 只信任指定來源；partial／未知訊息保留 unknown；不把 NAMES 等同完整玩家狀態 |
+| STATE-01 | D／L | IRC-03、SPIKE-01 | Bancho parser、事件模型、房間 reducer、settings 快照重建 | 只信任指定來源；settings History 核對 MP／channel，分行 listrefs 以查詢範圍收集；partial 保留 unknown，NAMES 不代表玩家或裁判權限 |
 
 ### 3.4 操作核心與裁判功能
 
