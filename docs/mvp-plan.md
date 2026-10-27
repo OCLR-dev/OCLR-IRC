@@ -67,6 +67,8 @@ SPIKE-01 若無法可靠取得特定狀態，正式規格使用 unknown／人工
 
 0.3.0 增量：IRC-03 新增最多 8 個 MP 房間分頁及分頁未讀／提及；query 與 chat 均綁定 roomId／epoch，背景查詢與逾時彼此隔離，Renderer reload 保留 Main 狀態。一般頻道、私訊、補完、重連及完整快照仍未完成，M1 保持 partial；見 [多房間驗證](m1/multi-room-workspace.md)。
 
+0.4.0 增量（2026-10-28）：IRC-01 加入有界退避、心跳與休眠恢復，JOIN／PART／查詢／聊天共享節流；IRC-02 加入可選安全保存；IRC-03 加入一般頻道／私訊及 Tab 名稱補完；STATE-01 加入 query-scoped map／mods／slot 觀測、partial／complete／stale 與重連重查。跨平台實機、產品安全儲存矩陣及真實擴充格式仍待驗收，M1 不標完成、不建 tag。見 [本次實作與驗收缺口](m1/recovery-and-sync.md)。
+
 ### 3.2 OCLR 後端與網站
 
 | ID | 負責／量級 | 依賴 | 工作與交付物 | 驗收條件 |

@@ -151,3 +151,17 @@ dd { color: #bdb8c9; font-size: 12px; margin: 0; overflow-wrap: anywhere; }
 .room-tabs + .room-error { margin-top: 0; }
 
 .leaving-notice { margin: 0 0 10px; color: #a99abb; font-size: 10px; flex-shrink: 0; }
+
+.join-form select { background: #202027; color: #eee; border: 1px solid #3c3c46; border-radius: 8px; padding: 8px; max-width: 130px; }
+.reconnect-notice { padding: 8px 24px; background: #372f20; color: #f0d29a; font-size: 12px; }
+.room-inspector { overflow: auto; }
+.slot-list { font-size: 12px; padding-left: 16px; }
+
+.remember-option { display:flex; align-items:center; gap:8px; font-size:12px; color:#b5b5c2; }
+.saved-actions { display:flex; gap:8px; flex-wrap:wrap; }
+
+/* Status banners consume workspace height; keep the composer and footer in view. */
+.workspace { height: 100vh; min-height: 0; }
+main { min-height: 0; overflow: auto; }
+.room-view { height: 100%; }
+.reconnect-notice { flex-shrink: 0; }

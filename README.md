@@ -2,7 +2,7 @@
 
 專注於 osu! Chinese League Rookie（OCLR）賽事的裁判用 IRC 桌面客戶端，規劃使用 Electron，支援 Windows、macOS 與 Linux。
 
-已有 0.3.0 IRC 登入、多 MP 房間分頁、聊天與唯讀查詢版本，使用免費 HeroUI（無 Pro）。完整 MVP、OCLR API 與三平台驗收尚未完成。
+已有 0.4.0 IRC 登入、斷線恢復、多頻道／私訊、聊天與房間狀態同步版本，使用免費 HeroUI（無 Pro）。完整 MVP、OCLR API 與三平台驗收尚未完成。
 
 ## 啟動初版
 
@@ -14,7 +14,7 @@ npm run build
 npm start
 ```
 
-以 osu! **IRC 專用密碼**登入後，可加入 MP 房間、傳送一般聊天、讀取設定及裁判名單。初版不提供比賽變更指令；訊息僅保留於本次連線，OCLR 登入尚未開放。macOS arm64 App 可用 `npm run package:mac` 建立，詳見 [初版使用說明](docs/initial-preview.md)、[0.2.0 聊天功能](docs/m1/chat-workspace.md)與 [0.3.0 多房間功能及驗證](docs/m1/multi-room-workspace.md)。
+以 osu! **IRC 專用密碼**登入後，可加入 MP 房間、傳送一般聊天、讀取設定及裁判名單。初版不提供比賽變更指令；訊息僅保留於本次連線，OCLR 登入尚未開放。macOS arm64 App 可用 `npm run package:mac` 建立，詳見 [初版使用說明](docs/initial-preview.md)、[0.2.0 聊天功能](docs/m1/chat-workspace.md)、[0.3.0 多房間功能](docs/m1/multi-room-workspace.md)與 [0.4.0 重連、狀態同步與待驗收項目](docs/m1/recovery-and-sync.md)。
 
 ## 設計文件
 

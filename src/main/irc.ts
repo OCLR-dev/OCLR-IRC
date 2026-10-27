@@ -1,6 +1,7 @@
 import net from 'node:net'
 import { EventEmitter } from 'node:events'
 import type { Connection, Message, Pending, Room, Snapshot } from '../shared/types.ts'
+import { blankObservation, SettingsCollector } from './settings.ts'
 import { chatText, credentials, Lines, normalize, parse, redact, roomId } from './protocol.ts'
 
 interface RoomView {
@@ -12,9 +13,15 @@ interface RoomView {
   unread: number
   mentions: number
   refsHeader: boolean
+  joinSent: boolean
+  needsSync: boolean
+  restore: boolean
+  collector: SettingsCollector | null
   timer: ReturnType<typeof setTimeout> | null
 }
 const MAX_ROOMS = 8
+interface Timing { retryBaseMs: number; retryMaxMs: number; stableMs: number; floodMs: number; queryMs: number; loginMs: number; heartbeatMs: number; heartbeatTimeoutMs: number }
+const defaults: Timing = { retryBaseMs: 1000, retryMaxMs: 30000, stableMs: 60000, floodMs: 1000, queryMs: 8000, loginMs: 15000, heartbeatMs: 30000, heartbeatTimeoutMs: 15000 }
 
 export class IrcSession extends EventEmitter {
   private connection: Connection = 'offline'
@@ -33,15 +40,28 @@ export class IrcSession extends EventEmitter {
   private batching = false
   private dirty = false
   private createSocket: () => net.Socket
+  private timing: Timing
+  private retryAttempt = 0
+  private retryAt: string | null = null
+  private retryTimer: ReturnType<typeof setTimeout> | null = null
+  private stableTimer: ReturnType<typeof setTimeout> | null = null
+  private heartbeat: ReturnType<typeof setInterval> | null = null
+  private pongTimer: ReturnType<typeof setTimeout> | null = null
+  private pingToken: string | null = null
+  private workTimer: ReturnType<typeof setTimeout> | null = null
+  private work: Array<{ view: RoomView; epoch: number; kind: 'join' | 'settings' | 'listrefs' | 'part' }> = []
+  private nextLocalId = -1
+  private freshTimers = new Map<RoomView, ReturnType<typeof setTimeout>>()
 
-  constructor(createSocket = () => net.createConnection({ host: 'irc.ppy.sh', port: 6667 })) {
+  constructor(createSocket = () => net.createConnection({ host: 'irc.ppy.sh', port: 6667 }), timing: Partial<Timing> = {}) {
     super()
     this.createSocket = createSocket
+    this.timing = { ...defaults, ...timing }
   }
   get state(): Snapshot {
     const view = this.selected === null ? undefined : this.views.get(this.selected)
     return {
-      connection: this.connection, username: this.username, leavingChannels: [...this.departing],
+      retryAttempt: this.retryAttempt, retryAt: this.retryAt, connection: this.connection, username: this.username, leavingChannels: [...this.departing],
       error: this.error || view?.error || null, room: view?.room || null,
       pending: view?.pending || null, messageStartIndex: view ? view.totalMessages - view.messages.length + 1 : 1, messages: view?.messages || [],
       rooms: [...this.views.values()].map(v => ({ id: v.room.id, epoch: v.room.epoch, channel: v.room.channel, joined: v.room.joined, unread: v.unread, mentions: v.mentions, pending: v.pending, error: v.error }))
@@ -65,51 +85,134 @@ export class IrcSession extends EventEmitter {
   }
   private send(line: string) {
     if (!this.socket || this.socket.destroyed || /[\r\n\0]/.test(line) || Buffer.byteLength(line) > 510) throw new Error('無法送出此請求。')
+    if (this.socket.writableLength > 65536) throw new Error('連線傳送緩衝已滿，請稍後再試。')
     this.socket.write(line + '\r\n')
   }
-  logout() {
+  private disconnect() {
     this.generation++
+    for (const timer of this.freshTimers.values()) clearTimeout(timer)
+    this.freshTimers.clear()
     this.clearLoginTimer()
-    for (const view of this.views.values()) this.clearTimer(view)
-    this.views.clear(); this.selected = null; this.departing.clear()
+    for (const timer of [this.retryTimer, this.stableTimer, this.pongTimer, this.workTimer]) if (timer) clearTimeout(timer)
+    if (this.heartbeat) clearInterval(this.heartbeat)
+    this.retryTimer = this.stableTimer = this.pongTimer = this.workTimer = null
+    this.heartbeat = null; this.pingToken = null; this.work = []; this.retryAt = null
+    this.socket?.destroy(); this.socket = null; this.departing.clear()
+    for (const view of this.views.values()) {
+      this.clearTimer(view); view.pending = null; view.collector = null; view.refsHeader = false
+      view.joinSent = false; view.needsSync = true; view.room.epoch = ++this.roomEpoch; view.room.joined = false
+      view.room.binding = 'unknown'; view.room.referee = 'unknown'
+      Object.assign(view.room, blankObservation(), { syncState: 'stale', name: null, mode: null, players: null, members: [] })
+    }
+  }
+  logout() {
+    this.disconnect()
+    this.views.clear(); this.selected = null
     if (this.auth) this.auth.password = ''
-    this.auth = null
-    this.socket?.destroy(); this.socket = null
+    this.auth = null; this.retryAttempt = 0
     this.connection = 'offline'; this.username = ''; this.error = null
-    this.lastQueryAt = 0
+    this.lastQueryAt = 0; this.publish()
+  }
+  private fail(message: string) { this.logout(); this.connection = 'error'; this.error = message; this.publish() }
+  private lost(message: string) {
+    if (!this.auth || this.connection === 'suspended') return
+    this.disconnect(); this.error = message
+    for (const view of this.views.values()) this.note(view, '連線中斷；聊天與操作不會重送，房間狀態需重新核對。')
+    if (this.retryAttempt >= 5) { this.connection = 'error'; this.publish(); return }
+    const delay = Math.min(this.timing.retryBaseMs * 2 ** this.retryAttempt, this.timing.retryMaxMs)
+    this.retryAttempt++; this.connection = 'reconnecting'
+    this.retryAt = new Date(Date.now() + delay).toISOString()
+    const generation = this.generation
+    this.retryTimer = setTimeout(() => { if (generation === this.generation && this.auth) this.connect() }, delay)
     this.publish()
   }
-  private fail(message: string) {
-    this.logout(); this.connection = 'error'; this.error = message; this.publish()
+  retry() {
+    if (!this.auth || this.connection !== 'error') throw new Error('請重新輸入帳號與 IRC 密碼。')
+    this.retryAttempt = 0; this.connect()
   }
+  suspend() {
+    if (!this.auth) return
+    this.disconnect(); this.connection = 'suspended'; this.error = '電腦休眠，已暫停連線。'; this.publish()
+  }
+  resume() { if (this.auth && this.connection === 'suspended') { this.retryAttempt = 0; this.connect() } }
   login(input: unknown) {
     const auth = credentials(input)
-    this.logout(); this.auth = auth
-    this.connection = 'connecting'; this.username = auth.username; this.publish()
+    this.logout(); this.auth = auth; this.username = auth.username; this.connect()
+  }
+  private connect() {
+    if (!this.auth) return
+    if (this.retryTimer) clearTimeout(this.retryTimer)
+    this.retryTimer = null; this.retryAt = null
+    this.connection = this.views.size ? 'reconnecting' : 'connecting'; this.publish()
     const generation = this.generation
     const lines = new Lines()
-    const socket = this.createSocket()
+    let socket: net.Socket
+    try { socket = this.createSocket() } catch { this.lost('無法建立連線，稍後重試。'); return }
     this.socket = socket
     const current = () => generation === this.generation && socket === this.socket
-    this.loginTimer = setTimeout(() => { if (current()) this.fail('登入逾時，請檢查網路後再試一次。') }, 15000)
+    this.loginTimer = setTimeout(() => { if (current()) this.lost('登入逾時，正在嘗試恢復連線。') }, this.timing.loginMs)
     socket.once('connect', () => {
-      if (!current()) return
+      if (!current() || !this.auth) return
       try {
-        this.send('PASS ' + auth.password); auth.password = ''; this.auth = null
-        this.send('NICK ' + auth.username); this.send(`USER ${auth.username} 0 * :OCLR-ref-tools`)
-      } catch { if (current()) this.fail('登入連線失敗，請重新登入。') }
+        this.send('PASS ' + this.auth.password)
+        this.send('NICK ' + this.username); this.send(`USER ${this.username} 0 * :OCLR-ref-tools`)
+      } catch { if (current()) this.lost('登入連線失敗，正在重試。') }
     })
     socket.on('data', chunk => {
       if (!current()) return
       this.batching = true
-      try {
-        for (const line of lines.feed(chunk)) { if (!current()) break; this.receive(line) }
-      } catch { if (current()) this.fail('伺服器回覆無法安全讀取，已中斷連線。') }
+      try { for (const line of lines.feed(chunk)) { if (!current()) break; this.receive(line) } }
+      catch { if (current()) this.fail('伺服器回覆無法安全讀取，已停止連線。') }
       finally { this.batching = false; if (this.dirty) { this.dirty = false; this.publish() } }
     })
-    socket.on('error', () => { if (current()) this.fail('無法連接 osu! IRC。請檢查網路，稍後再試。') })
-    socket.on('close', () => { if (current()) this.fail('連線已中斷，請重新登入。') })
-    socket.setTimeout(180000, () => { if (current()) this.fail('連線長時間沒有回應，請重新登入。') })
+    socket.on('error', () => { if (current()) this.lost('網路連線失敗，正在嘗試恢復。') })
+    socket.on('close', () => { if (current()) this.lost('連線已中斷，正在嘗試恢復。') })
+    socket.setTimeout(180000, () => { if (current()) this.lost('連線長時間沒有回應。') })
+  }
+  private online() {
+    this.clearLoginTimer(); this.connection = 'online'; this.error = null
+    this.emit('authenticated')
+    const generation = this.generation
+    this.stableTimer = setTimeout(() => { if (generation === this.generation) { this.retryAttempt = 0; this.publish() } }, this.timing.stableMs)
+    this.heartbeat = setInterval(() => {
+      if (generation !== this.generation || this.pingToken) return
+      this.pingToken = `oclr-${generation}-${Date.now()}`
+      try { this.send('PING :' + this.pingToken) } catch { this.lost('心跳傳送失敗。'); return }
+      this.pongTimer = setTimeout(() => { if (generation === this.generation) this.lost('心跳回覆逾時。') }, this.timing.heartbeatTimeoutMs)
+    }, this.timing.heartbeatMs)
+    for (const view of this.views.values()) if (view.restore) {
+      if (view.room.kind === 'private') { view.room.joined = true; continue }
+      view.pending = 'join'; this.enqueue(view, 'join')
+    }
+    this.publish()
+  }
+  private enqueue(view: RoomView, kind: 'join' | 'settings' | 'listrefs' | 'part') {
+    if (!this.work.some(job => job.view === view && job.kind === kind)) this.work.push({ view, kind, epoch: view.room.epoch })
+    this.pump()
+  }
+  private pump() {
+    if (this.workTimer || this.connection !== 'online' || !this.work.length) return
+    this.workTimer = setTimeout(() => {
+      this.workTimer = null
+      if (this.connection !== 'online') return
+      if (Date.now() - this.lastQueryAt < this.timing.floodMs) { this.pump(); return }
+      const job = this.work.shift()
+      if (!job) return
+      const { view, kind } = job
+      if (kind === 'part') {
+        if (this.departing.has(view.room.channel)) { try { this.send('PART ' + view.room.channel); this.lastQueryAt = Date.now() } catch { this.lost('離開頻道時連線中斷。'); return } }
+        this.pump(); return
+      }
+      if (this.views.get(view.room.id) !== view || view.room.epoch !== job.epoch || !view.restore) { this.pump(); return }
+      if (kind !== 'join' && view.pending) { this.work.push(job); this.workTimer = setTimeout(() => { this.workTimer = null; this.pump() }, 50); return }
+      try {
+        if (kind === 'join') {
+          this.send('JOIN ' + view.room.channel); view.joinSent = true; this.lastQueryAt = Date.now()
+          this.timeout(view, '加入房間逾時，請手動重新加入。')
+        } else if (view.room.joined) this.query({ roomId: view.room.id, roomEpoch: view.room.epoch, kind })
+      } catch { view.error = '重新同步未完成，請手動查詢。' }
+      this.publish(); this.pump()
+    }, Math.max(0, this.timing.floodMs - (Date.now() - this.lastQueryAt)))
   }
   private target(input: unknown): RoomView {
     if (!input || typeof input !== 'object') throw new Error('無效的房間請求。')
@@ -125,11 +228,13 @@ export class IrcSession extends EventEmitter {
   leaveRoom(input: unknown) {
     const view = this.target(input)
     // PART only leaves this account's channel; it is never !mp close.
-    if (view.room.joined || view.pending === 'join') {
-      this.send('PART ' + view.room.channel); this.departing.add(view.room.channel)
+    const part = this.connection === 'online' && view.room.kind !== 'private' && (view.room.joined || view.joinSent)
+    if (part) {
+      this.departing.add(view.room.channel)
       if (this.departing.size > 32) { this.fail('過多離開請求尚未確認，已中斷連線。請重新登入。'); return }
     }
-    this.clearTimer(view); this.views.delete(view.room.id)
+    this.clearFresh(view); this.clearTimer(view); view.restore = false; this.work = this.work.filter(job => job.view !== view); this.views.delete(view.room.id)
+    if (part) this.enqueue(view, 'part')
     if (this.selected === view.room.id) {
       this.selected = this.views.keys().next().value ?? null
       const next = this.selected === null ? undefined : this.views.get(this.selected)
@@ -146,15 +251,37 @@ export class IrcSession extends EventEmitter {
       this.selectRoom({ roomId: id, roomEpoch: existing.room.epoch }); return
     }
     if (!existing && this.views.size >= MAX_ROOMS) throw new Error('最多同時開啟 8 個房間，請先離開不需要的分頁。')
-    if (existing) this.clearTimer(existing)
+    if (existing) { this.clearTimer(existing); this.clearFresh(existing) }
     const view: RoomView = {
-      room: { id, epoch: ++this.roomEpoch, channel: `#mp_${id}`, joined: false, binding: 'unknown', referee: 'unknown', name: null, mode: null, players: null },
-      pending: 'join', error: null, totalMessages: 0, messages: [], unread: 0, mentions: 0, refsHeader: false, timer: null
+      room: { ...blankObservation(), kind: 'match', members: [], id, epoch: ++this.roomEpoch, channel: `#mp_${id}`, joined: false, binding: 'unknown', referee: 'unknown', name: null, mode: null, players: null },
+      joinSent: false, needsSync: false, restore: true, collector: null, pending: 'join', error: null, totalMessages: 0, messages: [], unread: 0, mentions: 0, refsHeader: false, timer: null
     }
-    this.send('JOIN ' + view.room.channel)
     this.views.set(id, view); this.selected = id
     this.note(view, '正在加入房間…')
-    this.timeout(view, '加入房間逾時。請確認房間仍開放，且目前帳號可加入。')
+    this.enqueue(view, 'join')
+    this.publish()
+  }
+  openConversation(input: unknown) {
+    if (this.connection !== 'online') throw new Error('請先登入 osu! IRC。')
+    if (!input || typeof input !== 'object') throw new Error('無效的對話。')
+    const { kind, name: raw } = input as Record<string, unknown>
+    if (typeof raw !== 'string' || !['channel', 'private'].includes(String(kind))) throw new Error('無效的對話。')
+    const name = kind === 'private' ? raw.trim().replaceAll(' ', '_') : raw.trim().toLowerCase()
+    if (kind === 'channel' ? !/^#[a-zA-Z0-9_-]{1,64}$/.test(name) : !/^[a-zA-Z0-9_\[\]-]{1,32}$/.test(name)) throw new Error('請輸入有效的頻道或 osu! 使用者名稱。')
+    if (/^#mp_/i.test(name)) { this.join(name.slice(4)); return }
+    if (this.departing.has(name)) throw new Error('正在等待離開頻道確認，請稍後再加入。')
+    // BanchoBot private messages can execute commands without !mp. Keep them read-only.
+    const existing = [...this.views.values()].find(v => normalize(v.room.channel) === normalize(name))
+    if (existing?.room.joined || existing?.pending === 'join') { this.selectRoom({ roomId: existing.room.id, roomEpoch: existing.room.epoch }); return }
+    if (!existing && this.views.size >= MAX_ROOMS) throw new Error('最多同時開啟 8 個對話，請先關閉不需要的分頁。')
+    if (existing) { this.clearTimer(existing); this.views.delete(existing.room.id) }
+    const id = this.nextLocalId--
+    const view: RoomView = {
+      room: { ...blankObservation(), kind: kind as 'channel' | 'private', members: [], id, epoch: ++this.roomEpoch, channel: name, joined: kind === 'private', binding: 'unknown', referee: 'unknown', name: null, mode: null, players: null },
+      joinSent: false, needsSync: false, restore: true, collector: null, pending: kind === 'channel' ? 'join' : null, error: null, totalMessages: 0, messages: [], unread: 0, mentions: 0, refsHeader: false, timer: null
+    }
+    this.views.set(id, view); this.selected = id
+    if (kind === 'channel') this.enqueue(view, 'join')
     this.publish()
   }
   private timeout(view: RoomView, message: string) {
@@ -162,22 +289,37 @@ export class IrcSession extends EventEmitter {
     const generation = this.generation
     view.timer = setTimeout(() => {
       if (generation !== this.generation || this.views.get(view.room.id) !== view) return
+      if (view.collector) { view.collector.apply(view.room, true); this.expire(view); view.collector = null }
       view.timer = null; view.pending = null; view.refsHeader = false; view.error = message
       this.note(view, message); this.publish()
-    }, 8000)
+    }, this.timing.queryMs)
+  }
+  private clearFresh(view: RoomView) {
+    const timer = this.freshTimers.get(view)
+    if (timer) clearTimeout(timer)
+    this.freshTimers.delete(view)
+  }
+  private expire(view: RoomView) {
+    this.clearFresh(view)
+    this.freshTimers.set(view, setTimeout(() => {
+      this.freshTimers.delete(view)
+      if (this.views.get(view.room.id) !== view) return
+      view.room.syncState = 'stale'; this.publish()
+    }, 10000))
   }
   private ready(view: RoomView) {
     if (this.connection !== 'online' || !view.room.joined) throw new Error('請先加入可用的比賽房間。')
-    if (view.pending || Date.now() - this.lastQueryAt < 1000) throw new Error('請稍候再查詢或送出訊息。')
+    if (view.pending || Date.now() - this.lastQueryAt < this.timing.floodMs) throw new Error('請稍候再查詢或送出訊息。')
   }
   query(input: unknown) {
     const view = this.target(input)
     const { kind } = input as Record<string, unknown>
     if (kind !== 'settings' && kind !== 'listrefs') throw new Error('初版僅提供讀取設定與裁判名單。')
+    if (view.room.kind !== 'match') throw new Error('此分頁不是比賽房間。')
     this.ready(view)
     this.send(`PRIVMSG ${view.room.channel} :!mp ${kind}`); this.lastQueryAt = Date.now()
     view.pending = kind; view.error = null; view.refsHeader = false
-    if (kind === 'settings') { view.room.binding = 'unknown'; view.room.name = null; view.room.mode = null; view.room.players = null }
+    if (kind === 'settings') { this.clearFresh(view); view.collector = new SettingsCollector(view.room.id); Object.assign(view.room, blankObservation(), { syncState: 'loading' }); view.room.binding = 'unknown'; view.room.name = null; view.room.mode = null; view.room.players = null }
     else view.room.referee = 'unknown'
     this.note(view, `!mp ${kind}`, 'self', this.username)
     this.timeout(view, '尚未收到完整回覆；請稍後重新查詢，不代表沒有權限。'); this.publish()
@@ -185,13 +327,15 @@ export class IrcSession extends EventEmitter {
   chat(input: unknown) {
     const view = this.target(input)
     const { text: value } = input as Record<string, unknown>
+    if (view.room.kind === 'private' && normalize(view.room.channel) === 'banchobot') throw new Error('BanchoBot 私訊僅供讀取。')
     const text = chatText(value, view.room.channel)
     this.ready(view)
     this.send(`PRIVMSG ${view.room.channel} :${text}`); this.lastQueryAt = Date.now()
     this.note(view, text, 'self', this.username, 'unconfirmed'); view.error = null; this.publish()
   }
   private unavailable(view: RoomView, message: string) {
-    this.clearTimer(view); view.refsHeader = false; view.pending = null
+    this.clearFresh(view); this.clearTimer(view); view.restore = false; view.collector = null; view.refsHeader = false; view.pending = null
+    Object.assign(view.room, blankObservation())
     view.room.joined = false; view.room.binding = 'unknown'; view.room.referee = 'unknown'
     view.room.name = null; view.room.mode = null; view.room.players = null
     view.error = message; this.note(view, message); this.publish()
@@ -204,37 +348,56 @@ export class IrcSession extends EventEmitter {
     const self = normalize(sender) === normalize(this.username)
     const ownTarget = normalize(params[0] || '') === normalize(this.username)
     if (command === 'PING' && params.length) { this.send('PONG :' + params.at(-1)); return }
-    if (command === '001' && ownTarget && this.connection === 'connecting') { this.clearLoginTimer(); this.connection = 'online'; this.publish(); return }
+    if (command === '001' && ownTarget && (this.connection === 'connecting' || this.connection === 'reconnecting')) { this.online(); return }
+    if (command === 'PONG' && params.at(-1) === this.pingToken) { if (this.pongTimer) clearTimeout(this.pongTimer); this.pongTimer = null; this.pingToken = null; return }
     if (['464', '433', '432'].includes(command) && (ownTarget || params[0] === '*')) {
       this.fail(command === '464' ? '登入失敗。請使用 osu! 帳號設定中的 IRC 專用密碼。' : '使用者名稱無法登入，請確認名稱後重試。'); return
     }
-    if (command === 'ERROR' || command === 'QUIT' && self) { this.fail('伺服器已中斷連線，請重新登入。'); return }
+    if (command === 'ERROR' || command === 'QUIT' && self) { this.lost('伺服器已中斷連線，正在嘗試恢復。'); return }
     if (command === 'PART' && self && this.departing.delete(params[0])) { this.publish(); return }
+    if ((command === 'QUIT' || command === 'NICK') && !self) {
+      for (const view of this.views.values()) view.room.members = view.room.members.flatMap(n => normalize(n) !== normalize(sender) ? [n] : command === 'NICK' && /^[a-zA-Z0-9_\[\]-]{1,32}$/.test(params[0] || '') ? [params[0]] : [])
+      this.publish(); return
+    }
+    // Unsolicited private messages may open a bounded tab, never change selection.
+    if (command === 'PRIVMSG' && ownTarget && this.connection === 'online' && this.views.size < MAX_ROOMS && ![...this.views.values()].some(v => normalize(v.room.channel) === normalize(sender))) {
+      const selected = this.selected
+      try { this.openConversation({ kind: 'private', name: sender }); this.selected = selected ?? this.selected } catch { /* Invalid remote target is ignored. */ }
+    }
     // Resolve only the protocol's target field, never a channel-looking string in body text.
     const channel = ['353'].includes(command) ? params[2] : /^\d{3}$/.test(command) ? params[1] : params[0]
-    const view = [...this.views.values()].find(v => v.room.channel === channel)
+    const target = command === 'PRIVMSG' && ownTarget ? sender : channel
+    const view = [...this.views.values()].find(v => normalize(v.room.channel) === normalize(target || ''))
     if (!view) return
     const room = view.room
     if ((command === 'KICK' && normalize(params[1] || '') === normalize(this.username)) || (command === 'PART' && self)) {
       this.unavailable(view, '已離開或被移出房間，請確認房間後重新加入。'); return
     }
+    if (command === '401' && ownTarget && room.kind === 'private') { this.unavailable(view, '此使用者目前無法接收私訊，請核對名稱後重新開啟對話。'); return }
     if (['403', '404', '405', '471', '473', '474', '475'].includes(command) && ownTarget) {
       this.unavailable(view, command === '403' ? '找不到開放中的房間。請確認 MP 編號，或改用新的比賽房間。' : '目前無法加入或讀取此房間，請核對房間與帳號權限。'); return
     }
     if ((command === 'JOIN' && self || command === '366' && ownTarget) && view.pending === 'join') {
       this.clearTimer(view); view.pending = null; room.joined = true
-      this.note(view, '已加入頻道。讀取設定以核對 MP 房間，再查詢裁判名單。'); this.publish(); return
+      this.note(view, '已加入頻道。房間狀態需以新查詢核對。')
+      if (view.needsSync && room.kind === 'match') { view.needsSync = false; this.enqueue(view, 'settings'); this.enqueue(view, 'listrefs') }
+      this.publish(); return
     }
+    if (command === '353' && ownTarget) {
+      room.members = [...new Set([...room.members, ...(params[3] || '').split(' ').map(n => n.replace(/^[@+%&~]+/, '')).filter(n => /^[a-zA-Z0-9_\[\]-]{1,32}$/.test(n))])].slice(0, 1000)
+      this.publish(); return
+    }
+    if (command === 'JOIN' && !self) { if (!room.members.some(n => normalize(n) === normalize(sender)) && room.members.length < 1000) room.members.push(sender); this.publish(); return }
+    if (command === 'PART' || command === 'KICK') { room.members = room.members.filter(n => normalize(n) !== normalize(command === 'KICK' ? params[1] : sender)); this.publish(); return }
     if (command !== 'PRIVMSG' || params.length !== 2) return
     const body = params[1]; const bot = normalize(sender) === 'banchobot'
     this.note(view, body, bot ? 'bot' : self ? 'self' : 'chat', sender)
-    if (bot && view.pending === 'settings') {
-      const header = /^Room name: (.*), History: https:\/\/osu\.ppy\.sh\/(?:mp|community\/matches)\/(\d+)$/.exec(body)
-      if (header) { room.name = redact(header[1]); room.binding = Number(header[2]) === room.id ? 'verified' : 'mismatch' }
-      const mode = /^Team mode: (.+), Win condition: (.+)$/.exec(body)
-      if (mode) room.mode = `${mode[1]} · ${mode[2]}`
-      const players = /^Players: (\d+)$/.exec(body)
-      if (players) { room.players = Number(players[1]); this.clearTimer(view); view.pending = null }
+    const observing = bot && view.pending === 'settings'
+    const readingRefs = bot && view.pending === 'listrefs'
+    if (observing) {
+      if (view.collector?.feed(body)) {
+        view.collector.apply(room); this.expire(view); view.collector = null; this.clearTimer(view); view.pending = null
+      }
     } else if (bot && view.pending === 'listrefs') {
       const header = /^(?:Match referees|Referees):\s*(.*)$/.exec(body)
       if (header) view.refsHeader = true
@@ -242,6 +405,13 @@ export class IrcSession extends EventEmitter {
       if (names.some(name => normalize(name.trim()) === normalize(this.username))) {
         room.referee = 'listed'; this.clearTimer(view); view.pending = null; view.refsHeader = false
       }
+    }
+    if (bot && !observing && !readingRefs && room.syncState !== 'unknown') room.syncState = 'stale'
+    if (bot && view.pending !== 'settings' && /^(?:Beatmap changed|Changed (?:match|team|win)|Active mods:|.+ (?:joined in slot|left the game|moved to slot|changed to)|The match has (?:started|finished)|Aborted the match)/.test(body)) {
+      room.syncState = 'stale'
+      if (body.startsWith('The match has started')) room.phase = 'playing'
+      else if (/^(?:The match has finished|Aborted the match)/.test(body)) room.phase = 'idle'
+      else { room.phase = 'unknown'; if (room.kind === 'match' && room.joined) this.enqueue(view, 'settings') }
     }
     this.publish()
   }

@@ -89,3 +89,9 @@ React 19.3.1、HeroUI／styles 3.2.6、Tailwind 4.3.3、electron-vite 6.0.0；�
 ### 後續 M1 增量（2026-10-27）
 
 使用者確認保留 TypeScript／Node.js 本機核心，取消 Go 遷移；伺服器 API 採 Node.js。0.2.0 加入一般聊天、免費虛擬列表與連結、roomEpoch 防錯房及離房狀態失效，詳見 [M1 交付](../m1/chat-workspace.md)。比賽變更、完整佇列、OCLR API 與 D06 保存仍未完成，既有 API 契約與 gate 不變；M0 歷史證據不因本次增量改為已通過。
+
+### M1 重連與房間同步增量（2026-10-28）
+
+0.4.0 採 TypeScript transport，最多 5 次退避重連及 suspend／resume 恢復；房間 epoch 更新後重新 JOIN、settings、listrefs，絕不恢復聊天或 mutation。新增 query-scoped 地圖／Mods／slot collector；10 秒後觀測過期，缺值保持 unknown／partial。`complete` 只是已解析欄位完整，不代表 OCLR／CORE 操作可放行。一般對話使用負數本機識別，不可與正數 MP ID 混用。
+
+可選 IRC 憑證使用 Electron async safeStorage；Linux provider 未證實時停用保存。這不實作 D06 日誌，也不解除 SPIKE-02 的跨平台／升級驗收。真實 Bancho 擴充快照、私訊及重連樣本仍不足；本輪新增證據為合成測試，G01–G06 與 API 聯合凍結狀態不變。詳見 [0.4.0 實作、資料語意與出口](../m1/recovery-and-sync.md)。

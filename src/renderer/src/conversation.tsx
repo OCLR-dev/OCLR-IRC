@@ -38,7 +38,7 @@ export function Composer({ state, onError }: { state: Snapshot; onError: (messag
   const locked = useRef(false)
   const composing = useRef(false)
   const room = state.room
-  const available = state.connection === 'online' && room?.joined
+  const available = state.connection === 'online' && room?.joined && !(room.kind === 'private' && room.channel.toLowerCase() === 'banchobot')
   const bytes = new TextEncoder().encode(`PRIVMSG ${room?.channel || ''} :${draft.trim()}`).length
   const prohibited = /^[!／/]/u.test(draft.trim()) || /[\x00-\x1f\x7f]/.test(draft)
   async function submit(event: React.FormEvent) {
@@ -55,10 +55,17 @@ export function Composer({ state, onError }: { state: Snapshot; onError: (messag
   }
   return <form className="composer" onSubmit={submit}>
     <div className="composer-controls"><TextField aria-label="房間聊天訊息" value={draft} onChange={setDraft} isDisabled={!available || sending} className="chat-field">
-      <Input name="chat" placeholder={available ? `傳送至 ${room.channel}` : '加入房間後即可聊天'} maxLength={510} autoComplete="off"
+      <Input name="chat" placeholder={available ? `傳送至 ${room.channel}` : room?.kind === 'private' && room.channel.toLowerCase() === 'banchobot' ? 'BanchoBot 私訊僅供讀取' : '加入房間後即可聊天'} maxLength={510} autoComplete="off"
         onCompositionStart={() => { composing.current = true }} onCompositionEnd={() => { composing.current = false }}
-        onKeyDown={event => { if (event.key === 'Enter' && (event.nativeEvent.isComposing || composing.current || event.keyCode === 229)) event.preventDefault() }} />
+        onKeyDown={event => {
+          if (event.key === 'Tab' && !event.nativeEvent.isComposing && !composing.current && event.currentTarget.selectionStart === draft.length) {
+            const token = /(?:^|\s)([^\s]+)$/.exec(draft)?.[1]
+            const candidates = [...new Set([...(room?.members || []), ...(room?.slots.map(s => s.username.replaceAll(' ', '_')) || []), ...state.messages.filter(m => m.kind === 'chat').map(m => m.sender)])]
+            const found = token && candidates.filter(n => n.toLowerCase().startsWith(token.toLowerCase())).sort()[0]
+            if (found) { event.preventDefault(); setDraft(draft.slice(0, -token.length) + found + (draft === token ? ': ' : ' ')) }
+          }
+          if (event.key === 'Enter' && (event.nativeEvent.isComposing || composing.current || event.keyCode === 229)) event.preventDefault() }} />
     </TextField><Button type="submit" className="primary-button" isDisabled={!available || sending || Boolean(state.pending) || !draft.trim() || prohibited || bytes > 510}>{sending ? '傳送中…' : '傳送'}</Button></div>
-    <div className="composer-help"><span>{prohibited ? '僅支援一般聊天，不接受指令或換行。' : 'Enter 傳送 · 指令尚未開放'}</span><span className={bytes > 510 ? 'over-limit' : ''}>{bytes} / 510 bytes</span></div>
+    <div className="composer-help"><span>{prohibited ? '僅支援一般聊天，不接受指令或換行。' : 'Enter 傳送 · Tab 補完名稱 · 指令尚未開放'}</span><span className={bytes > 510 ? 'over-limit' : ''}>{bytes} / 510 bytes</span></div>
   </form>
 }
