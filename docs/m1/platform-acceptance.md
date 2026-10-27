@@ -74,3 +74,18 @@ P01～P10：逐項通過、失敗、未測或不適用；附理由
 ```
 
 可回傳合成 smoke JSON 與去密錯誤文字。真實聊天室截圖／樣本先去識別，不提供 IRC 密碼、token、憑證檔或完整私人聊天。收到回報後再逐項更新 [M1 驗收紀錄](recovery-and-sync.md)，全部必要驗收通過才建立 milestone tag。
+
+## GitHub CI 測試版下載
+
+[Desktop test builds](https://github.com/OCLR-dev/OCLR-ref-tools/actions/workflows/test-builds.yml) 在 main 的程式／建置變更、PR 及手動 Run workflow 執行。每個原生 runner 先跑 typecheck、核心測試及合成 Electron smoke，成功後才上傳測試 App；Linux smoke 使用 Xvfb，不關閉 sandbox。
+
+| Artifact | 內容與啟動方式 |
+| --- | --- |
+| `OCLR-ref-tools-<version>-windows-x64-<commit>` | 內層 ZIP，完整解壓後啟動 `.exe` |
+| `OCLR-ref-tools-<version>-linux-x64-<commit>` | 內層 tar.gz，`tar -xzf <檔名>` 保留執行權限後啟動 |
+| `OCLR-ref-tools-<version>-macos-arm64-<commit>` | Apple Silicon 版 ZIP，以保留 macOS bundle 資料的 ditto 製作，解壓後開啟 `.app` |
+| `qa-<platform>-<commit>` | 合成測試報告／截圖，**不是 App** |
+
+登入 GitHub 後開啟成功的 workflow run，在 Artifacts 下載對應平台。GitHub 的下載本身是外層 ZIP；解開後才是上表內層壓縮包、`SHA256SUMS.txt` 與 `build-info.json`。Artifacts 保留 30 天，過期可手動重新執行 workflow。
+
+校驗內層壓縮包：Windows 使用 `Get-FileHash <檔名> -Algorithm SHA256`，Linux 使用 `sha256sum <檔名>`，macOS 使用 `shasum -a 256 <檔名>`，與 SHA256SUMS.txt 比對。所有測試版未作公開發行簽章／公證，不建立 GitHub Release 或 M1 完成 tag。CI 成功不能取代實機 IME、休眠、OS 金鑰鏈與真實 Bancho 驗收。Intel Mac、Windows/Linux ARM64 暫不在此矩陣。
