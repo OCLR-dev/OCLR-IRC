@@ -74,3 +74,5 @@ settings 收集在 `Players` 與所需 slot 數滿足時結束，8 秒逾時保�
 | STATE-01 | query-scoped 完整／部分觀測、逾時及過期狀態 | 真實有玩家 map／mods／slot／事件樣本、格式與權限錯誤覆蓋 |
 
 上述缺口保留為驗收工作，沒有用合成資料代替真實證據，也不將 M0／SPEC-01 的未凍結基線改成完成。全部 M1 驗收通過後，依既定規則建立 annotated `v<package version>` 並推送；本次 0.4.0 僅提交及推送程式／文件。
+
+2026-10-28 後續：使用者確認 Windows／Linux 均可測，由使用者操作回報。已提供 [跨平台打包與驗收清單](platform-acceptance.md)；尚未收到實測結果，以上狀態不變。
