@@ -1,5 +1,7 @@
 # 0.1.0 初版：IRC 登入與唯讀房間
 
+> 本文件保留 0.1.0 交付範圍；目前 0.2.0 已加入一般聊天、虛擬列表及連結，記憶體上限調為 1,000 則，詳見 [M1 更新](m1/chat-workspace.md)。啟動指令不變。
+
 - 日期：2026-10-27（Asia/Taipei）；狀態：macOS arm64 本機初版，非完整 MVP。
 - 使用者在 SPIKE-01 排查途中明確追加「完成可登錄的界面」，並確認免費 HeroUI、不引入 Pro；此範圍是 M0 未全部通過前的分段交付。
 - 元件：React 19.3.1、免費 `@heroui/react`／`@heroui/styles` 3.2.6（MIT）、Tailwind CSS 4.3.3；沒有 `@heroui-pro/*`。

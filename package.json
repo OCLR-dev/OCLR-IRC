@@ -1,11 +1,13 @@
 {
   "name": "oclr-ref-tools",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "OCLR referee desktop — IRC login preview",
+  "description": "OCLR referee desktop — IRC chat workspace",
   "license": "MIT",
   "main": "out/main/index.js",
-  "engines": { "node": ">=24.0.0" },
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
@@ -13,13 +15,16 @@
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "test:ui": "npm run build && node scripts/run-smoke.cjs",
-    "package:mac": "npm run build && electron-packager . OCLR-ref-tools --platform=darwin --arch=arm64 --out=release --overwrite --ignore=^/release --ignore=^/spikes --ignore=^/docs --ignore=^/tests --ignore=^/src --ignore=^/scripts"
+    "package:mac": "npm run build && electron-packager . OCLR-ref-tools --platform=darwin --arch=arm64 --out=release --overwrite --ignore=^/release --ignore=^/spikes --ignore=^/docs --ignore=^/tests --ignore=^/src --ignore=^/scripts --ignore=^/artifacts"
   },
   "dependencies": {
     "@heroui/react": "3.2.6",
     "@heroui/styles": "3.2.6",
+    "linkify-react": "4.4.0",
+    "linkifyjs": "4.4.0",
     "react": "19.3.1",
-    "react-dom": "19.3.1"
+    "react-dom": "19.3.1",
+    "react-virtuoso": "4.18.19"
   },
   "devDependencies": {
     "@electron/packager": "20.3.0",

@@ -7,6 +7,8 @@ const api: DesktopAPI = {
   logout: () => ipcRenderer.invoke('irc:logout'),
   join: input => ipcRenderer.invoke('irc:join', input),
   query: input => ipcRenderer.invoke('irc:query', input),
+  chat: input => ipcRenderer.invoke('irc:chat', input),
+  openMessageLink: input => ipcRenderer.invoke('irc:open-message-link', input),
   openAccountSettings: () => ipcRenderer.invoke('osu:account-settings'),
   onState: listener => {
     const handler = (_event: Electron.IpcRendererEvent, state: Snapshot) => listener(state)

@@ -1,7 +1,7 @@
 import net from 'node:net'
 import { EventEmitter } from 'node:events'
 import type { Snapshot } from '../shared/types.ts'
-import { credentials, Lines, normalize, parse, redact, roomId } from './protocol.ts'
+import { chatText, credentials, Lines, normalize, parse, redact, roomId } from './protocol.ts'
 
 const empty = (): Snapshot => ({ connection: 'offline', username: '', error: null, room: null, pending: null, messages: [] })
 
@@ -15,16 +15,23 @@ export class IrcSession extends EventEmitter {
   private refsHeader = false
   private createSocket: () => net.Socket
   private lastQueryAt = 0
+  private roomEpoch = 0
+  private expectedPart: string | null = null
+  private batching = false
+  private dirty = false
 
   constructor(createSocket = () => net.createConnection({ host: 'irc.ppy.sh', port: 6667 })) {
     super()
     this.createSocket = createSocket
   }
-  private publish() { this.emit('state', structuredClone(this.state)) }
+  private publish() {
+    if (this.batching) { this.dirty = true; return }
+    this.emit('state', structuredClone(this.state))
+  }
   private clearTimer() { if (this.timer) clearTimeout(this.timer); this.timer = null }
-  private note(text: string, kind: Snapshot['messages'][number]['kind'] = 'system', sender = '系統') {
-    this.state.messages.push({ id: ++this.nextMessage, time: new Date().toISOString(), kind, sender: redact(sender), text: redact(text) })
-    this.state.messages = this.state.messages.slice(-200)
+  private note(text: string, kind: Snapshot['messages'][number]['kind'] = 'system', sender = '系統', delivery?: 'unconfirmed') {
+    this.state.messages.push({ id: ++this.nextMessage, time: new Date().toISOString(), kind, sender: redact(sender), text: redact(text), ...(delivery ? { delivery } : {}) })
+    this.state.messages = this.state.messages.slice(-1000)
   }
   private send(line: string) {
     if (!this.socket || this.socket.destroyed || /[\r\n\0]/.test(line) || Buffer.byteLength(line) > 510) throw new Error('無法送出此請求。')
@@ -40,6 +47,7 @@ export class IrcSession extends EventEmitter {
     this.state = empty()
     this.refsHeader = false
     this.lastQueryAt = 0
+    this.expectedPart = null
     this.publish()
   }
   private fail(message: string) {
@@ -71,12 +79,14 @@ export class IrcSession extends EventEmitter {
     })
     socket.on('data', chunk => {
       if (!current()) return
+      this.batching = true
       try {
         for (const line of lines.feed(chunk)) {
           if (!current()) break
           this.receive(line)
         }
       } catch { if (current()) this.fail('伺服器回覆無法安全讀取，已中斷連線。') }
+      finally { this.batching = false; if (this.dirty) { this.dirty = false; this.publish() } }
     })
     socket.on('error', () => { if (current()) this.fail('無法連接 osu! IRC。請檢查網路，稍後再試。') })
     socket.on('close', () => { if (current()) this.fail('連線已中斷，請重新登入。') })
@@ -86,8 +96,9 @@ export class IrcSession extends EventEmitter {
     if (this.state.connection !== 'online') throw new Error('請先登入 osu! IRC。')
     if (this.state.pending) throw new Error('請等待目前的查詢完成。')
     const id = roomId(input)
-    if (this.state.room) this.send('PART ' + this.state.room.channel)
-    this.state.room = { id, channel: `#mp_${id}`, joined: false, binding: 'unknown', referee: 'unknown', name: null, mode: null, players: null }
+    this.expectedPart = this.state.room?.joined ? this.state.room.channel : null
+    if (this.expectedPart) this.send('PART ' + this.expectedPart)
+    this.state.room = { id, epoch: ++this.roomEpoch, channel: `#mp_${id}`, joined: false, binding: 'unknown', referee: 'unknown', name: null, mode: null, players: null }
     this.state.messages = []
     this.state.error = null
     this.refsHeader = false
@@ -123,6 +134,29 @@ export class IrcSession extends EventEmitter {
     this.timeout('尚未收到完整回覆；請稍後重新查詢，不代表沒有權限。')
     this.publish()
   }
+  chat(input: unknown) {
+    if (!input || typeof input !== 'object') throw new Error('無效的聊天請求。')
+    const { roomId: id, roomEpoch, text: value } = input as Record<string, unknown>
+    const room = this.state.room
+    if (this.state.connection !== 'online' || !room?.joined) throw new Error('請先加入可用的比賽房間。')
+    if (id !== room.id || roomEpoch !== room.epoch) throw new Error('房間已切換，請確認目標後重新輸入。')
+    const text = chatText(value, room.channel)
+    if (this.state.pending || Date.now() - this.lastQueryAt < 1000) throw new Error('請稍候再送出訊息。')
+    this.send(`PRIVMSG ${room.channel} :${text}`)
+    this.lastQueryAt = Date.now()
+    this.note(text, 'self', this.state.username, 'unconfirmed')
+    this.state.error = null
+    this.publish()
+  }
+  private unavailable(message: string) {
+    const room = this.state.room
+    if (!room) return
+    this.clearTimer(); this.refsHeader = false; this.state.pending = null
+    room.joined = false; room.binding = 'unknown'; room.referee = 'unknown'
+    room.name = null; room.mode = null; room.players = null
+    this.state.error = message
+    this.note(message); this.publish()
+  }
   private receive(line: string) {
     const message = parse(line)
     if (!message) return
@@ -137,16 +171,21 @@ export class IrcSession extends EventEmitter {
     if (['464', '433', '432'].includes(command) && ownTarget) {
       this.fail(command === '464' ? '登入失敗。請使用 osu! 帳號設定中的 IRC 專用密碼。' : '使用者名稱無法登入，請確認名稱後重試。'); return
     }
+    if (command === 'ERROR') { this.fail('伺服器已中斷連線，請重新登入。'); return }
     const room = this.state.room
     if (!room) return
+    // A deliberate rejoin may receive its old PART before the new JOIN/366.
+    if (command === 'PART' && self && params[0] === this.expectedPart && this.state.pending === 'join') { this.expectedPart = null; return }
+    if ((command === 'KICK' && params[0] === room.channel && normalize(params[1] || '') === normalize(this.state.username)) || (command === 'PART' && self && params[0] === room.channel) || (command === 'QUIT' && self)) {
+      this.unavailable('已離開或被移出房間，請確認房間後重新加入。'); return
+    }
     const matching = params.includes(room.channel)
     if (['403', '404', '405', '471', '473', '474', '475'].includes(command) && ownTarget && matching) {
-      this.clearTimer(); this.state.pending = null; room.joined = false; room.binding = 'unknown'; room.referee = 'unknown'
-      this.state.error = command === '403' ? '找不到開放中的房間。請確認 MP 編號，或改用新的比賽房間。' : '目前無法加入或讀取此房間，請核對房間與帳號權限。'
-      this.note(this.state.error); this.publish(); return
+      this.unavailable(command === '403' ? '找不到開放中的房間。請確認 MP 編號，或改用新的比賽房間。' : '目前無法加入或讀取此房間，請核對房間與帳號權限。')
+      return
     }
     if ((command === 'JOIN' && self && matching || command === '366' && ownTarget && matching) && this.state.pending === 'join') {
-      this.clearTimer(); this.state.pending = null; room.joined = true
+      this.clearTimer(); this.state.pending = null; this.expectedPart = null; room.joined = true
       this.note('已加入頻道。讀取設定以核對 MP 房間，再查詢裁判名單。'); this.publish(); return
     }
     if (command !== 'PRIVMSG' || params[0] !== room.channel || params.length !== 2) return

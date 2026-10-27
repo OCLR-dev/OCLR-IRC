@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { IrcSession } from './irc.ts'
+import { messageLink } from './links.ts'
 
 const irc = new IrcSession()
 let window: BrowserWindow | null = null
@@ -22,8 +23,24 @@ app.whenReady().then(() => {
   ipcMain.handle('irc:logout', event => { trusted(event); irc.logout() })
   ipcMain.handle('irc:join', (event, value: unknown) => action(event, () => irc.join(value)))
   ipcMain.handle('irc:query', (event, value: unknown) => action(event, () => irc.query(value)))
+  ipcMain.handle('irc:chat', (event, value: unknown) => action(event, () => irc.chat(value)))
+  ipcMain.handle('irc:open-message-link', async (event, value: unknown) => {
+    trusted(event)
+    try {
+      const url = messageLink(value, irc.state.messages)
+      await shell.openExternal(url)
+      return { ok: true }
+    } catch { return { ok: false, error: '無法開啟此訊息連結。' } }
+  })
   ipcMain.handle('osu:account-settings', event => { trusted(event); return shell.openExternal('https://osu.ppy.sh/home/account/edit') })
-  irc.on('state', state => { if (window && !window.isDestroyed()) window.webContents.send('irc:state', state) })
+  let update: ReturnType<typeof setTimeout> | null = null
+  irc.on('state', () => {
+    if (update) return
+    update = setTimeout(() => {
+      update = null
+      if (window && !window.isDestroyed()) window.webContents.send('irc:state', irc.state)
+    }, 32)
+  })
   function create() {
     window = new BrowserWindow({ width: 1180, height: 780, minWidth: 900, minHeight: 640,
       backgroundColor: '#111116', title: 'OCLR ref tools', autoHideMenuBar: true,

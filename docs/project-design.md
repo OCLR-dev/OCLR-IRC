@@ -70,7 +70,7 @@ P0 不自動發布正式賽果、不決定未知規則、不在重連時自動�
 
 ## 4. Electron 跨平台架構
 
-技術基線：Electron、TypeScript、React、electron-vite，初版採免費 HeroUI 3.2.6（不引入 Pro）；Zod 或等價工具進行執行期契約驗證；本機 SQLite 保存設定及最小恢復記錄，聊天與去密操作日誌預設加密保存本機。M0 已在 macOS arm64 驗證 Electron 45.0.0／node:sqlite／async safeStorage 及打包後載入；跨平台與升版仍待驗，詳見 [SPEC-01](m0/spec-01.md)。
+技術基線：Electron、TypeScript／Node.js 桌面核心、React、electron-vite；使用者已確認不遷移 Go，OCLR 伺服器 API 採 Node.js。初版採免費 HeroUI 3.2.6（不引入 Pro）；Zod 或等價工具進行執行期契約驗證；本機 SQLite 保存設定及最小恢復記錄，聊天與去密操作日誌預設加密保存本機。M0 已在 macOS arm64 驗證 Electron 45.0.0／node:sqlite／async safeStorage 及打包後載入；跨平台與升版仍待驗，詳見 [SPEC-01](m0/spec-01.md)。
 
 ```mermaid
 flowchart TB
@@ -88,6 +88,8 @@ flowchart TB
     Core <--> API
     Core <--> DB
 ```
+
+0.2.0 聊天工作區採免費 React Virtuoso 與 Linkify，詳見 [M1 交付](m1/chat-workspace.md)。
 
 裁判核心是 Main 管理的邏輯模組，MVP 不要求額外 Utility Process；大量解析或匯出需要時再搬移。核心純資料邏輯與 Electron、網路、資料庫隔離，方便以合成事件驗證。Renderer 僅保存顯示狀態，權威房間狀態與佇列只有一份。
 

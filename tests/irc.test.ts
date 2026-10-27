@@ -2,7 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import net from 'node:net'
 import { IrcSession } from '../src/main/irc.ts'
-import { credentials, Lines, parse, redact, roomId } from '../src/main/protocol.ts'
+import { chatText, credentials, Lines, parse, redact, roomId, webURL } from '../src/main/protocol.ts'
+import { messageLink } from '../src/main/links.ts'
 import type { Snapshot } from '../src/shared/types.ts'
 
 function until(session: IrcSession, predicate: (state: Snapshot) => boolean): Promise<Snapshot> {
@@ -116,6 +117,83 @@ test('cancel immediately prevents late welcome from restoring a logged-out accou
     f.session.login(login); f.session.logout()
     await new Promise(resolve => setTimeout(resolve, 30))
     assert.equal(f.session.state.connection, 'offline')
+    assert.equal(f.session.state.room, null)
+  } finally { await f.close() }
+})
+
+
+test('chat validates UTF-8 wire bytes and forbids command/control injection', () => {
+  const channel = '#mp_900000001'
+  const available = 510 - Buffer.byteLength(`PRIVMSG ${channel} :`)
+  assert.equal(chatText('x'.repeat(available), channel).length, available)
+  assert.throws(() => chatText('x'.repeat(available + 1), channel))
+  assert.throws(() => chatText('測'.repeat(Math.floor(available / 3) + 1), channel))
+  for (const text of ['!mp start', ' !MP close', '/join #other', '／join', '\u0001ACTION wave\u0001', 'a\r\nQUIT', 'a\t!mp close', '']) assert.throws(() => chatText(text, channel))
+  assert.equal(chatText('  比賽準備中  ', channel), '比賽準備中')
+})
+
+test('message links must be safe HTTP(S) URLs still present in retained messages', () => {
+  const messages = [{ id: 1, time: '', kind: 'chat' as const, sender: 'Example', text: 'See https://osu.ppy.sh/mp/900000001 and example.org' }]
+  assert.equal(messageLink('https://osu.ppy.sh/mp/900000001', messages), 'https://osu.ppy.sh/mp/900000001')
+  assert.equal(messageLink('http://example.org', messages), 'http://example.org/')
+  assert.throws(() => messageLink('https://unknown.invalid', messages))
+  assert.throws(() => messageLink('https://osu.ppy.sh/mp/900000001', []))
+  for (const value of ['file:///tmp/a', 'javascript:alert(1)', 'osu://mp/9', 'https://user:password@example.org', 'https://example.org/\n']) assert.throws(() => webURL(value))
+})
+
+test('chat fixes target epoch, shares query throttle and labels local send as unconfirmed', async () => {
+  const f = await fixture((line, socket) => { welcome(line, socket); if (line.startsWith('PART ')) socket.write(':Example!u@h PART #mp_900000001 :leaving\n'); if (line.startsWith('JOIN ')) socket.write(':server 366 Example #mp_900000001 :End\n') })
+  try {
+    f.session.login(login); await until(f.session, s => s.connection === 'online')
+    f.session.join('900000001'); await until(f.session, s => Boolean(s.room?.joined))
+    const input = { roomId: 900000001, roomEpoch: f.session.state.room!.epoch, text: '測試聊天' }
+    f.session.chat(input)
+    assert.equal(f.session.state.messages.at(-1)?.delivery, 'unconfirmed')
+    assert.throws(() => f.session.query('settings'))
+    assert.throws(() => f.session.chat(input))
+    f.session.join('900000001'); await until(f.session, s => Boolean(s.room?.joined))
+    assert.notEqual(f.session.state.room!.epoch, input.roomEpoch)
+    assert.throws(() => f.session.chat(input), /房間已切換/)
+    await new Promise(resolve => setTimeout(resolve, 20))
+    assert.equal(f.sent.filter(line => line.endsWith(':測試聊天')).length, 1)
+  } finally { await f.close() }
+})
+
+test('KICK/PART invalidate room observations and block subsequent queries and chat', async () => {
+  let peer: net.Socket | undefined
+  const f = await fixture((line, socket) => { peer = socket; welcome(line, socket); if (line.startsWith('JOIN ')) socket.write(':server 366 Example #mp_900000001 :End\n') })
+  try {
+    f.session.login(login); await until(f.session, s => s.connection === 'online')
+    for (const event of [':Operator KICK #mp_900000001 Example :bye', ':Example!u@h PART #mp_900000001 :bye']) {
+      f.session.join('900000001'); await until(f.session, s => Boolean(s.room?.joined))
+      f.session.query('settings')
+      peer!.write(event + '\n')
+      await until(f.session, s => !s.room?.joined)
+      assert.equal(f.session.state.pending, null)
+      assert.equal(f.session.state.room?.binding, 'unknown')
+      assert.equal(f.session.state.room?.mode, null)
+      assert.throws(() => f.session.chat({ roomId: 900000001, roomEpoch: f.session.state.room!.epoch, text: 'hello' }))
+      assert.throws(() => f.session.query('settings'))
+      await new Promise(resolve => setTimeout(resolve, 1050))
+    }
+  } finally { await f.close() }
+})
+
+test('burst input retains at most 1000 rows and emits once per input chunk, not per line', async () => {
+  let peer: net.Socket | undefined
+  const f = await fixture((line, socket) => { peer = socket; welcome(line, socket); if (line.startsWith('JOIN ')) socket.write(':server 366 Example #mp_900000001 :End\n') })
+  try {
+    f.session.login(login); await until(f.session, s => s.connection === 'online')
+    f.session.join('900000001'); await until(f.session, s => Boolean(s.room?.joined))
+    let updates = 0
+    f.session.on('state', () => updates++)
+    peer!.write(Array.from({ length: 1200 }, (_, i) => `:Player PRIVMSG #mp_900000001 :message ${i}\n`).join(''))
+    await until(f.session, s => s.messages.at(-1)?.text === 'message 1199')
+    assert.equal(f.session.state.messages.length, 1000)
+    assert.equal(f.session.state.messages[0].text, 'message 200')
+    assert.ok(updates < 100, `unexpected snapshot count ${updates}`)
+    peer!.write('ERROR :Closing link\n')
+    await until(f.session, s => s.connection === 'error')
     assert.equal(f.session.state.room, null)
   } finally { await f.close() }
 })

@@ -63,6 +63,8 @@ SPIKE-01 若無法可靠取得特定狀態，正式規格使用 unknown／人工
 
 完整結果見 [SPIKE 報告](m0/spike-results.md)。產品任務的依賴不因本輪有 commit 就視為滿足。使用者隨後明確授權先完成登入介面，並確認免費 HeroUI／不引入 Pro；DESK-01、IRC-01／02／03、STATE-01 的有限子集已有初版，均不標為完整完成，範圍及測試見 [初版說明](initial-preview.md)。
 
+0.2.0 增量：IRC-03 新增單一房間一般聊天、虛擬列表及連結；IRC-01 新增聊天／查詢共用節流及批次推送；STATE-01 新增 KICK／PART／ERROR 失效處理。只使用合成伺服器驗證，三項均仍為 partial，M1 未全部完成。桌面維持 TypeScript，伺服器 API 採 Node.js；詳見 [M1 結果與缺口](m1/chat-workspace.md)。
+
 ### 3.2 OCLR 後端與網站
 
 | ID | 負責／量級 | 依賴 | 工作與交付物 | 驗收條件 |

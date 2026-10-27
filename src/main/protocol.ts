@@ -60,3 +60,22 @@ export function redact(text: string): string {
   if (/(?:^|\s)(?:PASS\s|!mp\s+password(?:\s|$)|(?:access_token|refresh_token|code_verifier|password)\s*[:=])/i.test(text)) return '〔含敏感資訊，已隱藏〕'
   return text.replace(/[\x00-\x08\x0b-\x1f\x7f]/g, '').slice(0, 3000)
 }
+
+// Outgoing chat is deliberately not an arbitrary IRC/command gateway.
+export function chatText(input: unknown, channel: string): string {
+  if (typeof input !== 'string' || /[\x00-\x1f\x7f]/.test(input)) throw new Error('訊息不能包含換行或控制字元。')
+  const text = input.trim()
+  if (!text) throw new Error('請輸入訊息。')
+  if (/^[!／/]/u.test(text)) throw new Error('此輸入區只支援一般聊天，尚未開放指令。')
+  if (Buffer.byteLength(`PRIVMSG ${channel} :${text}`, 'utf8') > 510) throw new Error('訊息過長，請縮短後再送出。')
+  return text
+}
+// Only allow a clicked, currently visible message URL; reject credentials and protocols
+// that can execute applications. Renderer cannot use this as a generic shell proxy.
+export function webURL(input: unknown): string {
+  if (typeof input !== 'string' || input.length > 2048 || /[\x00-\x20\x7f]/.test(input)) throw new Error('無效的網頁連結。')
+  let url: URL
+  try { url = new URL(input) } catch { throw new Error('無效的網頁連結。') }
+  if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) throw new Error('僅能開啟不含登入資訊的 HTTP／HTTPS 連結。')
+  return url.href
+}

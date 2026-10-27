@@ -84,3 +84,8 @@ React 19.3.1、HeroUI／styles 3.2.6、Tailwind 4.3.3、electron-vite 6.0.0；�
 - [固定提交的 mappool-model](https://github.com/OCLR-dev/OCLR-website/blob/14ab070450afb4b81b28eb075386428eab94e31f/src/lib/mappool-model.ts)
 - [Electron safeStorage](https://www.electronjs.org/docs/latest/api/safe-storage)
 - [Electron native module ABI](https://www.electronjs.org/docs/latest/tutorial/using-native-node-modules)
+
+
+### 後續 M1 增量（2026-10-27）
+
+使用者確認保留 TypeScript／Node.js 本機核心，取消 Go 遷移；伺服器 API 採 Node.js。0.2.0 加入一般聊天、免費虛擬列表與連結、roomEpoch 防錯房及離房狀態失效，詳見 [M1 交付](../m1/chat-workspace.md)。比賽變更、完整佇列、OCLR API 與 D06 保存仍未完成，既有 API 契約與 gate 不變；M0 歷史證據不因本次增量改為已通過。

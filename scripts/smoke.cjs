@@ -1,6 +1,6 @@
 // Desktop UI integration QA. Transport is replaced in this process only, before
 // loading the built Main. No production environment flag or renderer host override.
-const { app, BrowserWindow } = require('electron')
+const { app, BrowserWindow, shell } = require('electron')
 const net = require('node:net')
 const fs = require('node:fs')
 const path = require('node:path')
@@ -10,7 +10,11 @@ const output = path.resolve('artifacts')
 fs.mkdirSync(output, { recursive: true })
 const sent = []
 let username = ''
+let peer
+const opened = []
+shell.openExternal = async url => { opened.push(url) }
 const server = net.createServer(socket => {
+  peer = socket
   let pending = ''
   socket.on('data', chunk => {
     pending += chunk.toString()
@@ -73,6 +77,52 @@ async function main() {
   await delay(1100)
   await js('document.querySelectorAll(".query-actions button")[1].click()')
   await until(() => js('document.body.textContent.includes("已列於裁判名單")'))
+  await delay(1100)
+  await fill('input[name=chat]', '中文輸入測試')
+  const beforeIME = sent.length
+  await js(`document.querySelector('input[name=chat]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', isComposing: true, bubbles: true, cancelable: true }))`)
+  await delay(150)
+  assert.equal(sent.length, beforeIME)
+  await js('document.querySelector(".composer button[type=submit]").click()')
+  await until(() => sent.some(line => line.endsWith(':中文輸入測試')))
+  await until(() => js('document.querySelector("input[name=chat]").value === ""'))
+  await until(() => js('document.body.textContent.includes("未確認送達")'))
+  await fill('input[name=chat]', '!mp start')
+  assert.equal(await js('document.querySelector(".composer button[type=submit]").disabled'), true)
+  const rejected = await js('window.oclr.chat({roomId:900000001,roomEpoch:0,text:"!mp start"})')
+  assert.equal(rejected.ok, false)
+  await fill('input[name=chat]', '')
+  peer.write(':Player PRIVMSG #mp_900000001 :https://osu.ppy.sh/mp/900000001 <img src=x onerror=alert(1)>\n')
+  await until(() => js('Boolean(document.querySelector(".message-text a"))'))
+  await js('document.querySelector(".message-text a").click()')
+  await until(() => opened.length === 1)
+  assert.equal(opened[0], 'https://osu.ppy.sh/mp/900000001')
+  assert.equal(await js('Boolean(document.querySelector(".message-text img"))'), false)
+  assert.equal((await js('window.oclr.openMessageLink("file:///tmp/test")')).ok, false)
+  assert.equal((await js('window.oclr.openMessageLink("https://unknown.invalid")')).ok, false)
+  await delay(300)
+  fs.writeFileSync(path.join(output, 'workspace-chat-synthetic.png'), (await window.webContents.capturePage()).toPNG())
+  peer.write(Array.from({ length: 1200 }, (_, i) => `:Player PRIVMSG #mp_900000001 :SYNTHETIC row ${i}\n`).join(''))
+  await until(() => js('(async () => (await window.oclr.snapshot()).messages.at(-1)?.text === "SYNTHETIC row 1199")()'))
+  await delay(500)
+  assert.equal((await js('window.oclr.snapshot()')).messages.length, 1000)
+  assert.ok(await js('document.querySelectorAll(".message-row").length < 100'))
+  await js('document.querySelector("[data-virtuoso-scroller]").scrollTop = 0')
+  await delay(300)
+  await until(() => js('Boolean(document.querySelector(".jump-latest"))'))
+  peer.write(':Player PRIVMSG #mp_900000001 :SYNTHETIC newer row\n')
+  await delay(300)
+  assert.ok(await js('document.querySelector("[data-virtuoso-scroller]").scrollTop < 500'))
+  await js('document.querySelector(".jump-latest").click()')
+  await until(() => js('document.body.textContent.includes("SYNTHETIC newer row")'))
+  window.setSize(900, 640)
+  await delay(300)
+  assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
+  fs.writeFileSync(path.join(output, 'workspace-compact-synthetic.png'), (await window.webContents.capturePage()).toPNG())
+  peer.write(`:Operator KICK #mp_900000001 ${username} :synthetic kick\n`)
+  await until(() => js('document.querySelector("input[name=chat]").disabled'))
+  assert.equal(await js('document.querySelector(".query-actions button").disabled'), true)
+  assert.ok(!sent.some(line => /!mp (?:start|close|abort)/.test(line)))
   await delay(300)
   fs.writeFileSync(path.join(output, 'workspace-synthetic.png'), (await window.webContents.capturePage()).toPNG())
   assert.ok(!JSON.stringify(await js('window.oclr.snapshot()')).includes('SYNTHETIC_PASSWORD_ONLY'))
@@ -83,10 +133,10 @@ async function main() {
   assert.deepEqual(errors, [])
   const report = { evidence: 'synthetic-desktop-ui', platform: process.platform, arch: process.arch,
     electron: process.versions.electron, recordedAt: new Date().toISOString(),
-    passed: ['renderer and sandboxed preload loaded', 'form login to local fake IRC', 'LF-only settings binding', 'split-line referee membership', 'logout and secret clearing', 'no renderer console errors'],
-    sent, limitation: 'Local fake server only; no live account credentials, no OCLR OAuth, no Windows/Linux verification.' }
-  fs.writeFileSync(path.join(output, 'ui-smoke.json'), JSON.stringify(report, null, 2) + '\n')
+    passed: ['renderer and sandboxed preload loaded', 'form login to local fake IRC', 'LF-only settings binding', 'split-line referee membership', 'plain chat and unconfirmed delivery', 'synthetic IME Enter guard', 'blocked command and unsafe links', 'safe external link and escaped HTML', '1000 retained rows with under 100 DOM rows', 'history scroll and jump to latest', '900x640 composer visible', 'kick disables room actions', 'logout and secret clearing', 'no renderer console errors'],
+    sent, limitation: 'Local fake server only; no live account credentials, no OCLR OAuth, no Windows/Linux verification; synthetic composition event is not a real IME test.' }
+  fs.writeFileSync(path.join(output, 'ui-smoke-chat.json'), JSON.stringify(report, null, 2) + '\n')
   console.log(JSON.stringify(report, null, 2))
   app.exit(0)
 }
-main().catch(error => { console.error(error.message); app.exit(1) })
+main().catch(error => { console.error(error.stack); app.exit(1) })
