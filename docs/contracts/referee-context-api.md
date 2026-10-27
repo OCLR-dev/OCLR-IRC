@@ -1,6 +1,6 @@
 # OCLR 裁判 context API 資料契約
 
-- 契約草案：1.0.0（尚未發布）；文件版本：0.2；日期：2026-10-27
+- 契約草案：1.0.0（尚未發布）；文件版本：0.3；日期：2026-10-27
 - 狀態：待實作與聯合審閱；所有 `/api/referee/v1` 路徑均為提案
 - 基底：`https://oclr.org/api/referee/v1`
 - 認證：[OCLR 桌面授權](desktop-authorization.md)發行的 Bearer access token
@@ -42,7 +42,7 @@
 - 直播投影需新增本場裁判讀取規則，只提供本場直播員、確認狀態及必要操作提示，不開放完整 streaming workspace。
 - OCLR 的 allowedIntents 是資料與角色允許準備的操作；Bancho 是否真的授權仍由 IRC 回覆決定。
 
-上述「Admin 亦限本人指派」與 P0 模式／規則設定均為暫定產品政策，待確認項 D03／D04 見 [設計審查](../design-review.md)。所有身份、指派、規則及資料查詢需在同一受限查詢／交易邊界內核對；已在途請求不構成撤權後的持續存取權。
+上述本人指派範圍及 P0 模式／規則政策已依 D01／D03／D04 確認，見 [設計決策](../design-review.md)。所有身份、指派、規則及資料查詢需在同一受限查詢／交易邊界內核對；已在途請求不構成撤權後的持續存取權。
 
 ## 3. 端點與輪詢
 
@@ -376,7 +376,7 @@ issue 格式為 `{ code, severity, path, affectedIntents, message }`。severity 
 
 「當前地圖」屬本機／Bancho 狀態，伺服器不會猜它；select_map 可在圖池仍有可選項目時保留，特定 entry 的 blockingCodes 由客戶端強制執行，Start 再檢查目前選中 entry 的政策。
 
-streaming.state=unavailable 只表示受支援來源尚未提供可確認的最小投影，sourceVersions.streaming=null；不能用它吞掉資料庫查詢失敗，後者必須回 503。startPolicy 本身不明仍阻擋 Start。P0 是否允許 optional 及正式賽事預設值列 D04，合成範例不設定任何真實賽事政策。
+streaming.state=unavailable 只表示受支援來源尚未提供可確認的最小投影，sourceVersions.streaming=null；不能用它吞掉資料庫查詢失敗，後者必須回 503。startPolicy 本身不明仍阻擋 Start。D04 已確認直播採 optional：設定介面預選此值，由有權的 OCLR 工作人員明確保存才生效；既有缺值不自動回填，仍阻擋 Start。明確保存的 required 仍依本表處理；合成範例不設定任何真實賽事政策。
 
 rules.series 缺失時保留 null，影響系列賽流程及暫記比分；若不影響已核准的單圖房間設定，可只警告。所有 noFailPolicy、individual Mods 及 substitutionPolicy 的不明值不得被解讀為允許。需要人工核對的已知政策則產生本地確認項，綁定 contextRevision、地圖與本局，切圖／換人後失效。
 
@@ -387,13 +387,13 @@ rules.series 缺失時保留 null，影響系列賽流程及暫記比分；若�
 3. 所有衍生變更在派送前確保 context 尚在 freshUntil 內；create_lobby／start_game 每次操作前另成功重讀。失敗或版本改變時回到預覽；初始化／切圖可用仍新鮮的快照。
 4. 檢查目前 OCLR／IRC 身分、Bancho 觀測狀態、目標 room ID、正式 roster、lineup、顏色、地圖及 Mods。所需狀態未知時不自動開始。
 5. 斷線或資料過期：顯示 stale，停用 OCLR 衍生計畫；私人快照硬清除期限為 capturedAt＋5 分鐘，失敗重試不延長。已在途 IRC 結果可觀測，但不再派送後續步驟。
-6. ACCESS_TOKEN_EXPIRED 更新期間暫停衍生操作；SESSION_REVOKED／SESSION_EXPIRED／INVALID_ACCESS_TOKEN 或全域 REFEREE_ACCESS_REVOKED 清除全部私人資料；單場 404 只清受影響場次。INSUFFICIENT_SCOPE 停用該整合，不使用 cookie 或 Developer fallback。上述撤權清理不等待保留期限。
-7. 登出、App 結束均清除 Main／Renderer 的私人 context。禁止落盤完整回應、未公開圖池、名單或工作人員資料；只允許專案設計明列的最小綁定／恢復記錄。明確匯出的聊天／操作檔案另依 D06 政策，不聲稱可於撤權後追回。
+6. ACCESS_TOKEN_EXPIRED 更新期間暫停衍生操作；SESSION_REVOKED／SESSION_EXPIRED／INVALID_ACCESS_TOKEN 或全域 REFEREE_ACCESS_REVOKED 清除該 OCLR subject 的全部私人快照、關聯日誌、恢復記錄及待寫緩衝（不含無 OCLR 關聯的獨立 IRC 歷史）；單場 404 只清受影響場次。INSUFFICIENT_SCOPE 停用該整合，不使用 cookie 或 Developer fallback。上述撤權清理不等待保留期限。
+7. 登出、App 結束均清除 Main／Renderer 的私人 context。禁止落盤完整 API 回應或複製未公開圖池／名單／工作人員投影。D06 已確認預設保存加密 IRC 聊天及去密操作事件，事件可含名稱／地圖，但不得以日誌形式批次保存 context；另允許最小恢復記錄，範圍依專案 §4.2。App 結束可保留未到期日誌，登出／撤權須清受影響日誌、恢復記錄及待寫緩衝；重啟後同 subject 且本場 context GET 成功才解鎖關聯歷史。記錄不是離線 context，不可還原權限或自動重送。手動匯出檔無法於撤權後追回。
 8. 取消／登出／帳號或場次切換時推進 generation，忽略所有舊回應；HTTP abort 只是最佳努力，不能單靠取消請求防止私人資料回填。
 
 新鮮度以 freshUntil－serverTime 的差值配合本機單調時鐘計算，保守扣除請求往返時間；硬清除期限同樣依 capturedAt＋5 分鐘與 serverTime 換算，不能因使用者修改系統日期而延長。回應抵達時已超過期限即為 stale。
 
-freshUntil 不是 server-side reservation，也不保證讀取與 IRC 操作原子化。MVP 沒有中央操作鎖；若其他裁判或玩家修改房間，工具應更新觀測並提示衝突，不能宣稱獨占控制。
+freshUntil 不是 server-side reservation，也不保證讀取與 IRC 操作原子化。D07 已確認 MVP 單主控且沒有中央操作鎖；若其他裁判或玩家修改房間，工具應更新觀測並提示衝突，不能宣稱獨占控制。
 
 ## 7. 錯誤契約
 
@@ -422,7 +422,7 @@ freshUntil 不是 server-side reservation，也不保證讀取與 IRC 操作原�
 
 ## 9. 契約驗收及來源
 
-必驗：匿名／錯 scope／角色撤銷／移除指派／Admin 非本人場次、未知規則、null 資料、圖池修訂、混合來源版本、改期後直播重確認、分頁變更、超限不截斷、未知 enum、私人 context 不落盤、正式比分不由客戶端產生。
+必驗：匿名／錯 scope／角色撤銷／移除指派／Admin 非本人場次、未知規則、null 資料、圖池修訂、混合來源版本、改期後直播重確認、分頁變更、超限不截斷、未知 enum、完整私人 context 不落盤、D06 加密事件範圍／重啟驗權／撤權清理、正式比分不由客戶端產生。
 
 - [OCLR 場次與 fixtureForReview](https://github.com/OCLR-dev/OCLR-website/blob/d34378ef7b9a300a2baf1aaf61ff92c77a0b11e3/src/lib/fixtures.ts)
 - [OCLR saved-read 契約](https://github.com/OCLR-dev/OCLR-website/blob/d34378ef7b9a300a2baf1aaf61ff92c77a0b11e3/docs/read-api.md)

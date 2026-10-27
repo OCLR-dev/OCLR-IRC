@@ -12,7 +12,7 @@
 | [MVP 開發任務](docs/mvp-plan.md) | 工作拆分、依賴、交付物、驗收案例與版本完成條件 |
 | [OCLR 桌面授權契約](docs/contracts/desktop-authorization.md) | 系統瀏覽器登入、一次性 code、S256 證明、桌面 session 與撤銷 |
 | [裁判 context API 契約](docs/contracts/referee-context-api.md) | 本人指派場次、原子資料快照、規則與權限、版本及錯誤處理 |
-| [設計審查與待確認決策](docs/design-review.md) | 跨文件修訂紀錄、尚待確認的產品取捨及影響任務 |
+| [設計審查與決策紀錄](docs/design-review.md) | 跨文件修訂紀錄、已確認 D01–D08、本機保存政策及影響任務 |
 
 API 路徑、欄位與預設值屬設計提案；文件會區分已查證的 OCLR 能力與待新增功能。所有 JSON 範例均為合成資料，不可直接用於真實 IRC 操作。
 

@@ -1,6 +1,6 @@
 # OCLR 桌面授權資料契約
 
-- 契約草案：1.0.0（尚未發布）；文件版本：0.2；日期：2026-10-27
+- 契約草案：1.0.0（尚未發布）；文件版本：0.3；日期：2026-10-27
 - 狀態：待實作與聯合審閱；本文件沒有建立任何授權端點
 - 使用者代理：OCLR-ref-tools 桌面 Main process 與系統瀏覽器
 - HTTPS 基底：`https://oclr.org`；桌面 API 前綴：`/api/desktop/v1`
@@ -15,7 +15,7 @@
 
 ## 2. 授權模型與預設值
 
-以下值為 MVP 提議，實作前由前後端確認並記錄變更；使用者產品決策 D02／D03 另列於 [設計審查](../design-review.md)，不得將本草案的暫定值視為已確認：
+D02／D03 已由使用者確認，見 [設計決策](../design-review.md)。以下作為 MVP 授權基線；端點仍待前後端技術驗證與聯合定版，不代表已部署：
 
 | 項目 | 契約 |
 | --- | --- |
@@ -34,7 +34,7 @@
 | P0 保存 | App 僅於 Main 記憶體保存 access／refresh token；重啟需再授權 |
 | 同時 session | 每帳號最多 5 個未撤銷且有效 session；超過時回傳明確錯誤，不暗中踢出舊裝置 |
 
-網站 session 用於當次授權確認；已發行的 desktop session 獨立存在。網站登出不會自動撤銷它，授權頁必須明示期限與撤銷入口。角色撤銷、停權、桌面 session 撤銷仍於下一個 API 請求生效。這是本提案的產品行為，與既有 Developer token 綁定網站 session 的行為不同。
+網站 session 用於當次授權確認；已發行的 desktop session 獨立存在。網站登出不會自動撤銷它，授權頁必須明示期限與撤銷入口。角色撤銷、停權、桌面 session 撤銷仍於下一個 API 請求生效。這是 D02 已確認的產品行為，與既有 Developer token 綁定網站 session 的行為不同。
 
 「2 小時閒置」是協定上未 refresh 的時間，不是使用者兩小時未操作滑鼠；背景正常更新仍保持 session 至絕對期限。任何資源請求也必須檢查 session 的閒置與絕對期限。只失去某 edition 能力時，該 edition 資源失效，其他仍有權的場次不因此失效；失去全部裁判資格或停權時，撤銷 session family。
 
@@ -218,7 +218,9 @@ Main 提前約 60 秒更新，全部 API 共用 single-flight，避免併發使�
 
 revoke 可用目前或已消耗但尚在保留期的 refresh hash 找到並撤銷整個 family，讓遺失 refresh 回應的 App 仍能嘗試清理舊 family；未知／過期 hash 仍一律 204。網站 DELETE 對非本人或不存在 ID 也一律 204，且不得產生任何跨帳號修改。
 
-App 登出時先嘗試 revoke，再清除本機 token 與私人 context。離線只能清本機記憶體，顯示「遠端撤銷未確認」，可從網站撤銷；不能宣稱遠端 session 已失效。
+App 登出時先嘗試 revoke，再清除本機 token、私人 context、該 OCLR subject 關聯日誌／恢復記錄及待寫緩衝；清理不依賴遠端成功。離線亦須清本機受管理資料，顯示「遠端撤銷未確認」，可從網站撤銷；不能宣稱遠端 session 已失效。
+
+D06 已確認預設本機保存聊天與去密操作日誌，詳細保存／刪除規則以 [專案設計 §4.2](../project-design.md#42-安全與儲存) 為準；這不授權持久保存 token、code、verifier 或完整 context。App 結束可保留未到期的加密日誌，重啟仍須重新授權，OCLR 關聯歷史需同 subject 且逐場 context GET 成功才可展示；session 失效／撤銷清關聯資料，不能以歷史繞過 D03 的本人指派限制。
 
 ## 6. 錯誤契約
 
