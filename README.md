@@ -20,6 +20,7 @@ npm start
 
 | 文件 | 內容 |
 | --- | --- |
+| [網站裁判面板整合設計](docs/referee-panel-integration.md) | #312–#317、三階段工作區、讀寫 API／scope、命令執行與分期 |
 | [專案設計](docs/project-design.md) | 產品範圍、參考專案、功能清單、Electron 架構、登入與操作流程 |
 | [MVP 開發任務](docs/mvp-plan.md) | 工作拆分、依賴、交付物、驗收案例與版本完成條件 |
 | [OCLR 桌面授權契約](docs/contracts/desktop-authorization.md) | 系統瀏覽器登入、一次性 code、S256 證明、桌面 session 與撤銷 |
