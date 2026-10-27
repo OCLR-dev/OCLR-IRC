@@ -65,6 +65,8 @@ SPIKE-01 若無法可靠取得特定狀態，正式規格使用 unknown／人工
 
 0.2.0 增量：IRC-03 新增單一房間一般聊天、虛擬列表及連結；IRC-01 新增聊天／查詢共用節流及批次推送；STATE-01 新增 KICK／PART／ERROR 失效處理。只使用合成伺服器驗證，三項均仍為 partial，M1 未全部完成。桌面維持 TypeScript，伺服器 API 採 Node.js；詳見 [M1 結果與缺口](m1/chat-workspace.md)。
 
+0.3.0 增量：IRC-03 新增最多 8 個 MP 房間分頁及分頁未讀／提及；query 與 chat 均綁定 roomId／epoch，背景查詢與逾時彼此隔離，Renderer reload 保留 Main 狀態。一般頻道、私訊、補完、重連及完整快照仍未完成，M1 保持 partial；見 [多房間驗證](m1/multi-room-workspace.md)。
+
 ### 3.2 OCLR 後端與網站
 
 | ID | 負責／量級 | 依賴 | 工作與交付物 | 驗收條件 |

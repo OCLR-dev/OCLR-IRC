@@ -17,10 +17,10 @@ export function MessageList({ state, onError }: { state: Snapshot; onError: (mes
   if (!state.messages.length) return <div className="message-area empty-state"><h2>連接你的比賽房間</h2><p>貼上 MP 連結，讀取設定、裁判名單並聊天。<br />比賽變更指令尚未開放。</p></div>
   return <div className="message-area" role="region" aria-label="IRC 訊息">
     <Virtuoso ref={list} className="message-list" data={state.messages}
-      firstItemIndex={state.messages[0].id}
+      firstItemIndex={state.messageStartIndex}
       computeItemKey={(_index, message) => message.id}
       initialTopMostItemIndex={{ index: 'LAST', align: 'end' }}
-      followOutput={atBottom ? 'auto' : false} atBottomStateChange={setAtBottom} atBottomThreshold={50}
+      defaultItemHeight={32} minOverscanItemCount={2} followOutput="auto" atBottomStateChange={setAtBottom} atBottomThreshold={50}
       itemContent={(_index, message) => <div className={`message-row ${message.kind}`}>
         <time dateTime={message.time}>{new Date(message.time).toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time>
         <span className="message-sender" title={message.sender}>{message.sender}</span>

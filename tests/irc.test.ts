@@ -27,6 +27,9 @@ async function fixture(onLine: (line: string, socket: net.Socket) => void) {
   const session = new IrcSession(() => net.createConnection({ host: '127.0.0.1', port }))
   return { session, sent, async close() { session.logout(); for (const socket of sockets) socket.destroy(); await new Promise<void>(resolve => server.close(() => resolve())) } }
 }
+function query(session: IrcSession, kind: string) {
+  session.query({ roomId: session.state.room?.id, roomEpoch: session.state.room?.epoch, kind })
+}
 const login = { username: 'Example', password: 'SYNTHETIC_IRC_PASSWORD' }
 function welcome(line: string, socket: net.Socket) { if (line.startsWith('USER ')) socket.write(':server 001 Example :Welcome\r\n') }
 
@@ -88,14 +91,14 @@ test('LF settings bind History to target MP; split listrefs confirms account, fa
     f.session.login(login); await until(f.session, s => s.connection === 'online')
     f.session.join('900000001'); await until(f.session, s => Boolean(s.room?.joined))
     assert.equal(f.session.state.room?.binding, 'unknown')
-    f.session.query('settings'); await until(f.session, s => s.pending === null)
+    query(f.session, 'settings'); await until(f.session, s => s.pending === null)
     assert.equal(f.session.state.room?.binding, 'verified')
     assert.equal(f.session.state.room?.name, 'synthetic')
     assert.equal(f.session.state.room?.players, 0)
     assert.equal(f.session.state.room?.referee, 'unknown')
     await new Promise(resolve => setTimeout(resolve, 1050))
-    f.session.query('listrefs'); await until(f.session, s => s.room?.referee === 'listed')
-    assert.throws(() => f.session.query('start'))
+    query(f.session, 'listrefs'); await until(f.session, s => s.room?.referee === 'listed')
+    assert.throws(() => query(f.session, 'start'))
     assert.ok(f.sent.every(x => !x.includes('!mp start') && !x.includes('!mp close')))
   } finally { await f.close() }
 })
@@ -106,7 +109,7 @@ test('403 clears room readiness and blocks queries; no silent success on unavail
     f.session.login(login); await until(f.session, s => s.connection === 'online')
     f.session.join('900000001'); await until(f.session, s => Boolean(s.error))
     assert.equal(f.session.state.room?.joined, false)
-    assert.throws(() => f.session.query('settings'))
+    assert.throws(() => query(f.session, 'settings'))
     assert.ok(!f.sent.some(x => x.startsWith('PRIVMSG ')))
   } finally { await f.close() }
 })
@@ -149,8 +152,11 @@ test('chat fixes target epoch, shares query throttle and labels local send as un
     const input = { roomId: 900000001, roomEpoch: f.session.state.room!.epoch, text: '測試聊天' }
     f.session.chat(input)
     assert.equal(f.session.state.messages.at(-1)?.delivery, 'unconfirmed')
-    assert.throws(() => f.session.query('settings'))
+    assert.throws(() => query(f.session, 'settings'))
     assert.throws(() => f.session.chat(input))
+    f.session.leaveRoom({ roomId: input.roomId, roomEpoch: input.roomEpoch })
+    assert.throws(() => f.session.join('900000001'), /等待離開/)
+    await until(f.session, s => s.leavingChannels.length === 0)
     f.session.join('900000001'); await until(f.session, s => Boolean(s.room?.joined))
     assert.notEqual(f.session.state.room!.epoch, input.roomEpoch)
     assert.throws(() => f.session.chat(input), /房間已切換/)
@@ -166,14 +172,14 @@ test('KICK/PART invalidate room observations and block subsequent queries and ch
     f.session.login(login); await until(f.session, s => s.connection === 'online')
     for (const event of [':Operator KICK #mp_900000001 Example :bye', ':Example!u@h PART #mp_900000001 :bye']) {
       f.session.join('900000001'); await until(f.session, s => Boolean(s.room?.joined))
-      f.session.query('settings')
+      query(f.session, 'settings')
       peer!.write(event + '\n')
       await until(f.session, s => !s.room?.joined)
       assert.equal(f.session.state.pending, null)
       assert.equal(f.session.state.room?.binding, 'unknown')
       assert.equal(f.session.state.room?.mode, null)
       assert.throws(() => f.session.chat({ roomId: 900000001, roomEpoch: f.session.state.room!.epoch, text: 'hello' }))
-      assert.throws(() => f.session.query('settings'))
+      assert.throws(() => query(f.session, 'settings'))
       await new Promise(resolve => setTimeout(resolve, 1050))
     }
   } finally { await f.close() }
@@ -195,5 +201,84 @@ test('burst input retains at most 1000 rows and emits once per input chunk, not 
     peer!.write('ERROR :Closing link\n')
     await until(f.session, s => s.connection === 'error')
     assert.equal(f.session.state.room, null)
+  } finally { await f.close() }
+})
+
+
+test('multiple rooms isolate replies, pending operations, messages and unread mentions', async () => {
+  let peer: net.Socket | undefined
+  const f = await fixture((line, socket) => {
+    peer = socket; welcome(line, socket)
+    if (line.startsWith('JOIN ')) socket.write(`:server 366 Example ${line.slice(5)} :End\n`)
+  })
+  try {
+    f.session.login(login); await until(f.session, s => s.connection === 'online')
+    f.session.join('900000001'); await until(f.session, s => Boolean(s.room?.joined))
+    const a = { roomId: 900000001, roomEpoch: f.session.state.room!.epoch }
+    f.session.query({ ...a, kind: 'settings' })
+    f.session.join('900000002'); await until(f.session, s => Boolean(s.room?.joined))
+    const b = { roomId: 900000002, roomEpoch: f.session.state.room!.epoch }
+    assert.equal(f.session.state.rooms.find(r => r.id === a.roomId)?.pending, 'settings')
+    assert.equal(f.session.state.pending, null)
+    assert.throws(() => f.session.chat({ ...b, text: 'global throttle' }))
+    peer!.write(':Player PRIVMSG #mp_900000001 :Example, your room needs attention\n:BanchoBot PRIVMSG #mp_900000001 :Room name: A, History: https://osu.ppy.sh/mp/900000001\n:BanchoBot PRIVMSG #mp_900000001 :Players: 0\n:Player PRIVMSG #mp_900000002 :B room only\n')
+    await until(f.session, s => s.messages.at(-1)?.text === 'B room only')
+    assert.equal(f.session.state.room?.id, b.roomId)
+    assert.equal(f.session.state.room?.binding, 'unknown')
+    assert.equal(f.session.state.rooms.find(r => r.id === a.roomId)?.mentions, 1)
+    assert.equal(f.session.state.rooms.find(r => r.id === a.roomId)?.pending, null)
+    assert.ok(!f.session.state.messages.some(m => m.text.includes('attention')))
+    f.session.selectRoom(a)
+    assert.equal(f.session.state.room?.binding, 'verified')
+    assert.equal(f.session.state.rooms[0].unread, 0)
+    assert.equal(f.session.state.rooms[0].mentions, 0)
+    assert.ok(f.session.state.messages.some(m => m.text.includes('attention')))
+    // Query captured for A stays on A even if the view changes to B.
+    await new Promise(resolve => setTimeout(resolve, 1050))
+    f.session.selectRoom(b)
+    f.session.query({ ...a, kind: 'listrefs' })
+    peer!.write(':BanchoBot PRIVMSG #mp_900000002 :Match referees:\n:BanchoBot PRIVMSG #mp_900000002 :Example\n')
+    await new Promise(resolve => setTimeout(resolve, 25))
+    assert.equal(f.session.state.room?.referee, 'unknown')
+    assert.equal(f.session.state.rooms[0].pending, 'listrefs')
+    peer!.write(':BanchoBot PRIVMSG #mp_900000001 :Match referees:\n:BanchoBot PRIVMSG #mp_900000001 :Example\n')
+    await until(f.session, s => s.rooms[0].pending === null)
+    assert.ok(f.sent.includes('PRIVMSG #mp_900000001 :!mp listrefs'))
+    assert.ok(!f.sent.some(x => x.startsWith('PART ')))
+    f.session.selectRoom(a)
+    assert.equal(f.session.state.room?.referee, 'listed')
+  } finally { await f.close() }
+})
+
+test('room cap, duplicate join, leave and late events cannot resurrect a closed tab', async () => {
+  let peer: net.Socket | undefined
+  const f = await fixture((line, socket) => {
+    peer = socket; welcome(line, socket)
+    if (line.startsWith('JOIN ')) socket.write(`:server 366 Example ${line.slice(5)} :End\n`)
+  })
+  try {
+    f.session.login(login); await until(f.session, s => s.connection === 'online')
+    for (let id = 1; id <= 8; id++) { f.session.join(String(id)); await until(f.session, s => Boolean(s.room?.joined)) }
+    assert.throws(() => f.session.join('9'), /最多/)
+    const epoch = f.session.state.room!.epoch
+    f.session.join('8')
+    assert.equal(f.session.state.room?.epoch, epoch)
+    await new Promise(resolve => setTimeout(resolve, 10))
+    assert.equal(f.sent.filter(x => x === 'JOIN #mp_8').length, 1)
+    const target = { roomId: 8, roomEpoch: epoch }
+    f.session.query({ ...target, kind: 'settings' })
+    f.session.leaveRoom(target)
+    assert.equal(f.session.state.rooms.length, 7)
+    assert.throws(() => f.session.selectRoom(target))
+    assert.throws(() => f.session.query({ ...target, kind: 'settings' }))
+    peer!.write(':server 366 Example #mp_8 :End\n:BanchoBot PRIVMSG #mp_8 :Players: 0\n:Example PART #mp_8 :bye\n')
+    await new Promise(resolve => setTimeout(resolve, 25))
+    assert.equal(f.session.state.rooms.length, 7)
+    assert.ok(!f.session.state.messages.some(m => m.text === 'Players: 0'))
+    assert.ok(f.sent.includes('PART #mp_8'))
+    assert.ok(!f.sent.some(x => x.includes('!mp close')))
+    f.session.join('9'); await until(f.session, s => Boolean(s.room?.joined))
+    f.session.logout()
+    assert.deepEqual(f.session.state.rooms, [])
   } finally { await f.close() }
 })

@@ -6,7 +6,7 @@ import './styles.css'
 import { Composer, MessageList } from './conversation'
 
 declare global { interface Window { oclr?: DesktopAPI } }
-const initial: Snapshot = { connection: 'offline', username: '', room: null, pending: null, error: null, messages: [] }
+const initial: Snapshot = { connection: 'offline', username: '', room: null, pending: null, error: null, messages: [], rooms: [], leavingChannels: [], messageStartIndex: 1 }
 const statusText = { offline: '未連線', connecting: '正在連線', online: '已連線', error: '連線失敗' }
 function Icon({ name }: { name: 'connect' | 'room' | 'arrow' | 'logout' | 'key' | 'eye' }) {
   const paths = {
@@ -61,9 +61,15 @@ function App() {
     finally { setBusy(false) }
   }
   async function query(kind: 'settings' | 'listrefs') {
+    if (!window.oclr || !state.room) return
+    setFormError(null)
+    try { const result = await window.oclr.query({ roomId: state.room!.id, roomEpoch: state.room!.epoch, kind }); if (!result.ok) setFormError(result.error || '查詢未完成。') }
+    catch { setFormError('桌面服務無法回應。') }
+  }
+  async function tabAction(kind: 'selectRoom' | 'leaveRoom', id: number, epoch: number) {
     if (!window.oclr) return
     setFormError(null)
-    try { const result = await window.oclr.query(kind); if (!result.ok) setFormError(result.error || '查詢未完成。') }
+    try { const result = await window.oclr[kind]({ roomId: id, roomEpoch: epoch }); if (!result.ok) setFormError(result.error || '房間操作未完成。') }
     catch { setFormError('桌面服務無法回應。') }
   }
   async function logout() { setPassword(''); setFormError(null); setPage('account'); await window.oclr?.logout() }
@@ -81,7 +87,7 @@ function App() {
       <div className="sidebar-footer"><span className={`status-dot ${online ? 'online' : connecting ? 'connecting' : ''}`} /><div><strong>{online ? state.username : 'osu! IRC'}</strong><span>{statusText[state.connection]}</span></div>{online && <Button isIconOnly variant="ghost" aria-label="登出 IRC" onPress={() => void logout()}><Icon name="logout" /></Button>}</div>
     </aside>
     <div className="workspace">
-      <header className="topbar"><div><span>工作台</span><span className="breadcrumb-slash">/</span><strong>{page === 'account' ? '帳號連線' : '房間記錄'}</strong></div><span className="version">v0.2.0 <span>PREVIEW</span></span></header>
+      <header className="topbar"><div><span>工作台</span><span className="breadcrumb-slash">/</span><strong>{page === 'account' ? '帳號連線' : '房間記錄'}</strong></div><span className="version">v0.3.0 <span>PREVIEW</span></span></header>
       <main>
         {page === 'account' ? <div className="account-view enter">
           <section className="login-section">
@@ -106,7 +112,18 @@ function App() {
           <aside className="connection-info"><span className="small-label">連線資訊</span><dl><div><dt>服務</dt><dd>osu! Bancho</dd></div><div><dt>伺服器</dt><dd className="mono">irc.ppy.sh</dd></div><div><dt>連接埠</dt><dd className="mono">6667</dd></div></dl><div className="info-divider" /><h3>取得 IRC 專用密碼</h3><p>前往 osu! 帳號設定，查看或重設你的 IRC 密碼。</p><Button variant="ghost" className="text-button" isDisabled={!desktop} onPress={() => void window.oclr?.openAccountSettings()}>開啟帳號設定 <span aria-hidden="true">↗</span></Button><p className="transport-note">osu! IRC 目前使用未加密連線。</p></aside>
         </div> : <div className="room-view enter">
           <div className="room-heading"><div><div className="section-kicker">MATCH ROOM</div><h1>{state.room?.name || '房間記錄'}</h1></div><span className="read-only-label">聊天與唯讀查詢</span></div>
-          <form className="join-form" onSubmit={join}><TextField aria-label="MP 編號或比賽連結" value={room} onChange={setRoom} className="room-input" isDisabled={Boolean(state.pending)}><Input placeholder="貼上 osu! MP 連結或輸入房間編號" /></TextField><Button type="submit" className="primary-button" isDisabled={!online || !room.trim() || Boolean(state.pending) || busy}>{state.pending === 'join' ? '加入中…' : '加入房間'}<Icon name="arrow" /></Button></form>
+          <form className="join-form" onSubmit={join}><TextField aria-label="MP 編號或比賽連結" value={room} onChange={setRoom} className="room-input"><Input placeholder="貼上 osu! MP 連結或輸入房間編號" /></TextField><Button type="submit" className="primary-button" isDisabled={!online || !room.trim() || busy}>加入房間<Icon name="arrow" /></Button></form>
+          {state.leavingChannels.length > 0 && <p className="leaving-notice" role="status">離開確認中：{state.leavingChannels.join("、")}</p>}
+          {state.rooms.length > 0 && <div className="room-tabs" aria-label="已開啟的房間">
+            {state.rooms.map(tab => <div className={`room-tab ${state.room?.id === tab.id ? 'selected' : ''}`} key={tab.epoch}>
+              <button type="button" aria-label={`切換至 ${tab.channel}`} aria-current={state.room?.id === tab.id ? 'page' : undefined} title={tab.error || (tab.pending ? '正在等待回覆' : tab.channel)} onClick={() => void tabAction('selectRoom', tab.id, tab.epoch)}>
+                <span className={`tiny-dot ${tab.joined ? 'active' : ''}`} />{tab.channel}
+                {tab.mentions > 0 ? <span className="mention-badge">@{tab.mentions}</span> : tab.unread > 0 ? <span className="unread-badge">{tab.unread}</span> : null}
+                {tab.pending && <span aria-label="等待回覆">…</span>}{tab.error && <span aria-label="房間不可用或查詢失敗">!</span>}
+              </button>
+              <button type="button" className="leave-tab" aria-label={`離開 ${tab.channel}`} title="離開頻道並清除此分頁；不關閉比賽房間" onClick={() => void tabAction('leaveRoom', tab.id, tab.epoch)}>×</button>
+            </div>)}
+          </div>}
           {error && <div className="error-message room-error" role="alert">{error}</div>}
           <div className="room-grid"><section className="conversation" aria-label="房間訊息">
             <div className="conversation-header"><span className="channel-name">{state.room?.channel || '# 尚未加入房間'}</span><div className="query-actions"><Button size="sm" variant="ghost" isDisabled={!online || !state.room?.joined || Boolean(state.pending)} onPress={() => void query('settings')}>讀取設定</Button><Button size="sm" variant="ghost" isDisabled={!online || !state.room?.joined || Boolean(state.pending)} onPress={() => void query('listrefs')}>裁判名單</Button></div></div>

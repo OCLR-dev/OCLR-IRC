@@ -1,11 +1,18 @@
 export type Connection = 'offline' | 'connecting' | 'online' | 'error'
 export interface Message { id: number; time: string; sender: string; text: string; kind: 'system' | 'bot' | 'chat' | 'self'; delivery?: 'unconfirmed' }
+export interface RoomTarget { roomId: number; roomEpoch: number }
+export interface Room { id: number; epoch: number; channel: string; joined: boolean; binding: 'unknown' | 'verified' | 'mismatch'; referee: 'unknown' | 'listed'; name: string | null; mode: string | null; players: number | null }
+export type Pending = 'join' | 'settings' | 'listrefs' | null
+export interface RoomTab { id: number; epoch: number; channel: string; joined: boolean; unread: number; mentions: number; pending: Pending; error: string | null }
 export interface Snapshot {
   connection: Connection
   username: string
   error: string | null
-  room: { id: number; epoch: number; channel: string; joined: boolean; binding: 'unknown' | 'verified' | 'mismatch'; referee: 'unknown' | 'listed'; name: string | null; mode: string | null; players: number | null } | null
-  pending: 'join' | 'settings' | 'listrefs' | null
+  room: Room | null
+  rooms: RoomTab[]
+  leavingChannels: string[]
+  pending: Pending
+  messageStartIndex: number
   messages: Message[]
 }
 export interface DesktopAPI {
@@ -13,8 +20,10 @@ export interface DesktopAPI {
   login(input: { username: string; password: string }): Promise<{ ok: boolean; error?: string }>
   logout(): Promise<void>
   join(input: string): Promise<{ ok: boolean; error?: string }>
-  query(input: 'settings' | 'listrefs'): Promise<{ ok: boolean; error?: string }>
-  chat(input: { roomId: number; roomEpoch: number; text: string }): Promise<{ ok: boolean; error?: string }>
+  selectRoom(input: RoomTarget): Promise<{ ok: boolean; error?: string }>
+  leaveRoom(input: RoomTarget): Promise<{ ok: boolean; error?: string }>
+  query(input: RoomTarget & { kind: 'settings' | 'listrefs' }): Promise<{ ok: boolean; error?: string }>
+  chat(input: RoomTarget & { text: string }): Promise<{ ok: boolean; error?: string }>
   openMessageLink(input: string): Promise<{ ok: boolean; error?: string }>
   openAccountSettings(): Promise<void>
   onState(listener: (state: Snapshot) => void): () => void

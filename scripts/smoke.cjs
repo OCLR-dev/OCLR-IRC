@@ -22,9 +22,10 @@ const server = net.createServer(socket => {
     while ((end = pending.indexOf('\r\n')) >= 0) {
       const line = pending.slice(0, end); pending = pending.slice(end + 2)
       sent.push(line.startsWith('PASS ') ? 'PASS <synthetic-redacted>' : line)
+      if (line.startsWith('PART ')) socket.write(`:${username}!u@h PART ${line.slice(5)} :leaving\n`)
       if (line.startsWith('NICK ')) username = line.slice(5)
       if (line.startsWith('USER ')) socket.write(`:server 001 ${username} :Welcome\r\n`)
-      if (line === 'JOIN #mp_900000001') socket.write(`:server 366 ${username} #mp_900000001 :End\r\n`)
+      if (/^JOIN #mp_90000000[12]$/.test(line)) socket.write(`:server 366 ${username} ${line.slice(5)} :End\r\n`)
       if (line.endsWith(':!mp settings')) socket.write(':BanchoBot PRIVMSG #mp_900000001 :Room name: SYNTHETIC QA ROOM, History: https://osu.ppy.sh/mp/900000001\n:BanchoBot PRIVMSG #mp_900000001 :Team mode: TeamVs, Win condition: ScoreV2\n:BanchoBot PRIVMSG #mp_900000001 :Players: 0\n')
       if (line.endsWith(':!mp listrefs')) socket.write(`:BanchoBot PRIVMSG #mp_900000001 :Match referees:\n:BanchoBot PRIVMSG #mp_900000001 :${username}\n`)
     }
@@ -119,6 +120,33 @@ async function main() {
   await delay(300)
   assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
   fs.writeFileSync(path.join(output, 'workspace-compact-synthetic.png'), (await window.webContents.capturePage()).toPNG())
+  // Preserve A's history while joining B; an inactive A mention is routed to A.
+  await fill('.join-form input', '900000002')
+  await js('document.querySelector(".join-form button[type=submit]").click()')
+  await until(() => js('(async () => (await window.oclr.snapshot()).room?.id === 900000002 && (await window.oclr.snapshot()).room?.joined)()'))
+  await until(() => js('document.querySelectorAll(".room-tab").length === 2'))
+  peer.write(`:Player PRIVMSG #mp_900000001 :${username}, please check room A\n`)
+  await until(() => js('Boolean(document.querySelector(".mention-badge"))'))
+  assert.equal(await js('document.querySelector(".message-area").textContent.includes("please check room A")'), false)
+  await js(`document.querySelector('button[aria-label="切換至 #mp_900000001"]').click()`)
+  await until(() => js('document.querySelector(".message-area").textContent.includes("please check room A")'))
+  assert.equal((await js('window.oclr.snapshot()')).rooms[0].unread, 0)
+  assert.equal((await js('window.oclr.snapshot()')).room.binding, 'verified')
+  await until(() => js(`(() => { const viewport=document.querySelector('[data-virtuoso-scroller]').getBoundingClientRect(); return Array.from(document.querySelectorAll('.message-row')).some(row => { const rect=row.getBoundingClientRect(); return row.textContent.includes('please check room A') && rect.top < viewport.bottom && rect.bottom > viewport.top; }); })()`))
+  await delay(300)
+  assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
+  fs.writeFileSync(path.join(output, 'workspace-tabs-synthetic.png'), (await window.webContents.capturePage()).toPNG())
+  // Reloading the renderer preserves Main's socket, tabs and observations.
+  const welcomesBeforeReload = sent.filter(line => line.startsWith('USER ')).length
+  window.webContents.reload()
+  await delay(500)
+  await until(() => js('document.querySelectorAll(".room-tab").length === 2'))
+  assert.equal(sent.filter(line => line.startsWith('USER ')).length, welcomesBeforeReload)
+  assert.equal((await js('window.oclr.snapshot()')).room.binding, 'verified')
+  await js(`document.querySelector('button[aria-label="離開 #mp_900000002"]').click()`)
+  await until(() => js('document.querySelectorAll(".room-tab").length === 1'))
+  await until(() => sent.includes('PART #mp_900000002'))
+  assert.equal((await js('window.oclr.snapshot()')).room.id, 900000001)
   peer.write(`:Operator KICK #mp_900000001 ${username} :synthetic kick\n`)
   await until(() => js('document.querySelector("input[name=chat]").disabled'))
   assert.equal(await js('document.querySelector(".query-actions button").disabled'), true)
@@ -133,9 +161,9 @@ async function main() {
   assert.deepEqual(errors, [])
   const report = { evidence: 'synthetic-desktop-ui', platform: process.platform, arch: process.arch,
     electron: process.versions.electron, recordedAt: new Date().toISOString(),
-    passed: ['renderer and sandboxed preload loaded', 'form login to local fake IRC', 'LF-only settings binding', 'split-line referee membership', 'plain chat and unconfirmed delivery', 'synthetic IME Enter guard', 'blocked command and unsafe links', 'safe external link and escaped HTML', '1000 retained rows with under 100 DOM rows', 'history scroll and jump to latest', '900x640 composer visible', 'kick disables room actions', 'logout and secret clearing', 'no renderer console errors'],
+    passed: ['renderer and sandboxed preload loaded', 'form login to local fake IRC', 'LF-only settings binding', 'split-line referee membership', 'plain chat and unconfirmed delivery', 'synthetic IME Enter guard', 'blocked command and unsafe links', 'safe external link and escaped HTML', '1000 retained rows with under 100 DOM rows', 'history scroll and jump to latest', '900x640 composer visible', 'multiple room tabs and unread mention routing', 'renderer reload preserves connection and tabs', 'leave sends PART not mp close', 'kick disables room actions', 'logout and secret clearing', 'no renderer console errors'],
     sent, limitation: 'Local fake server only; no live account credentials, no OCLR OAuth, no Windows/Linux verification; synthetic composition event is not a real IME test.' }
-  fs.writeFileSync(path.join(output, 'ui-smoke-chat.json'), JSON.stringify(report, null, 2) + '\n')
+  fs.writeFileSync(path.join(output, 'ui-smoke-tabs.json'), JSON.stringify(report, null, 2) + '\n')
   console.log(JSON.stringify(report, null, 2))
   app.exit(0)
 }

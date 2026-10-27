@@ -139,3 +139,15 @@ dd { color: #bdb8c9; font-size: 12px; margin: 0; overflow-wrap: anywhere; }
 .room-inspector { min-height: 0; overflow-y: auto; }
 .room-heading, .join-form, .conversation-header, .composer, .conversation-footer { flex-shrink: 0; }
 @media (max-height: 700px) { .room-view { padding-top: 20px; padding-bottom: 20px; } .join-form { margin: 16px 0; } .message-area { min-height: 60px; } }
+
+.room-tabs { display: flex; flex-shrink: 0; gap: 6px; overflow-x: auto; padding: 0 0 12px; scrollbar-width: thin; }
+.room-tab { display: flex; flex-shrink: 0; border: 1px solid #302a36; border-radius: 6px; color: #91869f; background: transparent; }
+.room-tab.selected { background: #282331; border-color: #625177; color: #c7b7ff; }
+.room-tab button { display: flex; align-items: center; gap: 6px; padding: 8px; font-size: 10px; border: none; background: transparent; color: inherit; }
+.room-tab .leave-tab { padding-left: 5px; padding-right: 8px; font-size: 15px; }
+.room-tab button:hover { color: #e1d6f1; }
+.mention-badge { background: #b4a0ff; color: #20172f; padding: 0 4px; border-radius: 3px; }
+.unread-badge { color: #dfd3ee; }
+.room-tabs + .room-error { margin-top: 0; }
+
+.leaving-notice { margin: 0 0 10px; color: #a99abb; font-size: 10px; flex-shrink: 0; }

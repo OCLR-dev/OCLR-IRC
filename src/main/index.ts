@@ -22,6 +22,8 @@ app.whenReady().then(() => {
   ipcMain.handle('irc:login', (event, value: unknown) => action(event, () => irc.login(value)))
   ipcMain.handle('irc:logout', event => { trusted(event); irc.logout() })
   ipcMain.handle('irc:join', (event, value: unknown) => action(event, () => irc.join(value)))
+  ipcMain.handle('irc:select-room', (event, value: unknown) => action(event, () => irc.selectRoom(value)))
+  ipcMain.handle('irc:leave-room', (event, value: unknown) => action(event, () => irc.leaveRoom(value)))
   ipcMain.handle('irc:query', (event, value: unknown) => action(event, () => irc.query(value)))
   ipcMain.handle('irc:chat', (event, value: unknown) => action(event, () => irc.chat(value)))
   ipcMain.handle('irc:open-message-link', async (event, value: unknown) => {
