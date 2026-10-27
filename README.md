@@ -4,6 +4,10 @@
 
 已有 0.4.0 IRC 登入、斷線恢復、多頻道／私訊、聊天與房間狀態同步版本，使用免費 HeroUI（無 Pro）。完整 MVP、OCLR API 與三平台驗收尚未完成。
 
+## 下載測試版
+
+Windows x64、Linux x64 與 macOS Apple Silicon 測試包已由 GitHub CI 產生，見 [三平台下載與驗證結果](docs/m1/ci-test-builds.md)。登入 GitHub 後下載，Artifacts 保留 30 天；過期可重新執行 workflow。
+
 ## 啟動初版
 
 需要 Node 24+：

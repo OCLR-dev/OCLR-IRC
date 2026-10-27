@@ -76,3 +76,5 @@ settings 收集在 `Players` 與所需 slot 數滿足時結束，8 秒逾時保�
 上述缺口保留為驗收工作，沒有用合成資料代替真實證據，也不將 M0／SPEC-01 的未凍結基線改成完成。全部 M1 驗收通過後，依既定規則建立 annotated `v<package version>` 並推送；本次 0.4.0 僅提交及推送程式／文件。
 
 2026-10-28 後續：使用者確認 Windows／Linux 均可測，由使用者操作回報。已提供 [跨平台打包與驗收清單](platform-acceptance.md)；尚未收到實測結果，以上狀態不變。
+
+2026-10-28 CI 增量：Windows Server 2022 x64、Ubuntu 22.04 x64、macOS 15 arm64 各自通過 26 項核心測試、合成 Electron smoke 及打包上傳；見 [下載與 CI 結果](ci-test-builds.md)。上述實機 IME／休眠／金鑰鏈及真實 Bancho 缺口仍保留。
