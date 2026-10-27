@@ -69,7 +69,7 @@ jobs:
         run: npm run test:ui
       - name: Desktop smoke (Linux virtual display)
         if: runner.os == 'Linux'
-        run: xvfb-run -a npm run test:ui
+        run: dbus-run-session -- xvfb-run -a -s "-screen 0 1280x1024x24" npm run test:ui
       - name: Package native test app
         run: npm run ${{ matrix.command }}
       - name: Archive and checksum

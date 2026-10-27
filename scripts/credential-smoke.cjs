@@ -5,6 +5,7 @@ const path = require('node:path')
 const net = require('node:net')
 const crypto = require('node:crypto')
 const assert = require('node:assert/strict')
+if (process.env.CI && process.platform === 'linux') app.disableHardwareAcceleration()
 app.setPath('userData', process.env.OCLR_QA_TEMP)
 const file = path.join(process.env.OCLR_QA_TEMP, 'irc-credentials.enc')
 let available = true, refuse = false, encryptionFails = false, holdDecrypt = false, releaseDecrypt
