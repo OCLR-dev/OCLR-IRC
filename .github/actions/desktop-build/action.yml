@@ -1,0 +1,89 @@
+name: Desktop build and QA
+description: Test, package, archive and verify a native desktop build
+inputs:
+  command:
+    required: true
+    description: Native npm packaging script
+  mac_signing_mode:
+    default: ad-hoc
+    description: ad-hoc or developer-id
+  certificate:
+    description: Base64 P12 from signing environment
+  certificate_password:
+    description: P12 password
+  api_private_key:
+    description: Team API private key PEM
+  api_key_id:
+    description: Team API key ID
+  api_issuer_id:
+    description: Team API issuer ID
+  team_id:
+    description: Expected Apple Team ID
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: '24'
+        cache: npm
+    - name: Install locked dependencies
+      shell: bash
+      run: npm ci
+    - name: Typecheck
+      shell: bash
+      run: npm run typecheck
+    - name: Core tests
+      shell: bash
+      run: npm test
+    - name: Desktop smoke (Windows/macOS)
+      if: runner.os != 'Linux'
+      shell: bash
+      run: npm run test:ui
+    - name: Desktop smoke (Linux virtual display)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: dbus-run-session -- xvfb-run -a -s "-screen 0 1280x1024x24" npm run test:ui
+    - name: Import Apple signing credentials
+      if: inputs.mac_signing_mode == 'developer-id'
+      shell: bash
+      env:
+        MAC_CERTIFICATE_P12_BASE64: ${{ inputs.certificate }}
+        MAC_CERTIFICATE_PASSWORD: ${{ inputs.certificate_password }}
+        APPLE_API_PRIVATE_KEY: ${{ inputs.api_private_key }}
+        APPLE_API_KEY_ID: ${{ inputs.api_key_id }}
+        APPLE_API_ISSUER_ID: ${{ inputs.api_issuer_id }}
+        MAC_TEAM_ID: ${{ inputs.team_id }}
+      run: node scripts/apple-ci-credentials.cjs setup
+    - name: Package native test app
+      env:
+        MAC_SIGNING_MODE: ${{ inputs.mac_signing_mode }}
+      shell: bash
+      run: npm run ${{ inputs.command }}
+    - name: Archive and checksum
+      id: archive
+      shell: bash
+      run: node scripts/archive-test-build.cjs
+    - name: Verify extracted macOS signature and packaged startup
+      if: runner.os == 'macOS'
+      shell: bash
+      run: node scripts/verify-mac-archive.cjs
+    - name: Upload downloadable test build
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: ${{ steps.archive.outputs.artifact_name }}
+        path: release/downloads/*
+        compression-level: 0
+        if-no-files-found: error
+        retention-days: 30
+    - name: Upload synthetic QA evidence
+      if: always()
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: qa-${{ runner.os }}-${{ github.sha }}
+        path: artifacts/
+        if-no-files-found: ignore
+        retention-days: 30
+    - name: Remove temporary Apple credentials
+      if: always() && inputs.mac_signing_mode == 'developer-id'
+      shell: bash
+      run: node scripts/apple-ci-credentials.cjs cleanup

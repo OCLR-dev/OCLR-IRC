@@ -1,0 +1,40 @@
+name: Signed macOS build
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signed-macos-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sign:
+    if: github.event_name != 'pull_request'
+    runs-on: macos-15
+    environment: macos-signing
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Require a trusted main or version tag ref
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" != refs/heads/main && "$GITHUB_REF" != refs/tags/v* ]]; then
+            echo 'Signing is only allowed from main or v* tags.' >&2
+            exit 1
+          fi
+      - uses: ./.github/actions/desktop-build
+        with:
+          command: package:mac
+          mac_signing_mode: developer-id
+          certificate: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
+          certificate_password: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          api_private_key: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+          api_key_id: ${{ secrets.APPLE_API_KEY_ID }}
+          api_issuer_id: ${{ secrets.APPLE_API_ISSUER_ID }}
+          team_id: ${{ vars.MAC_TEAM_ID }}

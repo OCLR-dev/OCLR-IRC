@@ -2,7 +2,16 @@ name: Desktop test builds
 
 on:
   workflow_call:
+    inputs:
+      sign_macos:
+        type: boolean
+        default: false
   workflow_dispatch:
+    inputs:
+      sign_macos:
+        description: Developer ID sign and notarize macOS using macos-signing environment
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths:
@@ -13,6 +22,8 @@ on:
       - 'electron.vite.config.ts'
       - 'tsconfig.json'
       - '.github/workflows/test-builds.yml'
+      - '.github/workflows/macos-signed.yml'
+      - '.github/actions/**'
   pull_request:
     paths:
       - 'src/**'
@@ -22,6 +33,8 @@ on:
       - 'electron.vite.config.ts'
       - 'tsconfig.json'
       - '.github/workflows/test-builds.yml'
+      - '.github/workflows/macos-signed.yml'
+      - '.github/actions/**'
 
 permissions:
   contents: read
@@ -36,62 +49,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: windows-2022
-            platform: windows
-            arch: x64
-            command: package:win
-          - os: ubuntu-22.04
-            platform: linux
-            arch: x64
-            command: package:linux
-          - os: macos-15
-            platform: macos
-            arch: arm64
-            command: package:mac
+        include: ${{ fromJSON(inputs.sign_macos && '[{"os":"windows-2022","platform":"windows","arch":"x64","command":"package:win"},{"os":"ubuntu-22.04","platform":"linux","arch":"x64","command":"package:linux"}]' || '[{"os":"windows-2022","platform":"windows","arch":"x64","command":"package:win"},{"os":"ubuntu-22.04","platform":"linux","arch":"x64","command":"package:linux"},{"os":"macos-15","platform":"macos","arch":"arm64","command":"package:mac"}]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: ./.github/actions/desktop-build
         with:
-          node-version: '24'
-          cache: npm
-      - name: Install locked dependencies
-        run: npm ci
-      - name: Typecheck
-        run: npm run typecheck
-      - name: Core tests
-        run: npm test
-      - name: Desktop smoke (Windows/macOS)
-        if: runner.os != 'Linux'
-        run: npm run test:ui
-      - name: Desktop smoke (Linux virtual display)
-        if: runner.os == 'Linux'
-        run: dbus-run-session -- xvfb-run -a -s "-screen 0 1280x1024x24" npm run test:ui
-      - name: Package native test app
-        run: npm run ${{ matrix.command }}
-      - name: Archive and checksum
-        id: archive
-        run: node scripts/archive-test-build.cjs
-      - name: Verify extracted macOS signature and packaged startup
-        if: runner.os == 'macOS'
-        run: node scripts/verify-mac-archive.cjs
-      - name: Upload downloadable test build
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: ${{ steps.archive.outputs.artifact_name }}
-          path: release/downloads/*
-          compression-level: 0
-          if-no-files-found: error
-          retention-days: 30
-      - name: Upload synthetic QA evidence
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: qa-${{ matrix.platform }}-${{ github.sha }}
-          path: artifacts/
-          if-no-files-found: ignore
-          retention-days: 30
+          command: ${{ matrix.command }}
+  signed-macos:
+    if: inputs.sign_macos
+    uses: ./.github/workflows/macos-signed.yml

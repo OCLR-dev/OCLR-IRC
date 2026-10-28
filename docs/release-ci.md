@@ -9,7 +9,7 @@
 - 手動正式執行必須選擇已存在的版本 tag，取消 dry_run；從 main 取消 dry_run 會被驗證拒絕。
 - Windows x64 ZIP、Linux x64 tar.gz、macOS arm64 ZIP、合併 SHA256SUMS.txt 及 build-info.json 成為 GitHub Release assets。直接從 Releases 下載，不受 Actions artifacts 的 30 天保留期限限制。
 
-現階段產物未作公開發行簽章／公證，因此流程統一發布為 **Pre-release、非 Latest**，即使 tag 沒有 `-rc` 後綴也不宣稱正式穩定版。Release 說明保留 Linux 憑證保存與 M1 實機驗收限制。
+日常測試包保留 ad-hoc 模式；版本 Release 現已要求 macOS Developer ID 簽章與 Apple 公證（見 [設定及驗證](apple-signing-ci.md)）。發行階段仍統一發布為 **Pre-release、非 Latest**，即使 tag 沒有 `-rc` 後綴也不宣稱正式穩定版。Release 說明保留 Linux 憑證保存與 M1 實機驗收限制。
 
 ## 發布保護
 
@@ -20,7 +20,7 @@
 5. 先建立 draft 並上傳全部 assets，成功後才公開為 Pre-release。既有同名 Release 不覆寫，不使用 `--clobber`。中途失敗可能留下 draft；檢查失敗原因後由維護者處理該 draft，再重跑，不能假報已公開完整版本。
 6. 相同 ref 的 Release runs 序列執行，不在上傳途中被新 run 自動取消。
 
-這份 CI 不代表 M1 已驗收，也不自行產生 milestone tag。既有「全部 milestone 驗收通過後自動 tag／push」規則保持；使用者本次新增 Release CI 的授權，使之在合法版本 tag 推送後自動產生 Pre-release。後續簽章、macOS 公證及正式 Latest 發行另行規劃。
+這份 CI 不代表 M1 已驗收，也不自行產生 milestone tag。既有「全部 milestone 驗收通過後自動 tag／push」規則保持；使用者本次新增 Release CI 的授權，使之在合法版本 tag 推送後自動產生 Pre-release。Apple 簽章／公證流程見上述設定文件；正式 Latest 發行仍另行規劃。
 
 ## 驗證紀錄
 
@@ -29,3 +29,5 @@
 沒有為測試而建立 tag 或 GitHub Release；實際寫入／公開 Release 的步驟尚未在遠端演練，會於下一個合法版本 tag 執行。既有 Desktop test builds 在同一來源提交亦成功。
 
 0.4.1 起 macOS 另外執行完整 ad-hoc 簽章、ZIP 解壓後 strict／deep 驗證與真正打包 App 啟動檢查；沒有 Developer ID／公證的限制仍保留。見 [修正說明](m1/macos-signing-fix.md)。
+
+2026-10-28 Apple CI 整合：Release 預設 sign_macos=true；dry-run 才能選擇略過正式簽章。正式發布缺少公證 macOS 成品時停止，Windows／Linux 仍為未簽章測試版。

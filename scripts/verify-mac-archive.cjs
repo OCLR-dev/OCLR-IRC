@@ -12,8 +12,16 @@ async function main() {
   let child, ws
   try {
     execFileSync('ditto', ['-x', '-k', path.resolve('release/downloads', files[0]), temp])
+    const metadata = JSON.parse(fs.readFileSync(path.join(temp, 'OCLR-ref-tools-darwin-arm64/build-info.json'), 'utf8'))
     const app = path.join(temp, 'OCLR-ref-tools-darwin-arm64/OCLR-ref-tools.app')
     execFileSync('codesign', ['--verify', '--deep', '--strict', '--verbose=2', app], { stdio: 'inherit' })
+    if (metadata.signed) {
+      execFileSync('xcrun', ['stapler', 'validate', app], { stdio: 'inherit' })
+      execFileSync('spctl', ['--assess', '--type', 'execute', '--verbose=4', app], { stdio: 'inherit' })
+      // Simulate a browser-quarantined copy without disabling Gatekeeper.
+      execFileSync('xattr', ['-w', 'com.apple.quarantine', '0083;00000000;OCLR-CI;', app])
+      execFileSync('spctl', ['--assess', '--type', 'execute', '--verbose=4', app], { stdio: 'inherit' })
+    }
     let endpoint, stderr = '', launchError
     child = spawn(path.join(app, 'Contents/MacOS/OCLR-ref-tools'), ['--remote-debugging-port=0', `--user-data-dir=${path.join(temp, 'profile')}`], { stdio: ['ignore', 'ignore', 'pipe'] })
     child.on('error', error => { launchError = error.message })
@@ -44,7 +52,7 @@ async function main() {
     }
     if (!passed) throw new Error('Packaged app did not reach a usable offline login screen')
     fs.mkdirSync('artifacts', { recursive: true })
-    fs.writeFileSync('artifacts/mac-archive-verification.json', JSON.stringify({ archive: files[0], platform: process.platform, arch: process.arch, recordedAt: new Date().toISOString(), passed: ['extracted archive strict deep code signature', 'actual packaged executable launched', 'sandboxed login screen and preload IPC usable', 'offline; no IRC credentials or operations'], signing: 'ad-hoc', notarized: false, limitation: 'Does not establish Gatekeeper approval for a browser-quarantined download or Developer ID identity.' }, null, 2) + '\n')
+    fs.writeFileSync('artifacts/mac-archive-verification.json', JSON.stringify({ archive: files[0], platform: process.platform, arch: process.arch, recordedAt: new Date().toISOString(), passed: ['extracted archive strict deep code signature', 'actual packaged executable launched', 'sandboxed login screen and preload IPC usable', 'offline; no IRC credentials or operations'], signing: metadata.codeSigning, notarized: metadata.notarized, limitation: metadata.notarized ? 'CI assessment includes stapled ticket and quarantined-copy Gatekeeper checks; user download/first-launch acceptance still required.' : 'Does not establish Gatekeeper approval for a browser-quarantined download or Developer ID identity.' }, null, 2) + '\n')
     console.log('Extracted macOS archive: signature and packaged login passed.')
   } finally {
     ws?.close()

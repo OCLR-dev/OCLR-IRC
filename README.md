@@ -22,7 +22,7 @@ npm start
 
 ## Release CI
 
-推送符合 package 版本的 `v*` tag，會經三平台測試、打包與校驗後自動發布 GitHub Pre-release；支援不發布的手動 dry-run。詳見 [Release CI 使用與限制](docs/release-ci.md)。
+推送符合 package 版本的 `v*` tag，會經三平台測試、打包與校驗後自動發布 GitHub Pre-release；支援不發布的手動 dry-run。macOS Release 包要求 Developer ID 簽章與 Apple 公證；詳見 [Release CI 使用與限制](docs/release-ci.md)及 [Apple 簽章設定](docs/apple-signing-ci.md)。
 
 ## 設計文件
 
