@@ -78,3 +78,5 @@ settings 收集在 `Players` 與所需 slot 數滿足時結束，8 秒逾時保�
 2026-10-28 後續：使用者確認 Windows／Linux 均可測，由使用者操作回報。已提供 [跨平台打包與驗收清單](platform-acceptance.md)；尚未收到實測結果，以上狀態不變。
 
 2026-10-28 CI 增量：Windows Server 2022 x64、Ubuntu 22.04 x64、macOS 15 arm64 各自通過 26 項核心測試、合成 Electron smoke 及打包上傳；見 [下載與 CI 結果](ci-test-builds.md)。上述實機 IME／休眠／金鑰鏈及真實 Bancho 缺口仍保留。
+
+2026-10-28 Apple CI：Developer ID／Hardened Runtime／公證／staple／Gatekeeper 與隔離副本啟動驗證已通過，見 [證據及下載](../apple-signing-ci.md)。此結果補足簽章發行流程的證據，不取代真實 IME、休眠、IRC 或金鑰鏈升版驗收。

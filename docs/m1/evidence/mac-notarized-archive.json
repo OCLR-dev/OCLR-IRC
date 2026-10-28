@@ -1,0 +1,15 @@
+{
+  "archive": "OCLR-ref-tools-0.4.1-macos-arm64-722fda5.zip",
+  "platform": "darwin",
+  "arch": "arm64",
+  "recordedAt": "2026-10-28T02:26:08.629Z",
+  "passed": [
+    "extracted archive strict deep code signature",
+    "actual packaged executable launched",
+    "sandboxed login screen and preload IPC usable",
+    "offline; no IRC credentials or operations"
+  ],
+  "signing": "developer-id",
+  "notarized": true,
+  "limitation": "CI assessment includes stapled ticket and quarantined-copy Gatekeeper checks; user download/first-launch acceptance still required."
+}

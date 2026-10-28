@@ -6,7 +6,7 @@
 
 ## 下載測試版
 
-macOS 請使用 [0.4.1 簽章修正版下載](docs/m1/macos-signing-fix.md)，替代有完整性簽章問題的舊 0.4.0。Windows／Linux 與舊版 CI 紀錄見 [三平台下載與驗證結果](docs/m1/ci-test-builds.md)。登入 GitHub 後下載，Artifacts 保留 30 天；過期可重新執行 workflow。
+macOS 請使用 [Developer ID 已簽章及 Apple 已公證的 0.4.1 測試版](docs/apple-signing-ci.md#實際驗證結果2026-10-28)。Windows／Linux 與舊版 CI 紀錄見 [三平台下載與驗證結果](docs/m1/ci-test-builds.md)。登入 GitHub 後下載，Artifacts 保留 30 天；過期可重新執行 workflow。
 
 ## 啟動初版
 

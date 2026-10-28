@@ -1,5 +1,7 @@
 # macOS「App 已損毀」：0.4.1 打包修正
 
+> 已追加 Developer ID 簽章與 Apple 公證，請優先使用 [已公證下載與結果](../apple-signing-ci.md#實際驗證結果2026-10-28)。本文保留前一階段 ad-hoc 修正紀錄。
+
 2026-10-28：使用者回報下載的 macOS 測試版顯示已損毀。在既有本機 0.4.0 打包產物執行 `codesign --verify --deep --strict`，重現 `code has no resources but signature indicates they must be present`。主 executable 只有 Electron/linker 的 ad-hoc 資訊，未形成有效的完整 App resource seal。另已下載先前提供的 CI 成品 `0.4.0-macos-arm64-1c0cc7f`，SHA-256 校驗通過，但解壓後重現相同簽章錯誤，確認並非下載內容與校驗碼不符。先前 CI 只測試開發 Electron 與打包程序成功，未驗證下載成品的簽章與啟動，這是驗收缺漏。
 
 ## 修正

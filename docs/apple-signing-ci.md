@@ -41,3 +41,17 @@ App Store Connect → 使用者與存取權限 → 整合 → App Store Connect 
 7. 成功或失敗均清理暫存 keychain／原始憑證、還原 keychain search list；不將 signing 目錄加入 artifacts。Runner 強制中止時仍依託 GitHub-hosted VM 的隔離與銷毀。
 
 Apple 公證可能排隊；簽章 job 上限為 90 分鐘，逾時不宣稱通過或上傳已公證成品。首次公證與瀏覽器實際下載／開啟仍需核對，不能只憑 secrets 存在或合成測試宣稱 Apple 已接受。
+
+## 實際驗證結果（2026-10-28）
+
+[Release dry-run 40620456501](https://github.com/OCLR-dev/OCLR-ref-tools/actions/runs/40620456501)，來源 `722fda57b86f451cd4569566d7ca2431e7f88b08`，整體 success：版本檢查、Windows／Linux、signed macOS、三平台成品彙整均成功；publish 正確 skipped，沒有建立 tag 或 GitHub Release。
+
+macOS 已完成 Developer ID 憑證與 Team API credentials 驗證、Hardened Runtime 簽章、Apple 公證與 staple。打包 App、ZIP 解壓 App、加上 quarantine 的解壓副本，其 Gatekeeper assess 均為 `accepted`，來源為 `Notarized Developer ID`。解壓後真正 executable 可進入離線登入畫面，暫存憑證 cleanup 成功。三平台各自通過 29 項核心／契約測試及合成 UI smoke。
+
+**[下載已簽章及公證的 macOS 0.4.1 arm64](https://github.com/OCLR-dev/OCLR-ref-tools/actions/runs/40620456501/artifacts/12787157011)**（約 132 MB）。登入 GitHub 後下載，先解開外層 ZIP，再解內層 ZIP。內附 SHA256SUMS.txt、build-info.json，標記 developer-id／signed／notarized。
+
+[QA artifact](https://github.com/OCLR-dev/OCLR-ref-tools/actions/runs/40620456501/artifacts/12787720693) 包含 mac-archive-verification.json。Actions 下載保留 30 天；未來合法版本 tag 發布後，GitHub Release assets 依 Release 流程保存。
+
+首次執行發現 reusable workflow 雖宣告 environment，仍需由呼叫端逐層傳遞具名 secrets；已依 [GitHub 官方說明](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows#using-inputs-and-secrets-in-a-reusable-workflow) 修正。失敗的第一次 run 未匯入私鑰，也未產生簽章成品；以上結果來自修正後的完整重跑。
+
+本次證據確立 CI 的簽章、公證、staple、Gatekeeper 與啟動檢查；使用者瀏覽器下載後的首次開啟、真實 IME／休眠／IRC 與其餘 M1 實機驗收仍依原清單進行。

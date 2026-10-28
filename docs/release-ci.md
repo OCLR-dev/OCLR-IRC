@@ -31,3 +31,5 @@
 0.4.1 起 macOS 另外執行完整 ad-hoc 簽章、ZIP 解壓後 strict／deep 驗證與真正打包 App 啟動檢查；沒有 Developer ID／公證的限制仍保留。見 [修正說明](m1/macos-signing-fix.md)。
 
 2026-10-28 Apple CI 整合：Release 預設 sign_macos=true；dry-run 才能選擇略過正式簽章。正式發布缺少公證 macOS 成品時停止，Windows／Linux 仍為未簽章測試版。
+
+Apple 正式簽章實測已於 [dry-run 40620456501](https://github.com/OCLR-dev/OCLR-ref-tools/actions/runs/40620456501) 通過，包含 notarized macOS 與三平台成品校驗；publish 仍為 skipped。完整證據及下載見 [Apple CI 紀錄](apple-signing-ci.md)。
