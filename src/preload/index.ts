@@ -1,7 +1,26 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { DesktopAPI, Snapshot } from '../shared/types.ts'
+import type { OclrSnapshot } from '../shared/oclr-contracts.ts'
 
 const api: DesktopAPI = {
+  website: {
+    snapshot: () => ipcRenderer.invoke('oclr:snapshot'),
+    login: () => ipcRenderer.invoke('oclr:login'),
+    cancelLogin: () => ipcRenderer.invoke('oclr:cancel-login'),
+    logout: () => ipcRenderer.invoke('oclr:logout'),
+    refreshFixtures: () => ipcRenderer.invoke('oclr:fixtures'),
+    loadMoreFixtures: () => ipcRenderer.invoke('oclr:more-fixtures'),
+    selectFixture: input => ipcRenderer.invoke('oclr:select-fixture', input),
+    refreshPanel: () => ipcRenderer.invoke('oclr:panel'),
+    selectMap: input => ipcRenderer.invoke('oclr:select-map', input),
+    copyCommand: input => ipcRenderer.invoke('oclr:copy-command', input),
+    openReview: input => ipcRenderer.invoke('oclr:open-review', input),
+    onState: listener => {
+      const handler = (_event: Electron.IpcRendererEvent, state: OclrSnapshot) => listener(state)
+      ipcRenderer.on('oclr:state', handler)
+      return () => ipcRenderer.removeListener('oclr:state', handler)
+    }
+  },
   snapshot: () => ipcRenderer.invoke('irc:snapshot'),
   login: input => ipcRenderer.invoke('irc:login', input),
   credentialStatus: () => ipcRenderer.invoke('irc:credential-status'),

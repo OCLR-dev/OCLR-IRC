@@ -5,6 +5,7 @@ import type { DesktopAPI, Snapshot } from '../../shared/types'
 import './styles.css'
 import { Composer, MessageList } from './conversation'
 import { CreateRoom } from './create-room'
+import { OclrView } from './oclr'
 
 declare global { interface Window { oclr?: DesktopAPI } }
 const initial: Snapshot = { creation: { status: 'unreviewed', requestId: '', roomId: null, message: null }, retryAttempt: 0, retryAt: null, connection: 'offline', username: '', room: null, pending: null, error: null, messages: [], rooms: [], leavingChannels: [], messageStartIndex: 1 }
@@ -23,7 +24,7 @@ function Icon({ name }: { name: 'connect' | 'room' | 'arrow' | 'logout' | 'key' 
 
 function App() {
   const [state, setState] = useState(initial)
-  const [page, setPage] = useState<'account' | 'room'>('account')
+  const [page, setPage] = useState<'account' | 'room' | 'oclr'>('account')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -46,7 +47,7 @@ function App() {
     void window.oclr.snapshot().then(next => { if (!eventArrived) setState(next) })
     return off
   }, [])
-  useEffect(() => { if (online) { setPage('room'); setFormError(null) } }, [online])
+  useEffect(() => { if (online) { setPage(current => current === 'account' ? 'room' : current); setFormError(null) } }, [online])
 
   async function login(event: React.FormEvent) {
     event.preventDefault()
@@ -88,15 +89,16 @@ function App() {
       <nav aria-label="主要導覽">
         <button className={page === 'account' ? 'nav-item selected' : 'nav-item'} onClick={() => setPage('account')}><Icon name="connect" />帳號連線<span className={`tiny-dot ${online ? 'active' : ''}`} /></button>
         <button className={page === 'room' ? 'nav-item selected' : 'nav-item'} disabled={!online && !state.rooms.length} onClick={() => setPage('room')}><Icon name="room" />房間記錄</button>
+        <button className={page === 'oclr' ? 'nav-item selected' : 'nav-item'} onClick={() => setPage('oclr')}><Icon name="connect" />OCLR 場次</button>
       </nav>
       <div className="sidebar-note"><span className="small-label">初版預覽</span><p>建立或加入比賽房間，<br />聊天、同步設定與裁判資訊。</p></div>
       <div className="sidebar-footer"><span className={`status-dot ${online ? 'online' : connecting ? 'connecting' : ''}`} /><div><strong>{online ? state.username : 'osu! IRC'}</strong><span>{statusText[state.connection]}</span></div>{state.username && <Button isIconOnly variant="ghost" aria-label="登出 IRC" onPress={() => void logout()}><Icon name="logout" /></Button>}</div>
     </aside>
     <div className="workspace">
-      <header className="topbar"><div><span>工作台</span><span className="breadcrumb-slash">/</span><strong>{page === 'account' ? '帳號連線' : '房間記錄'}</strong></div><span className="version">v0.5.0 <span>PREVIEW</span></span></header>
+      <header className="topbar"><div><span>工作台</span><span className="breadcrumb-slash">/</span><strong>{page === 'account' ? '帳號連線' : page === 'oclr' ? 'OCLR 場次' : '房間記錄'}</strong></div><span className="version">v0.6.0 <span>PREVIEW</span></span></header>
       {state.connection !== 'online' && state.username && <div className="reconnect-notice" role="status">{statusText[state.connection]}{state.retryAttempt > 0 && ` · 第 ${state.retryAttempt}/5 次重試`}{state.retryAt && ` · ${new Date(state.retryAt).toLocaleTimeString()} 重試`}。操作不會自動重送。{state.connection === 'error' && <Button size="sm" variant="ghost" onPress={() => { void window.oclr?.retry().then(result => { if (!result.ok) setFormError(result.error || '重試失敗') }).catch(() => setFormError('桌面服務無法回應。')) }}>重新連線</Button>}<Button size="sm" variant="ghost" onPress={() => void logout()}>停止並登出</Button></div>}
       <main>
-        {page === 'account' ? <div className="account-view enter">
+        {page === 'oclr' ? <OclrView /> : page === 'account' ? <div className="account-view enter">
           <section className="login-section">
             <div className="section-kicker">ACCOUNT CONNECTION</div>
             <h1>{online ? 'IRC 已連線' : '連接 osu! IRC'}</h1>
@@ -145,7 +147,7 @@ function App() {
           </section><aside className="room-inspector"><span className="small-label">{state.room?.kind === 'match' ? '房間資訊' : '對話資訊'}</span>{state.room && state.room.kind !== 'match' ? <dl><div><dt>對話類型</dt><dd>{state.room.kind === 'private' ? '私訊' : 'IRC 頻道'}</dd></div><div><dt>對象</dt><dd>{state.room.channel}</dd></div>{state.room.kind === 'channel' && <div><dt>觀測頻道成員</dt><dd>{state.room.members.length}</dd></div>}</dl> : <dl>{state.room?.kind === 'match' && <div><dt>狀態快照</dt><dd>{({ unknown: '尚未同步', loading: '同步中', partial: '部分資料', complete: '完整觀測', stale: '已過期，請重查' })[state.room.syncState]}</dd></div>}<div><dt>MP 編號</dt><dd className="mono">{state.room?.kind === 'match' ? state.room.id : '—'}</dd></div><div><dt>房間核對</dt><dd className={state.room?.binding === 'verified' ? 'accent-text' : ''}>{state.room?.binding === 'verified' ? 'History 連結相符' : state.room?.binding === 'mismatch' ? '連結不符' : '尚未核對'}</dd></div><div><dt>裁判身分</dt><dd className={state.room?.referee === 'listed' ? 'accent-text' : ''}>{state.room?.referee === 'listed' ? '已列於裁判名單' : '尚未核對'}</dd></div><div><dt>比賽模式</dt><dd>{state.room?.mode || '—'}</dd></div><div><dt>房內玩家</dt><dd>{state.room?.players ?? '—'}</dd></div></dl>}{state.room?.kind === 'match' && <><dl><div><dt>觀測時間</dt><dd>{state.room.observedAt ? new Date(state.room.observedAt).toLocaleTimeString() : '—'}</dd></div><div><dt>目前地圖</dt><dd>{state.room.beatmap ? `${state.room.beatmap.id} · ${state.room.beatmap.title}` : '未知'}</dd></div><div><dt>Mods</dt><dd>{state.room.mods === null ? '未知' : state.room.mods.join(', ') || 'None'}</dd></div><div><dt>比賽階段</dt><dd>{({ unknown: '未知', idle: '未進行', playing: '進行中' })[state.room.phase]}</dd></div></dl><ul className="slot-list">{state.room.slots.map(slot => <li key={slot.slot}>{slot.slot}. {slot.username} · {slot.status} {slot.team || ''}{slot.host ? ' · Host' : ''}</li>)}</ul></>}<p className="inspector-note">{state.room?.kind === 'private' ? '私訊分頁不代表對方在線；BanchoBot 私訊僅供讀取。' : '加入頻道不代表擁有裁判權限；成員名單僅供名稱補完。'}</p></aside></div>
         </div>}
       </main>
-      <footer className="app-footer"><span><span className={`tiny-dot ${online ? 'active' : ''}`} />{statusText[state.connection]}</span><span>聊天記錄僅在記憶體 · 本機保存最小開房記錄 · OCLR 連結尚未開放</span></footer>
+      <footer className="app-footer"><span><span className={`tiny-dot ${online ? 'active' : ''}`} />IRC {statusText[state.connection]}</span><span>聊天僅在記憶體 · 本機保存最小開房記錄 · OCLR 私人資料不落盤</span></footer>
     </div>
   </div>
 }

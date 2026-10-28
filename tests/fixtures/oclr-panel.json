@@ -1,0 +1,143 @@
+{
+  "data": {
+    "viewer": {
+      "osuId": 900000001,
+      "username": "Synthetic Referee"
+    },
+    "edition": {
+      "slug": "synthetic-oclr",
+      "name": "Synthetic OCLR"
+    },
+    "capturedAt": "2026-10-28T08:00:00.000Z",
+    "freshUntil": "2026-10-28T08:00:30.000Z",
+    "workspace": {
+      "fixture": {
+        "id": "00000000-0000-4000-8000-000000000101",
+        "label": "Team A vs Team B",
+        "roundId": "00000000-0000-4000-8000-000000000102",
+        "status": "scheduled",
+        "homeTeamId": "00000000-0000-4000-8000-000000000201",
+        "awayTeamId": "00000000-0000-4000-8000-000000000202",
+        "version": 1
+      },
+      "round": {
+        "id": "00000000-0000-4000-8000-000000000102",
+        "name": "Synthetic round"
+      },
+      "teams": [
+        {
+          "id": "00000000-0000-4000-8000-000000000201",
+          "name": "Team A",
+          "captainId": 900000011,
+          "captainUsername": "Player A",
+          "members": [
+            {
+              "osuId": 900000011,
+              "username": "Player A"
+            }
+          ]
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000202",
+          "name": "Team B",
+          "captainId": 900000021,
+          "captainUsername": "Player B",
+          "members": [
+            {
+              "osuId": 900000021,
+              "username": "Player B"
+            }
+          ]
+        }
+      ],
+      "defaultSettings": {
+        "roomName": "OCLR: (Team A) vs (Team B)",
+        "streamerUsername": "Synthetic Streamer",
+        "timerSeconds": 60,
+        "startSeconds": 10,
+        "roomSize": 2
+      },
+      "maps": [
+        {
+          "id": "00000000-0000-4000-8000-000000000301",
+          "beatmapId": 900000101,
+          "category": "HD",
+          "position": 1,
+          "metadata": {
+            "title": "Synthetic song <img src=x>",
+            "artist": "Synthetic artist",
+            "difficulty": "Synthetic difficulty",
+            "stars": 5.2,
+            "duration": 180
+          }
+        }
+      ],
+      "rules": {
+        "version": "rules:1",
+        "mode": "osu",
+        "teamType": "head-to-head",
+        "scoringType": "scorev2",
+        "aggregation": "sum",
+        "playersPerTeam": 1,
+        "series": {
+          "type": "first_to",
+          "wins": 1
+        },
+        "allowSubstitutions": false,
+        "allowShortHanded": false,
+        "failedScorePolicy": "include",
+        "tiedMapPolicy": "require_replay"
+      },
+      "series": {
+        "type": "first_to",
+        "wins": 1
+      },
+      "policy": {
+        "steps": [
+          {
+            "kind": "pick",
+            "actor": "firstPick",
+            "categories": [
+              "HD"
+            ],
+            "entryIds": [],
+            "avoidRepeatCategory": false,
+            "tiedAt": null
+          }
+        ],
+        "maxReplaysPerMap": 2,
+        "commands": {
+          "roomSize": 2,
+          "noFail": true,
+          "categoryMods": {
+            "HD": {
+              "mods": [
+                "HD"
+              ],
+              "freemod": false
+            }
+          },
+          "banSeconds": 30,
+          "pickSeconds": 60,
+          "prepareSeconds": 60,
+          "startSeconds": 10
+        }
+      },
+      "policyRevision": 1,
+      "session": null,
+      "events": [],
+      "projection": {},
+      "dependencyFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "readiness": [],
+      "canRecord": true,
+      "canConfigure": true
+    }
+  },
+  "meta": {
+    "apiVersion": "1",
+    "contractVersion": "1.1.0",
+    "requestId": "00000000-0000-4000-8000-000000000999",
+    "serverTime": "2026-10-28T08:00:00.000Z",
+    "pollAfterSeconds": 15
+  }
+}

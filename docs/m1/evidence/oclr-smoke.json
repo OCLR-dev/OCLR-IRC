@@ -1,0 +1,56 @@
+{
+  "evidence": "synthetic-oclr-desktop-integration",
+  "source": "OCLR-website PR409@1abbab1ddd981025249af727d748e70e23b9096b",
+  "platform": "darwin",
+  "arch": "arm64",
+  "electron": "45.0.0",
+  "recordedAt": "2026-10-28T14:19:41.462Z",
+  "passed": [
+    "undeployed HTML endpoint fails closed without opening browser",
+    "browser authorization comparison code",
+    "real one-shot 127.0.0.1 callback and S256 exchange",
+    "assigned fixtures and native preparation panel",
+    "Main-only constrained clipboard copy",
+    "pool preview uses shared website Mods builder",
+    "remote metadata renders as escaped text",
+    "900x640 has no horizontal overflow",
+    "review URL opens fixed OCLR origin",
+    "renderer reload preserves Main session",
+    "no tokens/state/unexpected response fields in renderer snapshot",
+    "stale panel disables copying",
+    "logout clears OCLR data while IRC remains connected",
+    "no referee business writes or IRC commands sent",
+    "no renderer console errors"
+  ],
+  "limitation": "OCLR HTTPS API, browser approval, identities and IRC are synthetic. No real website authorization/deployment, production data, live IRC command or true IME acceptance.",
+  "requests": [
+    {
+      "path": "/api/desktop/v1/auth/requests",
+      "method": "POST"
+    },
+    {
+      "path": "/api/desktop/v1/auth/requests",
+      "method": "POST"
+    },
+    {
+      "path": "/api/desktop/v1/auth/exchange",
+      "method": "POST"
+    },
+    {
+      "path": "/api/referee/v1/me/fixtures",
+      "method": "GET"
+    },
+    {
+      "path": "/api/referee/v1/fixtures/00000000-0000-4000-8000-000000000101/panel",
+      "method": "GET"
+    },
+    {
+      "path": "/api/referee/v1/fixtures/00000000-0000-4000-8000-000000000101/panel",
+      "method": "GET"
+    },
+    {
+      "path": "/api/desktop/v1/auth/revoke",
+      "method": "POST"
+    }
+  ]
+}

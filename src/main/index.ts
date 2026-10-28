@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, powerMonitor, safeStorage } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, powerMonitor, safeStorage, clipboard } from 'electron'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { IrcSession } from './irc.ts'
@@ -6,8 +6,11 @@ import { CredentialStore } from './credential-store.ts'
 import { credentials } from './protocol.ts'
 import { messageLink } from './links.ts'
 import { SqliteCreationStore } from './creation-store.ts'
+import { OclrSession } from './oclr.ts'
+import { publicOclrError } from './oclr-http.ts'
 
 const irc = new IrcSession()
+const oclr = new OclrSession({ version: app.getVersion(), platform: process.platform, openExternal: url => shell.openExternal(url), writeClipboard: text => clipboard.writeText(text) })
 let loginGeneration = 0
 let pendingSave: { username: string; password: string } | null = null
 let credentialError: string | null = null
@@ -34,6 +37,22 @@ app.whenReady().then(() => {
     decrypt: value => safeStorage.decryptStringAsync(value)
   })
   function changed() { if (window && !window.isDestroyed()) window.webContents.send('irc:state', snapshot()) }
+  oclr.on('state', state => { if (window && !window.isDestroyed()) window.webContents.send('oclr:state', state) })
+  async function websiteAction(event: Electron.IpcMainInvokeEvent, fn: () => unknown) {
+    trusted(event)
+    try { await fn(); return { ok: true } } catch (error) { return { ok: false, error: publicOclrError(error) } }
+  }
+  ipcMain.handle('oclr:snapshot', event => { trusted(event); return oclr.state })
+  ipcMain.handle('oclr:login', event => websiteAction(event, () => oclr.login()))
+  ipcMain.handle('oclr:cancel-login', event => websiteAction(event, () => oclr.cancelLogin()))
+  ipcMain.handle('oclr:logout', event => websiteAction(event, () => oclr.logout()))
+  ipcMain.handle('oclr:fixtures', event => websiteAction(event, () => oclr.loadFixtures()))
+  ipcMain.handle('oclr:more-fixtures', event => websiteAction(event, () => oclr.loadFixtures(true)))
+  ipcMain.handle('oclr:select-fixture', (event, id: unknown) => websiteAction(event, () => oclr.selectFixture(id)))
+  ipcMain.handle('oclr:panel', event => websiteAction(event, () => oclr.readPanel()))
+  ipcMain.handle('oclr:select-map', (event, id: unknown) => websiteAction(event, () => oclr.selectMap(id)))
+  ipcMain.handle('oclr:copy-command', (event, input: unknown) => websiteAction(event, () => oclr.copyCommand(input)))
+  ipcMain.handle('oclr:open-review', (event, id: unknown) => websiteAction(event, () => oclr.openReview(id)))
   irc.on('authenticated', () => {
     const generation = loginGeneration
     const value = pendingSave; pendingSave = null
@@ -75,6 +94,7 @@ app.whenReady().then(() => {
   })
   ipcMain.handle('irc:logout', event => { trusted(event); logout() })
   powerMonitor.on('suspend', () => irc.suspend())
+  powerMonitor.on('suspend', () => oclr.suspend())
   powerMonitor.on('resume', () => irc.resume())
   ipcMain.handle('irc:retry', event => action(event, () => irc.retry()))
   ipcMain.handle('irc:open-conversation', (event, value: unknown) => action(event, () => irc.openConversation(value)))
@@ -108,12 +128,14 @@ app.whenReady().then(() => {
     window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
     window.webContents.on('will-navigate', (event, url) => { if (url !== (devURL || productionURL)) event.preventDefault() })
     window.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false))
-    window.on('closed', () => { window = null; logout() })
+    window.on('focus', () => oclr.setForeground(true))
+    window.on('blur', () => oclr.setForeground(false))
+    window.on('closed', () => { window = null; logout(); oclr.dispose() })
     if (devURL) void window.loadURL(devURL)
     else void window.loadFile(join(__dirname, '../renderer/index.html'))
   }
   create()
   app.on('activate', () => { if (!window) create() })
 })
-app.on('before-quit', () => logout())
+app.on('before-quit', () => { logout(); oclr.dispose() })
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })

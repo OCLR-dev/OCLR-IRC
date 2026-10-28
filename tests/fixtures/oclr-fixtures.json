@@ -1,0 +1,95 @@
+{
+  "data": {
+    "items": [
+      {
+        "fixtureId": "00000000-0000-4000-8000-000000000101",
+        "fixtureRevision": "fixture:1",
+        "edition": {
+          "slug": "synthetic-oclr",
+          "name": "Synthetic OCLR"
+        },
+        "round": {
+          "id": "00000000-0000-4000-8000-000000000102",
+          "name": "Synthetic round"
+        },
+        "label": "Team A vs Team B",
+        "scheduledAt": "2026-10-28T09:00:00.000Z",
+        "timeZone": "Asia/Taipei",
+        "status": "scheduled",
+        "resultReviewState": null,
+        "operational": true,
+        "teams": [
+          {
+            "slot": "home",
+            "resolution": "resolved",
+            "team": {
+              "id": "00000000-0000-4000-8000-000000000201",
+              "name": "Team A"
+            },
+            "sourceLabel": null
+          },
+          {
+            "slot": "away",
+            "resolution": "resolved",
+            "team": {
+              "id": "00000000-0000-4000-8000-000000000202",
+              "name": "Team B"
+            },
+            "sourceLabel": null
+          }
+        ],
+        "streamingState": "unavailable",
+        "reviewUrl": "https://oclr.org/admin/tournaments/synthetic-oclr/matches/00000000-0000-4000-8000-000000000101"
+      },
+      {
+        "fixtureId": "00000000-0000-4000-8000-000000000103",
+        "fixtureRevision": "fixture:1",
+        "edition": {
+          "slug": "synthetic-oclr",
+          "name": "Synthetic OCLR"
+        },
+        "round": {
+          "id": "00000000-0000-4000-8000-000000000102",
+          "name": "Synthetic round"
+        },
+        "label": "Synthetic second fixture",
+        "scheduledAt": "2026-10-28T09:00:00.000Z",
+        "timeZone": "Asia/Taipei",
+        "status": "scheduled",
+        "resultReviewState": null,
+        "operational": true,
+        "teams": [
+          {
+            "slot": "home",
+            "resolution": "resolved",
+            "team": {
+              "id": "00000000-0000-4000-8000-000000000201",
+              "name": "Team A"
+            },
+            "sourceLabel": null
+          },
+          {
+            "slot": "away",
+            "resolution": "resolved",
+            "team": {
+              "id": "00000000-0000-4000-8000-000000000202",
+              "name": "Team B"
+            },
+            "sourceLabel": null
+          }
+        ],
+        "streamingState": "unavailable",
+        "reviewUrl": "https://oclr.org/admin/tournaments/synthetic-oclr/matches/00000000-0000-4000-8000-000000000103"
+      }
+    ],
+    "collectionRevision": "collection:1",
+    "nextCursor": null
+  },
+  "meta": {
+    "apiVersion": "1",
+    "contractVersion": "1.1.0",
+    "requestId": "00000000-0000-4000-8000-000000000999",
+    "serverTime": "2026-10-28T08:00:00.000Z",
+    "pollAfterSeconds": 15
+  }
+}

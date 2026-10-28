@@ -101,3 +101,9 @@ React 19.3.1、HeroUI／styles 3.2.6、Tailwind 4.3.3、electron-vite 6.0.0；�
 使用者追加要求「增加新建比賽房間的按鈕」，0.5.0 交付有限手動 `!mp make` 流程：明確確認另開意圖、送前 SQLite 最小 pending 記錄、同連線單次操作、共享節流、可信 BanchoBot 私訊及精確名稱匹配，取得真實 ID 後 JOIN／settings／listrefs。逾時／斷線／重啟不重送，未知結果先人工核對；本機資料缺失也不取消登入後的人工確認。
 
 本次 SQLite 記錄為安裝範圍的手動模式 metadata，無帳號 UID／fixture 綁定，不儲存房名、指令或聊天；不宣稱已完成正式 LOG-01 的分帳號 journal 或加密日誌。完整 CORE／LOBBY 與 OCLR gate 不變。回覆 grammar 參考公開實作並以合成資料驗證，**尚無真實 make 樣本**，G01 保持未完成。範圍、恢復語意及後續 migration 見 [手動開房交付](../m1/create-match-room.md)。
+
+### PR #409 只讀接入增量（2026-10-28）
+
+依使用者追加要求，0.6.0 完成桌面側授權／HTTP／原生只讀面板 adapter，網站 API 由另一邊開發，未修改網站專案。以 PR head `1abbab1ddd981025249af727d748e70e23b9096b` 的數字 revision、dependencyFingerprint、saved workspace 及共用 builder／事件投影為依據，另提出 panel 1.1.0 wrapper。它不是既有完整操作 context，不提供 OCLR 衍生執行或業務寫入。
+
+AUTH-03／INT-01／INT-02 僅桌面功能部分完成；真實 OAuth、正式 HTTPS、網站 session／schema、本人指派後端與撤權聯調缺口 G05 仍未解除。新增只讀 panel scope 需網站端明確同意，舊兩 scope client 不擴權。詳細 wire shape／生成 JSON Schema／合成樣本見 [PR409 交接](../contracts/pr409-desktop-read.md)。M0 及正式 API 仍未聯合凍結。

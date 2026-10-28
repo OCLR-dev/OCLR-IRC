@@ -5,6 +5,8 @@
 - 使用者代理：OCLR-ref-tools 桌面 Main process 與系統瀏覽器
 - HTTPS 基底：`https://oclr.org`；桌面 API 前綴：`/api/desktop/v1`
 
+2026-10-28 實作增量：桌面 0.6.0 已依本文完成客戶端層，但網站端仍未提供／聯調。為 PR #409 面板讀取，0.6.0 另明確請求 `referee:panel:read`，三 scope 均須授權；舊兩 scope 契約保持原樣，refresh 不擴權。新增 scope 與 1.1.0 候選回應 header／schema、實作的保守休眠重新授權行為見 [PR409 交接契約](pr409-desktop-read.md)。以下 1.0.0 範例仍是原草案，不代表已部署。
+
 ## 1. 目的及既有系統邊界
 
 沿用 OCLR 既有 osu! OAuth `identify` 登入，新增第一方桌面授權交換。osu! client_secret、上游 code 與上游 token 均留在 OCLR 後端。App 收到的是 OCLR 桌面憑證，不能用於 osu! IRC 或直接呼叫 osu! API。

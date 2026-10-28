@@ -60,7 +60,7 @@ async function main() {
   await until(() => BrowserWindow.getAllWindows().length > 0)
   const window = BrowserWindow.getAllWindows()[0]
   await until(() => !window.webContents.isLoading())
-  const js = code => window.webContents.executeJavaScript(code)
+  const js = code => window.webContents.executeJavaScript(code).catch(error => { throw new Error(`Synthetic UI evaluation failed: ${code.slice(0, 200)}; ${error.message}; console: ${errors.join(' | ')}`) })
   await until(() => js('Boolean(document.querySelector("input[name=username]"))'))
   assert.equal(await js('typeof window.oclr.login'), 'function')
   assert.equal(await js('typeof window.require'), 'undefined')

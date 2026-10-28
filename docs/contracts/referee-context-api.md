@@ -5,6 +5,8 @@
 - 基底：`https://oclr.org/api/referee/v1`
 - 認證：[OCLR 桌面授權](desktop-authorization.md)發行的 Bearer access token
 
+2026-10-28：0.6.0 桌面新增 `/me/fixtures` 與 PR #409 的只讀 `/fixtures/{id}/panel` 候選 adapter，網站 API 另行開發。本文完整 `/context`、allowedIntents 及操作 gate 尚未實作／聯合凍結，panel 不替代它們。數字 workspace revision／dependencyFingerprint 的 wire mapping 及 JSON Schema 見 [PR409 交接契約](pr409-desktop-read.md)。
+
 ## 1. 資料範圍與相容性
 
 此 API 提供「本人被指派場次」與「單場操作快照」。沿用 OCLR 既有正式隊伍、場次、圖池、裁判指派、直播與賽果來源，以服務層共用授權與查詢邏輯。不得從前端頁面抓取私人資料，也不讓桌面直接存取資料庫。

@@ -1,9 +1,9 @@
 # OCLR 裁判面板與 OCLR-ref-tools 整合設計
 
-- 文件 ID：`oclr-referee-panel-integration`；文件版本：0.1.0；日期：2026-10-27（Asia/Taipei）。
-- 狀態：跨專案設計草案；記錄方案不等於 API 已實作、已部署或新 scope／MVP 範圍已確認。
-- 同步位置：OCLR-ref-tools 與 OCLR-website 各自的 `docs/referee-panel-integration.md`；兩份正文保持一致，修訂時同步版本與內容。
-- 範圍：資料契約、權責、桌面操作與分期交付。本文件不新增程式、migration、真實授權、issue 認領或部署。
+- 文件 ID：`oclr-referee-panel-integration`；文件版本：0.2.0；日期：2026-10-28（Asia/Taipei）。
+- 狀態：桌面 0.6.0 已實作只讀接入層及合成驗證；正式 API／部署／聯合凍結仍待網站端。
+- 同步位置：兩專案原有同名 0.1.0 草案。本次使用者明確限定只修改桌面，**未同步網站專案**；網站開發者以 [PR409 交接契約](contracts/pr409-desktop-read.md)與生成 schema 對齊。
+- 範圍：資料契約、權責、桌面操作與分期交付；不授權 migration、真實授權、合併 PR 或部署。
 
 ## 1. 依據與目前狀態
 
@@ -15,7 +15,9 @@
 - [賽前命令列](https://github.com/OCLR-dev/OCLR-website/issues/314#issuecomment-6438575657)：五條緊湊命令、逐條複製及複製狀態；內容改變後重設，複製不產生業務寫入。
 - [可配置重賽上限](https://github.com/OCLR-dev/OCLR-website/issues/316#issuecomment-6438077639)：本地預覽值不是全站預設；同理 BO9、3v3、圖池與先後手示例均不能當正式規則。
 
-桌面已確認沿用 Electron、TypeScript／Node.js 核心、React 與免費 HeroUI，不遷移 Go。OCLR 伺服器以既有 Node.js／Next.js／TypeScript／PostgreSQL／Drizzle 實作。桌面目前 0.2.0 是 IRC 聊天與唯讀查詢增量，尚未完成 OCLR 授權、操作佇列與面板接入。
+桌面已確認沿用 Electron、TypeScript／Node.js 核心、React 與免費 HeroUI，不遷移 Go。OCLR 伺服器以既有 Node.js／Next.js／TypeScript／PostgreSQL／Drizzle 實作。桌面目前 0.6.0 已有手動開房、重連、狀態同步及 OCLR 只讀接入層；尚未完成正式授權聯調、完整操作佇列或 OCLR 衍生執行。
+
+[網站 PR #409](https://github.com/OCLR-dev/OCLR-website/pull/409) 在查閱時為 draft，固定 head `1abbab1ddd981025249af727d748e70e23b9096b` 已有 cookie 認證的 saved workspace 與共用 builder／事件投影，但 IRC 仍是 mock，沒有桌面 Bearer 端點。0.6.0 固定重用其純模組，網站端 API 由另一邊開發，不能把客戶端合成驗證稱作正式連線。
 
 既有桌面基線：[授權草案](https://github.com/OCLR-dev/OCLR-ref-tools/blob/main/docs/contracts/desktop-authorization.md)、[context 草案](https://github.com/OCLR-dev/OCLR-ref-tools/blob/main/docs/contracts/referee-context-api.md)、[MVP 任務](https://github.com/OCLR-dev/OCLR-ref-tools/blob/main/docs/mvp-plan.md)。它們尚未正式發布；本文件提出增量，不默默改寫既有只讀 scope、D03 本人指派或 D07 單一主控決策。
 
@@ -77,12 +79,12 @@ flowchart LR
 
 ## 5. HTTP 通用契約與端點
 
-沿用 `https://oclr.org/api/desktop/v1` 授權基底及 `https://oclr.org/api/referee/v1` 業務基底。下表路徑均相對後者，全部是待對齊網站服務的提案。
+沿用 `https://oclr.org/api/desktop/v1` 授權基底及 `https://oclr.org/api/referee/v1` 業務基底。下表路徑均相對後者。`/me/fixtures`／`/panel` 已有桌面 adapter，網站實作仍待接入；寫入／歷史／reconciliation 仍僅提案。
 
 | 方法／路徑 | 功能 | 必要 scope |
 | --- | --- | --- |
 | `GET /me/fixtures` | 本人場次與面板摘要／入口 | fixtures:read |
-| `GET /fixtures/{id}/panel` | 原子 context＋面板快照 | context:read、panel:read |
+| `GET /fixtures/{id}/panel` | 1.1.0 候選原子 viewer＋edition＋saved workspace；不替代完整 context | context:read、panel:read |
 | `GET /fixtures/{id}/panel/events` | 執裁歷史分頁 | panel:read |
 | `PATCH /fixtures/{id}/panel/settings` | 本場房名、計時等可調整欄位 | panel:write |
 | `PUT /fixtures/{id}/panel/order` | 獨立先 Ban／先 Pick | panel:write |
@@ -103,7 +105,13 @@ flowchart LR
 
 ## 6. 面板一致快照
 
-`GET /fixtures/{id}/panel` 不接受 query。回傳同一一致性邊界內的 `context` 及以下面板資料，桌面不與另一輪舊／新 `/context` 拼接。
+0.6.0 的 `GET /fixtures/{id}/panel` 不接受 query；回傳同一授權／一致性邊界內的 `{ viewer, edition, capturedAt, freshUntil, workspace }`。workspace 保留 PR #409 的數字 revision、dependencyFingerprint、rules、policy、settings、maps、events 與保存資料。完整 wire shape、schema 與範例見 [PR409 交接](contracts/pr409-desktop-read.md)。與更早尚未發布的「完整 context＋面板」提案區別如下：
+
+- 本次只讀 wrapper 不含 allowedIntents、requiredLocalChecks、完整直播投影或 room binding，不能用於放行 OCLR 衍生 IRC 動作。
+- 指令預覽在 Main 以 pinned 網站 builder 產生，不直接接受 API raw command；暫記比分使用同一網站 projection 對保存事件計算。
+- 未來完整操作 context、寫入與 receipt 需另行聯合定版；不將下表未實作欄位假裝成 0.6.0 的 wire shape。
+
+下表保留**後續完整面板的設計目標**，不代表首輪只讀 DTO 已提供：
 
 | 欄位 | 語意 |
 | --- | --- |
@@ -212,7 +220,7 @@ ledger 或來源變動即使舊確認失效，不能默默覆蓋另一方。技�
 
 ## 10. 同步、錯誤與本機資料
 
-前景 15 秒、背景 60 秒輪詢；恢復焦點先重讀，同一 generation／fixture 合併請求，遵守 Retry-After。輪詢下限不阻擋必要 preflight。回應及寫入結果綁登入／場次 generation，切帳號或場次後舊回應不得回填。後續若採 SSE，仍須驗權及完整快照恢復，不在首期承諾。
+面板前景 15 秒、背景 60 秒輪詢，列表前景 60／背景 120 秒；恢復焦點先重讀，同一 generation／fixture 合併請求，遵守 Retry-After。輪詢下限不阻擋必要 preflight。回應及寫入結果綁登入／場次 generation，切帳號或場次後舊回應不得回填。0.6.0 為避免不同 OS 的休眠時計延長私人快照，休眠時清 OCLR 資料並 best-effort 撤銷，醒來重新授權；IRC 獨立恢復。後續若採 SSE，仍須驗權及完整快照恢復，不在首期承諾。
 
 | HTTP／code | 行為 |
 | --- | --- |

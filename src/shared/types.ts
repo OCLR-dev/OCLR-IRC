@@ -1,3 +1,5 @@
+import type { OclrSnapshot } from './oclr-contracts.ts'
+
 export type Connection = 'offline' | 'connecting' | 'online' | 'error' | 'reconnecting' | 'suspended'
 export interface Message { id: number; time: string; sender: string; text: string; kind: 'system' | 'bot' | 'chat' | 'self'; delivery?: 'unconfirmed' }
 export interface RoomTarget { roomId: number; roomEpoch: number }
@@ -27,6 +29,20 @@ export interface Snapshot {
   messages: Message[]
 }
 export interface DesktopAPI {
+  website: {
+    snapshot(): Promise<OclrSnapshot>
+    login(): Promise<{ ok: boolean; error?: string }>
+    cancelLogin(): Promise<{ ok: boolean; error?: string }>
+    logout(): Promise<{ ok: boolean; error?: string }>
+    refreshFixtures(): Promise<{ ok: boolean; error?: string }>
+    loadMoreFixtures(): Promise<{ ok: boolean; error?: string }>
+    selectFixture(id: string): Promise<{ ok: boolean; error?: string }>
+    refreshPanel(): Promise<{ ok: boolean; error?: string }>
+    selectMap(id: string): Promise<{ ok: boolean; error?: string }>
+    copyCommand(input: { previewId: string; commandId: string }): Promise<{ ok: boolean; error?: string }>
+    openReview(id: string): Promise<{ ok: boolean; error?: string }>
+    onState(listener: (state: OclrSnapshot) => void): () => void
+  }
   snapshot(): Promise<Snapshot>
   login(input: { username: string; password: string; remember?: boolean }): Promise<{ ok: boolean; error?: string }>
   credentialStatus(): Promise<{ available: boolean; saved: boolean }>
