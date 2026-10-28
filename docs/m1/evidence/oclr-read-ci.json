@@ -1,0 +1,33 @@
+{
+  "evidence": "github-actions-cross-platform-oclr-read",
+  "runId": 40705413035,
+  "sourceCommit": "82a3c8883f8b7ce9ad866c601ee890a15bee7a36",
+  "url": "https://github.com/OCLR-dev/OCLR-ref-tools/actions/runs/40705413035",
+  "jobs": [
+    {
+      "id": 122876076516,
+      "name": "linux x64",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 122876076670,
+      "name": "macos arm64",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 122876076750,
+      "name": "windows x64",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 122876078395,
+      "name": "signed-macos",
+      "status": "completed",
+      "conclusion": "skipped"
+    }
+  ],
+  "limitation": "Synthetic OCLR/IRC APIs and browser approval only; no real website authorization or private fixture access. Ordinary push build: macOS ad-hoc signing; Developer ID/notarization job skipped."
+}

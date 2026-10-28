@@ -25,6 +25,8 @@ Main-only OCLR session、固定 HTTPS origin、S256／一次性 loopback、token
 
 macOS arm64 已通過 `npm run contracts:oclr`、`npm run typecheck`、49 項 `npm test`、完整 `npm run test:ui` 與 `npm audit --omit=dev`（0 漏洞）。[合成 OCLR UI 證據](evidence/oclr-smoke.json)時間為 2026-10-28T14:19:41Z；三平台 CI 另依實際 run 記錄，不把本機測試視為其他 OS 已過。
 
+提交 `82a3c88` 的 [CI 40705413035](https://github.com/OCLR-dev/OCLR-ref-tools/actions/runs/40705413035) 已通過 Windows x64、Linux x64、macOS arm64 的核心測試、Electron UI 及原生打包；[CI 證據](evidence/oclr-read-ci.json)。這是合成 API 驗證，不替代真實網站聯調或實機 IME。本次一般 push 的 macOS 為 ad-hoc 簽章，Developer ID／公證 job 未執行；沒有發布 Release 或 milestone tag。
+
 合成測試將真實 Electron Main／Preload／Renderer、真實本機 HTTP callback，與假 HTTPS API／瀏覽器同意／IRC 分開。沒有使用真實帳號、建立正式授權交易、讀取私人場次或變更真實比賽。
 
 測試涵蓋 callback 來源／重放／取消、PKCE、token 不進 Renderer、refresh 競態及不明不重送、不同 viewer／fixture／generation、過期及撤權清理、cursor 有界重開、429、超限／HTML／未知契約、共用 builder、原生三階段介面、複製、900×640、Renderer reload 與獨立 IRC 連線。
