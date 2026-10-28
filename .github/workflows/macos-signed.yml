@@ -2,6 +2,17 @@ name: Signed macOS build
 
 on:
   workflow_call:
+    secrets:
+      MAC_CERTIFICATE_P12_BASE64:
+        required: true
+      MAC_CERTIFICATE_PASSWORD:
+        required: true
+      APPLE_API_PRIVATE_KEY:
+        required: true
+      APPLE_API_KEY_ID:
+        required: true
+      APPLE_API_ISSUER_ID:
+        required: true
   workflow_dispatch:
 
 permissions:
