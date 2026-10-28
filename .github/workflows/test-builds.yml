@@ -76,6 +76,9 @@ jobs:
       - name: Archive and checksum
         id: archive
         run: node scripts/archive-test-build.cjs
+      - name: Verify extracted macOS signature and packaged startup
+        if: runner.os == 'macOS'
+        run: node scripts/verify-mac-archive.cjs
       - name: Upload downloadable test build
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

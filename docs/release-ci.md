@@ -27,3 +27,5 @@
 2026-10-28 以來源 `8c8199e15c816016661e5ca384aa9d8603189f37` 執行 [dry-run 40616217475](https://github.com/OCLR-dev/OCLR-ref-tools/actions/runs/40616217475)，整體 success：validate、Windows／Linux／macOS 三平台 build 及 assemble 均成功，publish 為 skipped。每平台通過 28 項核心／發布契約測試及既有 Electron smoke；三份真實 CI 成品已完成完整 commit／版本／平台／SHA-256 核對，產生 verified-release-assets artifact。
 
 沒有為測試而建立 tag 或 GitHub Release；實際寫入／公開 Release 的步驟尚未在遠端演練，會於下一個合法版本 tag 執行。既有 Desktop test builds 在同一來源提交亦成功。
+
+0.4.1 起 macOS 另外執行完整 ad-hoc 簽章、ZIP 解壓後 strict／deep 驗證與真正打包 App 啟動檢查；沒有 Developer ID／公證的限制仍保留。見 [修正說明](m1/macos-signing-fix.md)。

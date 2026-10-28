@@ -16,9 +16,9 @@ async function main() {
   const downloads = path.resolve('release/downloads')
   fs.mkdirSync(downloads, { recursive: true })
   const metadata = { version, commit: sha, platform, arch: process.arch, node: process.version, electron: require('electron/package.json').version,
-    builtAt: new Date().toISOString(), run: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`, signed: false, milestoneAccepted: false }
+    builtAt: new Date().toISOString(), run: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`, signed: false, codeSigning: platform === 'macos' ? 'ad-hoc' : 'unsigned', notarized: false, milestoneAccepted: false }
   fs.writeFileSync(path.join(source, 'build-info.json'), JSON.stringify(metadata, null, 2) + '\n')
-  fs.writeFileSync(path.join(source, 'README-TESTING.txt'), `OCLR-ref-tools ${version} — internal test build\nCommit: ${sha}\n\nExtract the entire directory before launching. This is an unsigned portable build, not an installer.\nAcceptance guide: https://github.com/OCLR-dev/OCLR-ref-tools/blob/${sha}/docs/m1/platform-acceptance.md\nLinux credential persistence is disabled pending provider verification.\nCI tests use synthetic IRC; real IME, OS sleep and Bancho acceptance are still required.\n`)
+  fs.writeFileSync(path.join(source, 'README-TESTING.txt'), `OCLR-ref-tools ${version} — internal test build\nCommit: ${sha}\n\nExtract the entire directory before launching. This is a portable test build, not an installer. No Developer ID signing/notarization; macOS uses an ad-hoc integrity signature.\nAcceptance guide: https://github.com/OCLR-dev/OCLR-ref-tools/blob/${sha}/docs/m1/platform-acceptance.md\nLinux credential persistence is disabled pending provider verification.\nCI tests use synthetic IRC; real IME, OS sleep and Bancho acceptance are still required.\n`)
   const archive = path.join(downloads, name + (platform === 'linux' ? '.tar.gz' : '.zip'))
   const result = platform === 'windows'
     ? spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', 'Compress-Archive -LiteralPath $env:OCLR_ARCHIVE_SOURCE -DestinationPath $env:OCLR_ARCHIVE_TARGET -CompressionLevel Optimal'], { stdio: 'inherit', env: { ...process.env, OCLR_ARCHIVE_SOURCE: source, OCLR_ARCHIVE_TARGET: archive } })

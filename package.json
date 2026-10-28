@@ -1,6 +1,6 @@
 {
   "name": "oclr-ref-tools",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "description": "OCLR referee desktop — IRC chat workspace",
   "license": "MIT",
@@ -15,7 +15,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "test:ui": "npm run build && node scripts/run-smoke.cjs",
-    "package:mac": "npm run build && electron-packager . OCLR-ref-tools --platform=darwin --arch=arm64 --out=release --overwrite --ignore=^/release --ignore=^/spikes --ignore=^/docs --ignore=^/tests --ignore=^/src --ignore=^/scripts --ignore=^/artifacts",
+    "package:mac": "npm run build && node scripts/package-mac.cjs",
     "package:win": "npm run build && electron-packager . OCLR-ref-tools --platform=win32 --out=release --overwrite --ignore=^/release --ignore=^/spikes --ignore=^/docs --ignore=^/tests --ignore=^/src --ignore=^/scripts --ignore=^/artifacts",
     "package:linux": "npm run build && electron-packager . OCLR-ref-tools --platform=linux --out=release --overwrite --ignore=^/release --ignore=^/spikes --ignore=^/docs --ignore=^/tests --ignore=^/src --ignore=^/scripts --ignore=^/artifacts"
   },
