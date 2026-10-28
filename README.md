@@ -2,11 +2,11 @@
 
 專注於 osu! Chinese League Rookie（OCLR）賽事的裁判用 IRC 桌面客戶端，規劃使用 Electron，支援 Windows、macOS 與 Linux。
 
-已有 0.4.0 IRC 登入、斷線恢復、多頻道／私訊、聊天與房間狀態同步版本，使用免費 HeroUI（無 Pro）。完整 MVP、OCLR API 與三平台驗收尚未完成。
+已有 0.4.1 IRC 登入、斷線恢復、多頻道／私訊、聊天與房間狀態同步版本，使用免費 HeroUI（無 Pro）。完整 MVP、OCLR API 與三平台驗收尚未完成。
 
 ## 下載測試版
 
-Windows x64、Linux x64 與 macOS Apple Silicon 測試包已由 GitHub CI 產生，見 [三平台下載與驗證結果](docs/m1/ci-test-builds.md)。登入 GitHub 後下載，Artifacts 保留 30 天；過期可重新執行 workflow。
+macOS 請使用 [0.4.1 簽章修正版下載](docs/m1/macos-signing-fix.md)，替代有完整性簽章問題的舊 0.4.0。Windows／Linux 與舊版 CI 紀錄見 [三平台下載與驗證結果](docs/m1/ci-test-builds.md)。登入 GitHub 後下載，Artifacts 保留 30 天；過期可重新執行 workflow。
 
 ## 啟動初版
 
