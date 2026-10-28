@@ -7,3 +7,6 @@ spikes/m0/runtime/
 /release/
 /artifacts/
 __pycache__/
+
+/release-input/
+/release-assets/
