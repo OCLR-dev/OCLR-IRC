@@ -184,7 +184,7 @@ D01–D08 已確認並統一記錄於 [設計決策](design-review.md)。D06 改
 - 完成必要驗證，更新任務狀態、證據及已知限制後，將標記指向該完成提交。
 - Tag 使用 `v<package.json version>`；註解包含 milestone ID、交付摘要及驗證結果。建立前核對本機與遠端名稱；不覆寫或強制移動既有 tag，必要時先調整版本。
 - 只推送本次指定 tag，不使用批次 `--tags`。確認遠端分支與 tag 均指向預期提交，於交付回覆提供版本與 tag。
-- 此授權不代表自動部署 OCLR 後端、發布 GitHub Release 或公開簽章發行；那些依各自交付規則處理。
+- 原里程碑 tag 授權不包含後端部署或公開簽章發行。2026-10-28 使用者另行要求 Release CI，已新增符合版本 tag 的三平台自動 Pre-release 流程，見 [Release CI](release-ci.md)；不因此放寬 milestone 完成條件或提前建 tag。
 
 
 ## 9. 裁判面板整合設計追蹤

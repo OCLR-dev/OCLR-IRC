@@ -20,6 +20,10 @@ npm start
 
 以 osu! **IRC 專用密碼**登入後，可加入 MP 房間、傳送一般聊天、讀取設定及裁判名單。初版不提供比賽變更指令；訊息僅保留於本次連線，OCLR 登入尚未開放。macOS arm64 App 可用 `npm run package:mac` 建立，詳見 [初版使用說明](docs/initial-preview.md)、[0.2.0 聊天功能](docs/m1/chat-workspace.md)、[0.3.0 多房間功能](docs/m1/multi-room-workspace.md)與 [0.4.0 重連、狀態同步與待驗收項目](docs/m1/recovery-and-sync.md)。
 
+## Release CI
+
+推送符合 package 版本的 `v*` tag，會經三平台測試、打包與校驗後自動發布 GitHub Pre-release；支援不發布的手動 dry-run。詳見 [Release CI 使用與限制](docs/release-ci.md)。
+
 ## 設計文件
 
 | 文件 | 內容 |

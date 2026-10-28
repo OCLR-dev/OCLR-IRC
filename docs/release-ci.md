@@ -21,3 +21,9 @@
 6. 相同 ref 的 Release runs 序列執行，不在上傳途中被新 run 自動取消。
 
 這份 CI 不代表 M1 已驗收，也不自行產生 milestone tag。既有「全部 milestone 驗收通過後自動 tag／push」規則保持；使用者本次新增 Release CI 的授權，使之在合法版本 tag 推送後自動產生 Pre-release。後續簽章、macOS 公證及正式 Latest 發行另行規劃。
+
+## 驗證紀錄
+
+2026-10-28 以來源 `8c8199e15c816016661e5ca384aa9d8603189f37` 執行 [dry-run 40616217475](https://github.com/OCLR-dev/OCLR-ref-tools/actions/runs/40616217475)，整體 success：validate、Windows／Linux／macOS 三平台 build 及 assemble 均成功，publish 為 skipped。每平台通過 28 項核心／發布契約測試及既有 Electron smoke；三份真實 CI 成品已完成完整 commit／版本／平台／SHA-256 核對，產生 verified-release-assets artifact。
+
+沒有為測試而建立 tag 或 GitHub Release；實際寫入／公開 Release 的步驟尚未在遠端演練，會於下一個合法版本 tag 執行。既有 Desktop test builds 在同一來源提交亦成功。
