@@ -36,6 +36,7 @@ Bancho 不回傳客戶端 operation ID，因此無法保證與其他 IRC 客戶�
 ## 驗證與限制
 
 - macOS arm64 本機 `npm run typecheck`、36 項 `npm test` 及 `npm run test:ui` 通過；Electron 45.0.0 UI 證據時間為 2026-10-28T07:24:25Z。
+- 提交 `e13c514` 的 [三平台 CI 40649929282](https://github.com/OCLR-dev/OCLR-ref-tools/actions/runs/40649929282) 全數通過：Windows x64、Linux x64、macOS arm64 均執行型別、36 項核心測試、Electron UI 與原生打包；見 [CI 結果](evidence/creation-ci.json)。這是 runner 上的合成測試，不替代實機 IME 或真實 Bancho 操作。此次為一般 push CI，macOS 採 ad-hoc 簽章，未執行 Developer ID／公證，未發布 Release 或 tag。
 - 核心測試涵蓋 Unicode／注入、SQLite 重啟與競爭寫入、送前保存、回覆來源／名稱關聯、單次送出、JOIN 與唯讀同步、逾時／晚到回覆、斷線不重送、讀寫失敗、完成寫入失敗、共享節流與分頁預留。
 - 真實 Electron Main／Preload／Renderer 以本機模擬 IRC 驗證按鈕、確認勾選、中文房名、自動切房、舊請求拒絕，以及 900×640 視窗。證據見 [合成 UI 報告](evidence/ui-smoke-creation.json)。
 - 未登入真實帳號、未建立真實房間、未執行 close／start／abort。真實 make 回覆格式、限額／權限錯誤、跨平台實機及真正中文 IME 仍需後續驗收；M0 G01、LOG-01 與完整操作核心未解除。
