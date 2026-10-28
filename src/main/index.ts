@@ -5,6 +5,7 @@ import { IrcSession } from './irc.ts'
 import { CredentialStore } from './credential-store.ts'
 import { credentials } from './protocol.ts'
 import { messageLink } from './links.ts'
+import { SqliteCreationStore } from './creation-store.ts'
 
 const irc = new IrcSession()
 let loginGeneration = 0
@@ -25,6 +26,7 @@ function action(event: Electron.IpcMainInvokeEvent, fn: () => void) {
   try { fn(); return { ok: true } } catch (error) { return { ok: false, error: error instanceof Error ? error.message : '操作未完成，請再試一次。' } }
 }
 app.whenReady().then(() => {
+  irc.setCreationStore(new SqliteCreationStore(join(app.getPath('userData'), 'room-creation.sqlite')))
   const store = new CredentialStore(join(app.getPath('userData'), 'irc-credentials.enc'), {
     // Linux async provider/fallback assurance is still unverified: fail closed.
     available: () => process.platform === 'linux' ? Promise.resolve(false) : safeStorage.isAsyncEncryptionAvailable(),
@@ -77,6 +79,7 @@ app.whenReady().then(() => {
   ipcMain.handle('irc:retry', event => action(event, () => irc.retry()))
   ipcMain.handle('irc:open-conversation', (event, value: unknown) => action(event, () => irc.openConversation(value)))
   ipcMain.handle('irc:join', (event, value: unknown) => action(event, () => irc.join(value)))
+  ipcMain.handle('irc:create-room', (event, value: unknown) => action(event, () => irc.createRoom(value)))
   ipcMain.handle('irc:select-room', (event, value: unknown) => action(event, () => irc.selectRoom(value)))
   ipcMain.handle('irc:leave-room', (event, value: unknown) => action(event, () => irc.leaveRoom(value)))
   ipcMain.handle('irc:query', (event, value: unknown) => action(event, () => irc.query(value)))

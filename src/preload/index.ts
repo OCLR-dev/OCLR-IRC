@@ -11,6 +11,7 @@ const api: DesktopAPI = {
   retry: () => ipcRenderer.invoke('irc:retry'),
   openConversation: input => ipcRenderer.invoke('irc:open-conversation', input),
   join: input => ipcRenderer.invoke('irc:join', input),
+  createRoom: input => ipcRenderer.invoke('irc:create-room', input),
   selectRoom: input => ipcRenderer.invoke('irc:select-room', input),
   leaveRoom: input => ipcRenderer.invoke('irc:leave-room', input),
   query: input => ipcRenderer.invoke('irc:query', input),

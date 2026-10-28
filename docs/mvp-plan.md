@@ -110,6 +110,8 @@ SPIKE-01 若無法可靠取得特定狀態，正式規格使用 unknown／人工
 
 ### 3.5 端到端整合與交付
 
+2026-10-28 增量：使用者另要求手動新建房間按鈕，0.5.0 先交付 LOBBY-01 的 make 切片，連同 CORE-01／02 必需的單次意圖、送前持久化、節流、未知鎖定與重連不重送。新增安裝範圍最小 SQLite metadata，不包含私人日誌或 OCLR 綁定；詳細界線與證據見 [手動開房](m1/create-match-room.md)。CORE-01／02、LOG-01、LOBBY-01 **均保持 partial**，完整依賴未完成；尚需真實 make 樣本、正式分帳號／場次 migration、加密日誌、房內設定與權限等驗收。此功能版不代表 M1／M2 完成，不建立 milestone tag。
+
 | ID | 負責／量級 | 依賴 | 工作與交付物 | 驗收條件 |
 | --- | --- | --- | --- | --- |
 | INT-01 | D／M | DESK-01、IRC-02、AUTH-03、LOG-01 | 系統瀏覽器授權、loopback、記憶體 token、single-flight refresh、登出與 generation | 三平台完成；callback 不回顯秘密；網路不明不重播 refresh；舊回應不回填；IRC 連線獨立維持；OCLR 登出／失效清關聯日誌與緩衝 |

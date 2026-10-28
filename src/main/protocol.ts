@@ -56,6 +56,12 @@ export function roomId(input: unknown): number {
   if (!Number.isSafeInteger(id) || id <= 0) throw new Error('請輸入有效的 MP 編號或 osu! 比賽連結。')
   return id
 }
+export function matchName(input: unknown): string {
+  if (typeof input !== 'string' || /[\x00-\x1f\x7f\u2028\u2029]/u.test(input)) throw new Error('房間名稱不能包含換行或控制字元。')
+  const name = input.trim()
+  if (!name || [...name].length > 50 || Buffer.byteLength(`PRIVMSG BanchoBot :!mp make ${name}`, 'utf8') > 510) throw new Error('請輸入 1–50 字的房間名稱。')
+  return name
+}
 export function redact(text: string): string {
   if (/(?:^|\s)(?:PASS\s|!mp\s+password(?:\s|$)|(?:access_token|refresh_token|code_verifier|password)\s*[:=])/i.test(text)) return '〔含敏感資訊，已隱藏〕'
   return text.replace(/[\x00-\x08\x0b-\x1f\x7f]/g, '').slice(0, 3000)

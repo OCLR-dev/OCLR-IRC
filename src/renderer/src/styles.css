@@ -85,6 +85,18 @@ dd { color: #bdb8c9; font-size: 12px; margin: 0; overflow-wrap: anywhere; }
 .room-view { padding: 34px; display: flex; flex-direction: column; height: calc(100vh - 104px); min-height: 535px; }
 .room-heading { display: flex; align-items: center; justify-content: space-between; }
 .room-heading h1 { font-size: 24px; }
+.room-heading h1 { overflow-wrap: anywhere; }
+.room-heading { gap: 16px; }
+.new-room-button { flex-shrink: 0; font-size: 12px; color: #cab7ed; }
+.create-room-form { flex-shrink: 0; display: grid; gap: 13px; padding: 18px 0; margin-top: 14px; border-block: 1px solid #39303f; }
+.create-room-heading { display: flex; align-items: center; justify-content: space-between; }
+.create-room-heading h2 { margin: 0; font-size: 15px; font-weight: 550; }
+.create-room-form .primary-button { justify-self: start; }
+.create-room-help, .creation-notice { color: #a397b0; font-size: 11px; line-height: 1.7; margin: 0; overflow-wrap: anywhere; }
+.creation-notice { margin-top: 12px; flex-shrink: 0; }
+.creation-warning { color: #edbfc8; }
+.room-view:has(.create-room-form) { overflow-y: auto; }
+.room-view:has(.create-room-form) .room-grid { min-height: 260px; flex-shrink: 0; }
 .room-heading .section-kicker { margin-bottom: 9px; }
 .read-only-label { color: #ad9fc2; font-size: 11px; border: 1px solid #3b3346; border-radius: 5px; padding: 5px 9px; }
 .join-form { display: flex; align-items: center; gap: 10px; margin: 25px 0; }

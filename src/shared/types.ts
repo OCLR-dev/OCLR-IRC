@@ -5,7 +5,14 @@ export interface PlayerSlot { slot: number; osuId: number; username: string; sta
 export interface Room { id: number; epoch: number; channel: string; joined: boolean; binding: 'unknown' | 'verified' | 'mismatch'; referee: 'unknown' | 'listed'; name: string | null; mode: string | null; players: number | null; kind: 'match' | 'channel' | 'private'; members: string[]; syncState: 'unknown' | 'loading' | 'partial' | 'complete' | 'stale'; observedAt: string | null; beatmap: { id: number; title: string } | null; mods: string[] | null; slots: PlayerSlot[]; phase: 'unknown' | 'idle' | 'playing' }
 export type Pending = 'join' | 'settings' | 'listrefs' | null
 export interface RoomTab { id: number; epoch: number; channel: string; joined: boolean; unread: number; mentions: number; pending: Pending; error: string | null }
+export interface RoomCreation {
+  status: 'unreviewed' | 'awaiting' | 'created' | 'unknown' | 'blocked'
+  requestId: string
+  roomId: number | null
+  message: string | null
+}
 export interface Snapshot {
+  creation: RoomCreation
   credentialError?: string | null
   retryAttempt: number
   retryAt: string | null
@@ -29,6 +36,7 @@ export interface DesktopAPI {
   retry(): Promise<{ ok: boolean; error?: string }>
   openConversation(input: { kind: 'channel' | 'private'; name: string }): Promise<{ ok: boolean; error?: string }>
   join(input: string): Promise<{ ok: boolean; error?: string }>
+  createRoom(input: { name: string; requestId: string; reviewed: boolean }): Promise<{ ok: boolean; error?: string }>
   selectRoom(input: RoomTarget): Promise<{ ok: boolean; error?: string }>
   leaveRoom(input: RoomTarget): Promise<{ ok: boolean; error?: string }>
   query(input: RoomTarget & { kind: 'settings' | 'listrefs' }): Promise<{ ok: boolean; error?: string }>

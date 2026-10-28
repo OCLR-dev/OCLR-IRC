@@ -1,8 +1,10 @@
 import net from 'node:net'
 import { EventEmitter } from 'node:events'
-import type { Connection, Message, Pending, Room, Snapshot } from '../shared/types.ts'
+import { randomUUID } from 'node:crypto'
+import type { Connection, Message, Pending, Room, RoomCreation, Snapshot } from '../shared/types.ts'
+import type { CreationStore } from './creation-store.ts'
 import { blankObservation, SettingsCollector } from './settings.ts'
-import { chatText, credentials, Lines, normalize, parse, redact, roomId } from './protocol.ts'
+import { chatText, credentials, Lines, matchName, normalize, parse, redact, roomId } from './protocol.ts'
 
 interface RoomView {
   room: Room
@@ -20,8 +22,8 @@ interface RoomView {
   timer: ReturnType<typeof setTimeout> | null
 }
 const MAX_ROOMS = 8
-interface Timing { retryBaseMs: number; retryMaxMs: number; stableMs: number; floodMs: number; queryMs: number; loginMs: number; heartbeatMs: number; heartbeatTimeoutMs: number }
-const defaults: Timing = { retryBaseMs: 1000, retryMaxMs: 30000, stableMs: 60000, floodMs: 1000, queryMs: 8000, loginMs: 15000, heartbeatMs: 30000, heartbeatTimeoutMs: 15000 }
+interface Timing { retryBaseMs: number; retryMaxMs: number; stableMs: number; floodMs: number; queryMs: number; creationMs: number; loginMs: number; heartbeatMs: number; heartbeatTimeoutMs: number }
+const defaults: Timing = { retryBaseMs: 1000, retryMaxMs: 30000, stableMs: 60000, floodMs: 1000, queryMs: 8000, creationMs: 15000, loginMs: 15000, heartbeatMs: 30000, heartbeatTimeoutMs: 15000 }
 
 export class IrcSession extends EventEmitter {
   private connection: Connection = 'offline'
@@ -52,6 +54,11 @@ export class IrcSession extends EventEmitter {
   private work: Array<{ view: RoomView; epoch: number; kind: 'join' | 'settings' | 'listrefs' | 'part' }> = []
   private nextLocalId = -1
   private freshTimers = new Map<RoomView, ReturnType<typeof setTimeout>>()
+  private creation: RoomCreation = { status: 'unreviewed', requestId: '', roomId: null, message: null }
+  private creationStore: CreationStore | null = null
+  private previousCreationId: string | null = null
+  private creationName: string | null = null
+  private creationTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(createSocket = () => net.createConnection({ host: 'irc.ppy.sh', port: 6667 }), timing: Partial<Timing> = {}) {
     super()
@@ -61,6 +68,7 @@ export class IrcSession extends EventEmitter {
   get state(): Snapshot {
     const view = this.selected === null ? undefined : this.views.get(this.selected)
     return {
+      creation: { ...this.creation },
       retryAttempt: this.retryAttempt, retryAt: this.retryAt, connection: this.connection, username: this.username, leavingChannels: [...this.departing],
       error: this.error || view?.error || null, room: view?.room || null,
       pending: view?.pending || null, messageStartIndex: view ? view.totalMessages - view.messages.length + 1 : 1, messages: view?.messages || [],
@@ -89,6 +97,9 @@ export class IrcSession extends EventEmitter {
     this.socket.write(line + '\r\n')
   }
   private disconnect() {
+    if (this.creation.status === 'awaiting') this.creationUnknown('開房時連線中斷，結果不明。請核對既有房間；不會自動重送。')
+    if (this.creationTimer) clearTimeout(this.creationTimer)
+    this.creationTimer = null; this.creationName = null
     this.generation++
     for (const timer of this.freshTimers.values()) clearTimeout(timer)
     this.freshTimers.clear()
@@ -111,6 +122,7 @@ export class IrcSession extends EventEmitter {
     if (this.auth) this.auth.password = ''
     this.auth = null; this.retryAttempt = 0
     this.connection = 'offline'; this.username = ''; this.error = null
+    this.creation = { status: 'unreviewed', requestId: '', roomId: null, message: null }
     this.lastQueryAt = 0; this.publish()
   }
   private fail(message: string) { this.logout(); this.connection = 'error'; this.error = message; this.publish() }
@@ -171,6 +183,7 @@ export class IrcSession extends EventEmitter {
   }
   private online() {
     this.clearLoginTimer(); this.connection = 'online'; this.error = null
+    this.prepareCreation()
     this.emit('authenticated')
     const generation = this.generation
     this.stableTimer = setTimeout(() => { if (generation === this.generation) { this.retryAttempt = 0; this.publish() } }, this.timing.stableMs)
@@ -250,7 +263,7 @@ export class IrcSession extends EventEmitter {
     if (existing?.room.joined || existing?.pending === 'join') {
       this.selectRoom({ roomId: id, roomEpoch: existing.room.epoch }); return
     }
-    if (!existing && this.views.size >= MAX_ROOMS) throw new Error('最多同時開啟 8 個房間，請先離開不需要的分頁。')
+    if (!existing && this.views.size >= this.roomLimit()) throw new Error('最多同時開啟 8 個房間；開房中會預留一個分頁，請先離開不需要的分頁。')
     if (existing) { this.clearTimer(existing); this.clearFresh(existing) }
     const view: RoomView = {
       room: { ...blankObservation(), kind: 'match', members: [], id, epoch: ++this.roomEpoch, channel: `#mp_${id}`, joined: false, binding: 'unknown', referee: 'unknown', name: null, mode: null, players: null },
@@ -273,7 +286,7 @@ export class IrcSession extends EventEmitter {
     // BanchoBot private messages can execute commands without !mp. Keep them read-only.
     const existing = [...this.views.values()].find(v => normalize(v.room.channel) === normalize(name))
     if (existing?.room.joined || existing?.pending === 'join') { this.selectRoom({ roomId: existing.room.id, roomEpoch: existing.room.epoch }); return }
-    if (!existing && this.views.size >= MAX_ROOMS) throw new Error('最多同時開啟 8 個對話，請先關閉不需要的分頁。')
+    if (!existing && this.views.size >= this.roomLimit()) throw new Error('最多同時開啟 8 個對話；開房中會預留一個分頁，請先關閉不需要的分頁。')
     if (existing) { this.clearTimer(existing); this.views.delete(existing.room.id) }
     const id = this.nextLocalId--
     const view: RoomView = {
@@ -283,6 +296,73 @@ export class IrcSession extends EventEmitter {
     this.views.set(id, view); this.selected = id
     if (kind === 'channel') this.enqueue(view, 'join')
     this.publish()
+  }
+  private roomLimit() { return MAX_ROOMS - (this.creation.status === 'awaiting' ? 1 : 0) }
+  setCreationStore(store: CreationStore) { this.creationStore = store }
+  private prepareCreation() {
+    this.creationName = null
+    try {
+      if (!this.creationStore) throw new Error('No recovery store')
+      const record = this.creationStore.latest()
+      this.previousCreationId = record?.id ?? null
+      this.creation = { status: 'unreviewed', requestId: randomUUID(), roomId: record?.roomId ?? null,
+        message: record?.status === 'pending' ? '上次開房結果不明。請先核對 BanchoBot 訊息及既有房間，避免重複建立。' : null }
+    } catch {
+      this.creation = { status: 'blocked', requestId: '', roomId: null, message: '無法讀取開房防重送記錄。請檢查本機儲存後重新登入；目前禁止開房。' }
+    }
+  }
+  private creationUnknown(message: string) {
+    if (this.creationTimer) clearTimeout(this.creationTimer)
+    this.creationTimer = null; this.creationName = null
+    this.creation = { ...this.creation, status: 'unknown', message: [message, this.creation.message?.startsWith('BanchoBot：') ? this.creation.message : null].filter(Boolean).join(' ') }
+    this.publish()
+  }
+  createRoom(input: unknown) {
+    if (this.connection !== 'online') throw new Error('請先登入 osu! IRC。')
+    if (!input || typeof input !== 'object') throw new Error('無效的開房請求。')
+    const { name: raw, requestId, reviewed } = input as Record<string, unknown>
+    const name = matchName(raw)
+    if (this.creation.status !== 'unreviewed' && this.creation.status !== 'created') throw new Error('開房尚未確認或已鎖定。請先核對既有房間，再重新連線。')
+    if (!requestId || requestId !== this.creation.requestId || reviewed !== true) throw new Error('請重新開啟表單，確認既有房間與本次開房意圖。')
+    if (this.views.size >= MAX_ROOMS) throw new Error('最多同時開啟 8 個對話，請先關閉一個分頁再開房。')
+    if (Date.now() - this.lastQueryAt < this.timing.floodMs || this.work.length || this.workTimer) throw new Error('請等待目前房間請求完成，再建立房間。')
+    try {
+      if (!this.creationStore) throw new Error('No recovery store')
+      this.creationStore.begin(this.creation.requestId, this.previousCreationId)
+    } catch {
+      this.creation = { ...this.creation, status: 'blocked', message: '無法保存開房記錄，或其他視窗已開房。本次指令未送出，請重新登入後核對。' }
+      this.publish(); throw new Error(this.creation.message!)
+    }
+    this.creationName = name
+    this.creation = { ...this.creation, status: 'awaiting', roomId: null, message: null }
+    this.lastQueryAt = Date.now()
+    // Persist before any socket write. A write error is ambiguous, never an invitation to retry.
+    try { this.send(`PRIVMSG BanchoBot :!mp make ${name}`) }
+    catch { this.creationUnknown('開房傳送未能確認，結果不明。請核對既有房間，再重新連線。'); throw new Error(this.creation.message!) }
+    const generation = this.generation
+    this.creationTimer = setTimeout(() => {
+      if (generation === this.generation && this.creation.status === 'awaiting') this.creationUnknown('開房回覆逾時，結果不明。請核對 BanchoBot 訊息與既有房間，再登出並重新登入；不會自動重送。')
+    }, this.timing.creationMs)
+    this.publish()
+  }
+  private creationReply(body: string) {
+    if (this.creation.status !== 'awaiting') return false
+    this.creation.message = `BanchoBot：${redact(body)}`
+    const match = /^Created the tournament match (https:\/\/osu\.ppy\.sh\/(?:mp|community\/matches)\/[1-9]\d*) (.+)$/.exec(body)
+    const id = match ? Number(match[1].split('/').at(-1)) : NaN
+    // Bancho has no operation ID. Match only this connection's one intent and exact requested name.
+    if (!match || !Number.isSafeInteger(id) || match[2] !== this.creationName || this.views.has(id) || this.departing.has(`#mp_${id}`)) { this.publish(); return true }
+    if (this.creationTimer) clearTimeout(this.creationTimer)
+    this.creationTimer = null; this.creationName = null
+    const operationId = this.creation.requestId
+    this.creation = { status: 'created', requestId: randomUUID(), roomId: id, message: `已建立比賽房間 ${id}。` }
+    try { this.creationStore!.complete(operationId, id); this.previousCreationId = operationId }
+    catch { this.creation = { ...this.creation, status: 'blocked', message: `房間 ${id} 已建立，但防重送記錄更新失敗；禁止再次開房，請核對後重新登入。` } }
+    this.join(String(id))
+    const view = this.views.get(id)!
+    view.needsSync = true
+    this.note(view, `BanchoBot 已確認建立房間 ${id}；權限與設定仍需查詢核對。`)
+    this.publish(); return true
   }
   private timeout(view: RoomView, message: string) {
     this.clearTimer(view)
@@ -359,8 +439,9 @@ export class IrcSession extends EventEmitter {
       for (const view of this.views.values()) view.room.members = view.room.members.flatMap(n => normalize(n) !== normalize(sender) ? [n] : command === 'NICK' && /^[a-zA-Z0-9_\[\]-]{1,32}$/.test(params[0] || '') ? [params[0]] : [])
       this.publish(); return
     }
+    if (command === 'PRIVMSG' && params.length === 2 && ownTarget && normalize(sender) === 'banchobot' && this.creationReply(params[1])) return
     // Unsolicited private messages may open a bounded tab, never change selection.
-    if (command === 'PRIVMSG' && ownTarget && this.connection === 'online' && this.views.size < MAX_ROOMS && ![...this.views.values()].some(v => normalize(v.room.channel) === normalize(sender))) {
+    if (command === 'PRIVMSG' && ownTarget && this.connection === 'online' && this.views.size < this.roomLimit() && ![...this.views.values()].some(v => normalize(v.room.channel) === normalize(sender))) {
       const selected = this.selected
       try { this.openConversation({ kind: 'private', name: sender }); this.selected = selected ?? this.selected } catch { /* Invalid remote target is ignored. */ }
     }

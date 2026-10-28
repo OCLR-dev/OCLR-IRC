@@ -95,3 +95,9 @@ React 19.3.1、HeroUI／styles 3.2.6、Tailwind 4.3.3、electron-vite 6.0.0；�
 0.4.0 採 TypeScript transport，最多 5 次退避重連及 suspend／resume 恢復；房間 epoch 更新後重新 JOIN、settings、listrefs，絕不恢復聊天或 mutation。新增 query-scoped 地圖／Mods／slot collector；10 秒後觀測過期，缺值保持 unknown／partial。`complete` 只是已解析欄位完整，不代表 OCLR／CORE 操作可放行。一般對話使用負數本機識別，不可與正數 MP ID 混用。
 
 可選 IRC 憑證使用 Electron async safeStorage；Linux provider 未證實時停用保存。這不實作 D06 日誌，也不解除 SPIKE-02 的跨平台／升級驗收。真實 Bancho 擴充快照、私訊及重連樣本仍不足；本輪新增證據為合成測試，G01–G06 與 API 聯合凍結狀態不變。詳見 [0.4.0 實作、資料語意與出口](../m1/recovery-and-sync.md)。
+
+### 手動開房增量（2026-10-28）
+
+使用者追加要求「增加新建比賽房間的按鈕」，0.5.0 交付有限手動 `!mp make` 流程：明確確認另開意圖、送前 SQLite 最小 pending 記錄、同連線單次操作、共享節流、可信 BanchoBot 私訊及精確名稱匹配，取得真實 ID 後 JOIN／settings／listrefs。逾時／斷線／重啟不重送，未知結果先人工核對；本機資料缺失也不取消登入後的人工確認。
+
+本次 SQLite 記錄為安裝範圍的手動模式 metadata，無帳號 UID／fixture 綁定，不儲存房名、指令或聊天；不宣稱已完成正式 LOG-01 的分帳號 journal 或加密日誌。完整 CORE／LOBBY 與 OCLR gate 不變。回覆 grammar 參考公開實作並以合成資料驗證，**尚無真實 make 樣本**，G01 保持未完成。範圍、恢復語意及後續 migration 見 [手動開房交付](../m1/create-match-room.md)。
