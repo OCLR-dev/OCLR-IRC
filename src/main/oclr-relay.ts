@@ -21,7 +21,7 @@ function projectedMessage(message: Message) {
 
 /** Local explicit room binding. No token or IRC password enters the renderer/projection. */
 export class OclrRelay {
-  private binding: {fixtureId: string; connectionId: string; roomId: number; roomEpoch: number; username: string; sequence: number} | null = null
+  private binding: {subjectId: number; fixtureId: string; connectionId: string; roomId: number; roomEpoch: number; username: string; sequence: number} | null = null
   private receipts: Receipt[] = []
   private consumed = new Set<string>()
   private pending: {id: string; text: string; after: number; deadline: number} | null = null
@@ -40,7 +40,7 @@ export class OclrRelay {
       if (status) { this.receipts.push({commandId: this.pending.id, status, evidence: {sender: 'BanchoBot', target: `#mp_${roomId}`, text: projected.text}}); this.pending = null }
     })
     oclr.on('state', () => {
-      if (this.binding && (!oclr.state.subject || oclr.state.selectedFixtureId !== this.binding.fixtureId || normalize(oclr.state.subject.username) !== this.binding.username)) void this.stop()
+      if (this.binding && (!oclr.state.subject || oclr.state.subject.osuId !== this.binding.subjectId || oclr.state.selectedFixtureId !== this.binding.fixtureId || normalize(oclr.state.subject.username) !== this.binding.username)) void this.stop()
     })
   }
   private sameRoom(state: Snapshot) { const b = this.binding; return !!b && state.room?.id === b.roomId && state.room.epoch === b.roomEpoch && normalize(state.username) === b.username }
@@ -48,14 +48,18 @@ export class OclrRelay {
     if (this.binding || this.running) throw new OclrError('RELAY_ALREADY_ACTIVE')
     const state = this.oclr.state, irc = this.irc.state
     if (!state.subject || !state.selectedFixtureId || state.panelState !== 'fresh' || irc.connection !== 'online' || !irc.room?.joined || irc.room.kind !== 'match' || irc.room.binding !== 'verified' || irc.room.referee !== 'listed' || normalize(irc.username) !== normalize(state.subject.username)) throw new OclrError('RELAY_LOCAL_NOT_READY')
+    const subjectId = state.subject.osuId, fixtureId = state.selectedFixtureId
+    const roomId = irc.room.id, roomEpoch = irc.room.epoch, username = normalize(irc.username)
     const generation = ++this.generation
     this.running = true; this.oclr.updateRelay({status: 'connecting', roomId: irc.room.id, error: null})
     try {
       const response = await this.oclr.relayRequest(state.selectedFixtureId, {action: 'bind', roomId: irc.room.id, ircUsername: irc.username})
       const reply = replySchema.parse(response.value).data
       if (generation !== this.generation) return
+      const current = this.irc.state, website = this.oclr.state
+      if (website.subject?.osuId !== subjectId || normalize(website.subject?.username ?? '') !== username || website.selectedFixtureId !== fixtureId || website.panelState !== 'fresh' || current.connection !== 'online' || current.room?.id !== roomId || current.room.epoch !== roomEpoch || !current.room.joined || current.room.binding !== 'verified' || current.room.referee !== 'listed' || normalize(current.username) !== username) throw new Error('Binding identity changed')
       if (reply.sequence !== 0 || reply.command !== null) throw new Error('Unexpected bind response')
-      this.binding = {fixtureId: state.selectedFixtureId, connectionId: reply.connectionId, roomId: irc.room.id, roomEpoch: irc.room.epoch, username: normalize(irc.username), sequence: 0}
+      this.binding = {subjectId, fixtureId, connectionId: reply.connectionId, roomId: irc.room.id, roomEpoch: irc.room.epoch, username: normalize(irc.username), sequence: 0}
       this.consumed.clear(); this.receipts = []; this.pending = null
       this.oclr.updateRelay({status: 'connected', roomId: irc.room.id, error: null})
       this.timer = setTimeout(() => void this.tick(), 100)

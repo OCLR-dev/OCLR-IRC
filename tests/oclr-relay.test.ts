@@ -13,7 +13,7 @@ function harness() {
   const requests: any[] = [], writes: any[] = []
   const irc = Object.assign(new EventEmitter(), {state: {connection: 'online', username: 'Ref_Name', room: {id: 123, epoch: 1, joined: true, kind: 'match', binding: 'verified', referee: 'listed'}, messages: [] as any[]}, relayReady() {return true}, relayRefresh() {}, relaySend(input: unknown) {writes.push(input)}})
   let command: any = null, fail = false
-  const oclr = Object.assign(new EventEmitter(), {state: {subject: {username: 'Ref Name'}, selectedFixtureId: id(101), panelState: 'fresh', relay: null as any}, updateRelay(state: unknown) {this.state.relay = state; (this as unknown as EventEmitter).emit('state')}, async relayRequest(_id: string, body: any) {requests.push(body); if (fail) throw Error('network failure'); return {value: {data: {connectionId: id(40), sequence: body.sequence ?? 0, command: body.action === 'sync' ? command : null}, meta: meta()}}}})
+  const oclr = Object.assign(new EventEmitter(), {state: {subject: {osuId: 100, username: 'Ref Name'}, selectedFixtureId: id(101), panelState: 'fresh', relay: null as any}, updateRelay(state: unknown) {this.state.relay = state; (this as unknown as EventEmitter).emit('state')}, async relayRequest(_id: string, body: any) {requests.push(body); if (fail) throw Error('network failure'); return {value: {data: {connectionId: id(40), sequence: body.sequence ?? 0, command: body.action === 'sync' ? command : null}, meta: meta()}}}})
   const relay = new OclrRelay(oclr as unknown as OclrSession, irc as unknown as IrcSession)
   return {relay, oclr, irc, requests, writes, command(value: any) {command = value}, fail() {fail = true}}
 }
@@ -96,4 +96,34 @@ test('credential-shaped messages and confirmation evidence never leave the local
     assert.equal(JSON.stringify(syncs).includes('SYNTHETIC_'), false)
     assert.deepEqual(syncs.flatMap(r => r.receipts).map(r => r.status), ['sent'])
   } finally {await f.relay.stop()}
+})
+test('same nickname with a different OCLR subject invalidates binding', async () => {
+  const f = harness()
+  try {
+    await f.relay.start()
+    f.oclr.state.subject.osuId = 200
+    f.oclr.emit('state')
+    assert.equal(f.oclr.state.relay.status, 'off')
+    assert.equal(f.writes.length, 0)
+  } finally { await f.relay.stop() }
+})
+test('late bind cannot attach to a changed room or subject', async () => {
+  for (const change of ['room', 'subject']) {
+    const f = harness()
+    let release!: () => void
+    const original = f.oclr.relayRequest.bind(f.oclr)
+    f.oclr.relayRequest = async (fixture, body) => {
+      if (body.action === 'bind') await new Promise<void>(resolve => { release = resolve })
+      return original(fixture, body)
+    }
+    try {
+      const starting = f.relay.start()
+      if (change === 'room') f.irc.state.room.epoch++
+      else f.oclr.state.subject.osuId++
+      release(); await starting
+      assert.equal(f.oclr.state.relay.status, 'error')
+      assert.equal(f.writes.length, 0)
+      assert.equal(f.requests.filter(request => request.action === 'sync').length, 0)
+    } finally { await f.relay.stop() }
+  }
 })
