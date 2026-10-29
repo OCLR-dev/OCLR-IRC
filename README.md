@@ -1,55 +1,82 @@
 # OCLR-ref-tools
 
-專注於 osu! Chinese League Rookie（OCLR）賽事的裁判用 IRC 桌面客戶端，規劃使用 Electron，支援 Windows、macOS 與 Linux。
+OCLR 賽事的裁判用 IRC 桌面客戶端，以 Electron、React 與 TypeScript 開發，使用免費 HeroUI，支援 Windows、macOS 與 Linux。
 
-已有 0.7.0 背景執行、IRC 登入、手動新建比賽房間、斷線恢復、多頻道／私訊、聊天與狀態同步，以及 OCLR 桌面只讀接入層，使用免費 HeroUI（無 Pro）。正式 OCLR API 由網站端另行開發，尚未聯調；完整 MVP 與三平台實機驗收仍未完成。
+目前為開發預覽版。IRC 工作區已可使用；OCLR 桌面接入層已實作，仍需與網站端 API 聯調。完整 MVP 與三平台實機驗收尚未完成。
+
+## 已有功能
+
+- **IRC 登入與聊天**：使用 osu! IRC 專用密碼登入，支援多房間、一般頻道、私訊與名稱補完；可選擇保存本機加密登入憑證。
+- **建立與加入比賽房間**：開房成功後自動加入並讀取設定及裁判名單；逾時或斷線不自動重送開房命令。
+- **房間狀態與玩家槽位**：顯示地圖、Mods、比賽模式，以及 1–16 號槽位的玩家、隊伍、房主和準備狀態；資料不完整或過期時明確標示。
+- **斷線恢復**：恢復連線與房間唯讀查詢，不重送聊天或開房命令。
+- **背景執行**：關窗後保留連線，可從系統匣／Dock／工作列恢復；Linux 保留最小化入口，完整退出請選「退出程式」。
+- **OCLR 場次接入層**：已實作系統瀏覽器授權、本人場次、三階段面板與命令預覽／複製；可用性取決於網站端是否提供相應 API。
+
+玩家槽位來自 `!mp settings` 觀測快照，可按「讀取設定」更新；16 個顯示位置不代表房間實際開放容量。除手動開房外，房內變更指令尚未開放；OCLR 面板也不會代送 IRC 指令或保存選禁結果。
 
 ## 下載測試版
 
-macOS 請使用 [Developer ID 已簽章及 Apple 已公證的 0.4.1 測試版](docs/apple-signing-ci.md#實際驗證結果2026-10-28)。Windows／Linux 與舊版 CI 紀錄見 [三平台下載與驗證結果](docs/m1/ci-test-builds.md)。登入 GitHub 後下載，Artifacts 保留 30 天；過期可重新執行 workflow。
+前往 [Desktop test builds](https://github.com/OCLR-dev/OCLR-ref-tools/actions/workflows/test-builds.yml)，選擇所需提交且已成功的執行紀錄，登入 GitHub 後從 **Artifacts** 下載對應平台的 `OCLR-ref-tools-*` 檔案。Artifacts 保留 30 天，過期後需重新打包。
 
-## 啟動初版
+| 平台 | CI 打包架構 |
+| --- | --- |
+| Windows | x64 |
+| Linux | x64 |
+| macOS | arm64（Apple Silicon） |
 
-需要 Node 24+：
+一般 CI 的 macOS 包使用 ad-hoc 簽章，**未經 Apple 公證**。需要 Developer ID 簽章與公證版本時，維護者可手動執行工作流程並啟用 `sign_macos`；下載前應核對該次建置的簽章資訊。設定及驗證方式見 [Apple 簽章 CI](docs/apple-signing-ci.md)。
+
+## 本機開發與執行
+
+需要 Node.js 24+：
 
 ```sh
 npm ci
+npm run dev
+```
+
+建立並執行編譯後的版本：
+
+```sh
 npm run build
 npm start
 ```
 
-以 osu! **IRC 專用密碼**登入後，可建立或加入 MP 房間、傳送一般聊天、讀取設定及裁判名單。右上「＋ 新建比賽房間」可輸入房名並確認開房，成功後自動加入與同步；逾時或斷線不重送。房內變更指令尚未開放。聊天僅保留於本次連線，本機另保存最小開房防重送 metadata。詳見 [0.5.0 開房使用方式及限制](docs/m1/create-match-room.md)。macOS arm64 App 可用 `npm run package:mac` 建立；既有功能見 [初版使用說明](docs/initial-preview.md)、[0.2.0 聊天](docs/m1/chat-workspace.md)、[0.3.0 多房間](docs/m1/multi-room-workspace.md)與 [0.4.0 重連及同步](docs/m1/recovery-and-sync.md)。
+登入使用 osu! **IRC 專用密碼**，不是網站密碼。osu! IRC 目前使用未加密連線。聊天與 OCLR 私人資料僅保留於記憶體；本機另保存最小開房防重送紀錄，以及使用者選擇保存的加密 IRC 憑證。
 
-「OCLR 場次」提供系統瀏覽器授權、本人場次、原生三階段面板與命令預覽／複製；正式端點未提供時明示不可用，不以 mock 或網站 cookie 冒充登入。不送 OCLR 衍生 IRC 指令或保存選禁。見 [0.6.0 接入說明](docs/m1/oclr-read-integration.md)及 [給網站端的 PR409 契約／JSON Schema](docs/contracts/pr409-desktop-read.md)。
+常用驗證與打包命令：
 
-關閉視窗或按「轉入背景」會保留連線；從系統匣／Dock／工作列恢復，完整退出請選「退出程式」。Linux 保留最小化入口，詳見 [背景執行與平台差異](docs/m1/background-running.md)。
+```sh
+npm run typecheck
+npm test
+npm run test:ui
+```
 
-## Release CI
+介面測試需要桌面顯示環境與本機 loopback 連線；Linux CI 使用 Xvfb。各平台打包命令為 `npm run package:win`、`npm run package:linux`、`npm run package:mac`，輸出於 `release/`；macOS 打包需在 macOS 執行。
 
-推送符合 package 版本的 `v*` tag，會經三平台測試、打包與校驗後自動發布 GitHub Pre-release；支援不發布的手動 dry-run。macOS Release 包要求 Developer ID 簽章與 Apple 公證；詳見 [Release CI 使用與限制](docs/release-ci.md)及 [Apple 簽章設定](docs/apple-signing-ci.md)。
+## 發布流程
 
-## 設計文件
+推送與 `package.json` 版本相符的 `v*` tag，會觸發三平台測試、打包與校驗，通過後發布 GitHub Pre-release。發布要求 macOS Developer ID 簽章與 Apple 公證；也可手動執行不發布的 dry-run。詳見 [Release CI](docs/release-ci.md)。
+
+## 文件
 
 | 文件 | 內容 |
 | --- | --- |
-| [網站裁判面板整合設計](docs/referee-panel-integration.md) | #312–#317、三階段工作區、讀寫 API／scope、命令執行與分期 |
-| [專案設計](docs/project-design.md) | 產品範圍、參考專案、功能清單、Electron 架構、登入與操作流程 |
-| [MVP 開發任務](docs/mvp-plan.md) | 工作拆分、依賴、交付物、驗收案例與版本完成條件 |
-| [OCLR 桌面授權契約](docs/contracts/desktop-authorization.md) | 系統瀏覽器登入、一次性 code、S256 證明、桌面 session 與撤銷 |
-| [裁判 context API 契約](docs/contracts/referee-context-api.md) | 本人指派場次、原子資料快照、規則與權限、版本及錯誤處理 |
-| [設計審查與決策紀錄](docs/design-review.md) | 跨文件修訂紀錄、已確認 D01–D08、本機保存政策及影響任務 |
+| [專案設計](docs/project-design.md) | 產品範圍、架構與操作流程 |
+| [MVP 開發任務](docs/mvp-plan.md) | 任務依賴、進度與尚未完成的驗收條件 |
+| [設計決策紀錄](docs/design-review.md) | 已確認決策與設計審查 |
+| [建立比賽房間](docs/m1/create-match-room.md) | 開房操作、防重送與限制 |
+| [重連與同步](docs/m1/recovery-and-sync.md) | 房間恢復、狀態觀測與過期處理 |
+| [玩家槽位](docs/m1/player-slots.md) | 槽位顯示與驗證範圍 |
+| [背景執行](docs/m1/background-running.md) | 平台差異、退出與生命週期 |
+| [OCLR 桌面接入](docs/m1/oclr-read-integration.md) | 已實作的唯讀接入與待聯調項目 |
+| [PR409 接入契約與 JSON Schema](docs/contracts/pr409-desktop-read.md) | 提供網站端實作的桌面 API 契約 |
+| [網站裁判面板整合設計](docs/referee-panel-integration.md) | 三階段工作區與後續整合規劃 |
+| [桌面授權契約](docs/contracts/desktop-authorization.md)／[裁判 context API](docs/contracts/referee-context-api.md) | 完整授權與裁判操作契約設計 |
 
-API 路徑、欄位與預設值屬設計提案；文件會區分已查證的 OCLR 能力與待新增功能。契約文件中的 JSON 範例均為合成資料，不可直接用於真實 IRC 操作。
+契約文件中的提案不代表網站已提供對應 API；JSON 範例為合成資料。早期驗證與歷史版本紀錄保留於 `docs/m0/`、`docs/m1/`。
 
 ## 授權
 
-本專案自有程式碼與設計文件採用 [MIT License](LICENSE)，SPDX 識別字為 `MIT`。第三方原始碼、字型、圖片與依賴套件各依其原授權；本專案的 MIT 授權不會重新授權這些素材。
-
-## M0 開發驗證
-
-SPEC-00 已盤點；SPIKE-01 已定位 CRLF-only 導致漏讀 bare-LF 回覆，並於新房完成唯讀核對。SPIKE-01／02 其他缺口仍在，SPEC-01 已更新但未凍結；使用者另授權先交付登入初版。
-
-- [SPEC-00：需求與驗證邊界](docs/m0/spec-00.md)
-- [SPIKE 實測結果與證據](docs/m0/spike-results.md)
-- [SPEC-01：欄位映射與待補資訊](docs/m0/spec-01.md)
-- [隔離實驗執行方式](spikes/m0/README.md)
+本專案自有程式碼與設計文件採用 [MIT License](LICENSE)。第三方程式碼與依賴依各自授權，詳見 [第三方聲明](THIRD_PARTY_NOTICES.md)。
