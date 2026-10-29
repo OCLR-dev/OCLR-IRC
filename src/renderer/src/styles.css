@@ -249,3 +249,14 @@ main { min-height: 0; overflow: auto; }
 .player-slot[data-team=blue] { border-left-color: #8eafe0; }
 .player-slot.unverified { opacity: .7; }
 @media (min-width: 1200px) { .room-grid { grid-template-columns: minmax(0, 1fr) 230px; } }
+
+.mp-controls { border-bottom: 1px solid #3b3346; padding-bottom: 16px; margin-bottom: 20px; font-size: 12px; }
+.mp-controls summary { cursor: pointer; color: #c7b7ff; padding: 4px 0; }
+.mp-controls fieldset { border: 0; padding: 0; margin: 12px 0; min-width: 0; }
+.mp-label { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.mp-label select { width: 100%; background: #202027; color: #eee; border: 1px solid #3c3c46; border-radius: 6px; padding: 7px; }
+.mp-mods { display: flex; flex-wrap: wrap; gap: 8px 12px; }
+.mp-mods label, .mp-confirm label { display: flex; align-items: baseline; gap: 5px; }
+.mp-confirm { display: flex; flex-direction: column; gap: 10px; overflow-wrap: anywhere; }
+.mp-confirm code { color: #c7b7ff; }
+.mp-impact, .mp-result { color: #edbfc8; font-size: 11px; line-height: 1.7; }

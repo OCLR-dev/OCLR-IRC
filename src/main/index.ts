@@ -110,6 +110,12 @@ app.whenReady().then(() => {
   ipcMain.handle('irc:select-room', (event, value: unknown) => action(event, () => irc.selectRoom(value)))
   ipcMain.handle('irc:leave-room', (event, value: unknown) => action(event, () => irc.leaveRoom(value)))
   ipcMain.handle('irc:query', (event, value: unknown) => action(event, () => irc.query(value)))
+  ipcMain.handle('irc:mp-preview', (event, value: unknown) => {
+    trusted(event)
+    try { return { ok: true, preview: irc.previewMp(value) } }
+    catch (error) { return { ok: false, error: error instanceof Error ? error.message : '無法預覽操作。' } }
+  })
+  ipcMain.handle('irc:mp-execute', (event, value: unknown) => action(event, () => irc.executeMp(value)))
   ipcMain.handle('irc:chat', (event, value: unknown) => action(event, () => irc.chat(value)))
   ipcMain.handle('irc:open-message-link', async (event, value: unknown) => {
     trusted(event)

@@ -1,3 +1,4 @@
+import { mpCommand } from '../shared/mp-command.ts'
 import net from 'node:net'
 import { EventEmitter } from 'node:events'
 import { randomUUID } from 'node:crypto'
@@ -58,6 +59,8 @@ export class IrcSession extends EventEmitter {
   private creationStore: CreationStore | null = null
   private previousCreationId: string | null = null
   private creationName: string | null = null
+  private mpPreview: { token: string; command: string; view: RoomView; fingerprint: string; deadline: number } | null = null
+  private refereeSeen = new WeakMap<RoomView, number>()
   private creationTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(createSocket = () => net.createConnection({ host: 'irc.ppy.sh', port: 6667 }), timing: Partial<Timing> = {}) {
@@ -97,6 +100,7 @@ export class IrcSession extends EventEmitter {
     this.socket.write(line + '\r\n')
   }
   private disconnect() {
+    this.mpPreview = null
     if (this.creation.status === 'awaiting') this.creationUnknown('開房時連線中斷，結果不明。請核對既有房間；不會自動重送。')
     if (this.creationTimer) clearTimeout(this.creationTimer)
     this.creationTimer = null; this.creationName = null
@@ -235,6 +239,7 @@ export class IrcSession extends EventEmitter {
     return view
   }
   selectRoom(input: unknown) {
+    this.mpPreview = null
     const view = this.target(input)
     this.selected = view.room.id; view.unread = 0; view.mentions = 0; this.publish()
   }
@@ -400,9 +405,42 @@ export class IrcSession extends EventEmitter {
     this.send(`PRIVMSG ${view.room.channel} :!mp ${kind}`); this.lastQueryAt = Date.now()
     view.pending = kind; view.error = null; view.refsHeader = false
     if (kind === 'settings') { this.clearFresh(view); view.collector = new SettingsCollector(view.room.id); Object.assign(view.room, blankObservation(), { syncState: 'loading' }); view.room.binding = 'unknown'; view.room.name = null; view.room.mode = null; view.room.players = null }
-    else view.room.referee = 'unknown'
+    else { view.room.referee = 'unknown'; this.refereeSeen.delete(view) }
     this.note(view, `!mp ${kind}`, 'self', this.username)
     this.timeout(view, '尚未收到完整回覆；請稍後重新查詢，不代表沒有權限。'); this.publish()
+  }
+  private mpReady(view: RoomView) {
+    this.ready(view)
+    const room = view.room
+    if (room.kind !== 'match' || this.selected !== room.id || room.binding !== 'verified') throw new Error('請先選取並核對比賽房間。')
+    if (room.syncState !== 'complete' || !room.observedAt || Date.now() - Date.parse(room.observedAt) >= 10000) throw new Error('請先重新讀取完整房間設定。')
+    if (room.referee !== 'listed' || performance.now() - (this.refereeSeen.get(view) ?? -Infinity) >= 60000) throw new Error('請先重新讀取裁判名單，確認你的裁判權限。')
+  }
+  previewMp(input: unknown) {
+    this.mpPreview = null
+    const view = this.target(input)
+    this.mpReady(view)
+    const command = mpCommand((input as Record<string, unknown>).intent)
+    if (command !== '!mp abort' && (view.room.phase === 'playing' || view.room.slots.some(slot => /^playing$/i.test(slot.status)))) throw new Error('比賽進行中，請先核對或中止比賽。')
+    if (command === '!mp start' && !view.room.slots.length) throw new Error('房內沒有玩家，不能開始比賽。')
+    const token = randomUUID()
+    this.mpPreview = { token, command, view, fingerprint: JSON.stringify(view.room), deadline: performance.now() + 10000 }
+    return { token, command, channel: view.room.channel, expiresAt: new Date(Date.now() + 10000).toISOString() }
+  }
+  executeMp(input: unknown) {
+    const preview = this.mpPreview
+    this.mpPreview = null // Consume before every attempt, including validation and transport failure.
+    const view = this.target(input)
+    const value = input as Record<string, unknown>
+    if (!preview || value.token !== preview.token || value.reviewed !== true || preview.view !== view || performance.now() >= preview.deadline || JSON.stringify(view.room) !== preview.fingerprint) throw new Error('確認已失效或房間狀態已變更，請重新預覽。')
+    this.mpReady(view)
+    this.clearFresh(view)
+    view.room.syncState = 'stale'; view.room.referee = 'unknown'; this.refereeSeen.delete(view)
+    this.lastQueryAt = Date.now()
+    this.note(view, preview.command, 'self', this.username, 'unconfirmed')
+    this.note(view, '房內操作已嘗試送出，結果未確認；請核對 BanchoBot 回覆，再讀取設定與裁判名單。不會自動重送。')
+    try { this.send(`PRIVMSG ${view.room.channel} :${preview.command}`) }
+    finally { this.publish() }
   }
   chat(input: unknown) {
     const view = this.target(input)
@@ -484,7 +522,7 @@ export class IrcSession extends EventEmitter {
       if (header) view.refsHeader = true
       const names = header ? header[1].split(',') : view.refsHeader ? [body] : []
       if (names.some(name => normalize(name.trim()) === normalize(this.username))) {
-        room.referee = 'listed'; this.clearTimer(view); view.pending = null; view.refsHeader = false
+        this.refereeSeen.set(view, performance.now()); room.referee = 'listed'; this.clearTimer(view); view.pending = null; view.refsHeader = false
       }
     }
     if (bot && !observing && !readingRefs && room.syncState !== 'unknown') room.syncState = 'stale'

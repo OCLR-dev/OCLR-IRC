@@ -1,3 +1,4 @@
+import type { MpIntent, MpPreview } from './mp-command.ts'
 import type { OclrSnapshot } from './oclr-contracts.ts'
 
 export type Connection = 'offline' | 'connecting' | 'online' | 'error' | 'reconnecting' | 'suspended'
@@ -58,6 +59,8 @@ export interface DesktopAPI {
   selectRoom(input: RoomTarget): Promise<{ ok: boolean; error?: string }>
   leaveRoom(input: RoomTarget): Promise<{ ok: boolean; error?: string }>
   query(input: RoomTarget & { kind: 'settings' | 'listrefs' }): Promise<{ ok: boolean; error?: string }>
+  previewMp(input: RoomTarget & { intent: MpIntent }): Promise<{ ok: boolean; preview?: MpPreview; error?: string }>
+  executeMp(input: RoomTarget & { token: string; reviewed: boolean }): Promise<{ ok: boolean; error?: string }>
   chat(input: RoomTarget & { text: string }): Promise<{ ok: boolean; error?: string }>
   openMessageLink(input: string): Promise<{ ok: boolean; error?: string }>
   openAccountSettings(): Promise<void>

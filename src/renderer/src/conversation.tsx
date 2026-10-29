@@ -14,7 +14,7 @@ export function MessageList({ state, onError }: { state: Snapshot; onError: (mes
       if (!result?.ok) onError(result?.error || '無法開啟此連結。')
     } catch { onError('無法開啟此連結。') }
   }
-  if (!state.messages.length) return <div className="message-area empty-state"><h2>連接你的比賽房間</h2><p>貼上 MP 連結，讀取設定、裁判名單並聊天。<br />比賽變更指令尚未開放。</p></div>
+  if (!state.messages.length) return <div className="message-area empty-state"><h2>連接你的比賽房間</h2><p>貼上 MP 連結，讀取設定、裁判名單並聊天。<br />房內指令請使用右側快捷操作。</p></div>
   return <div className="message-area" role="region" aria-label="IRC 訊息">
     <Virtuoso ref={list} className="message-list" data={state.messages}
       firstItemIndex={state.messageStartIndex}
@@ -66,6 +66,6 @@ export function Composer({ state, onError }: { state: Snapshot; onError: (messag
           }
           if (event.key === 'Enter' && (event.nativeEvent.isComposing || composing.current || event.keyCode === 229)) event.preventDefault() }} />
     </TextField><Button type="submit" className="primary-button" isDisabled={!available || sending || Boolean(state.pending) || !draft.trim() || prohibited || bytes > 510}>{sending ? '傳送中…' : '傳送'}</Button></div>
-    <div className="composer-help"><span>{prohibited ? '僅支援一般聊天，不接受指令或換行。' : 'Enter 傳送 · Tab 補完名稱 · 指令尚未開放'}</span><span className={bytes > 510 ? 'over-limit' : ''}>{bytes} / 510 bytes</span></div>
+    <div className="composer-help"><span>{prohibited ? '僅支援一般聊天，不接受指令或換行。' : 'Enter 傳送 · Tab 補完名稱 · 指令請用快捷操作'}</span><span className={bytes > 510 ? 'over-limit' : ''}>{bytes} / 510 bytes</span></div>
   </form>
 }

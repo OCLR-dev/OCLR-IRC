@@ -72,7 +72,7 @@ export function chatText(input: unknown, channel: string): string {
   if (typeof input !== 'string' || /[\x00-\x1f\x7f]/.test(input)) throw new Error('訊息不能包含換行或控制字元。')
   const text = input.trim()
   if (!text) throw new Error('請輸入訊息。')
-  if (/^[!／/]/u.test(text)) throw new Error('此輸入區只支援一般聊天，尚未開放指令。')
+  if (/^[!／/]/u.test(text)) throw new Error('此輸入區只支援一般聊天；房內指令請使用快捷操作。')
   if (Buffer.byteLength(`PRIVMSG ${channel} :${text}`, 'utf8') > 510) throw new Error('訊息過長，請縮短後再送出。')
   return text
 }
