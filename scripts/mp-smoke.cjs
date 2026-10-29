@@ -69,6 +69,7 @@ async function main() {
   await until(() => js('Boolean(document.querySelector(".join-form"))'))
   assert.equal((await js('window.oclr.join("900000001")')).ok, true)
   await until(() => js('(async () => (await window.oclr.snapshot()).room?.joined)()'))
+  await until(() => js('Boolean(document.querySelector(".mp-controls button"))'))
   await js('document.querySelector(".mp-controls").open = true')
   assert.equal(await js('document.querySelector(".mp-controls button").disabled'), true)
   async function refresh() {
