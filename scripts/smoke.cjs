@@ -32,7 +32,7 @@ const server = net.createServer(socket => {
       if (line.startsWith('PRIVMSG BanchoBot :!mp make ')) socket.write(`:BanchoBot PRIVMSG ${username} :Created the tournament match https://osu.ppy.sh/mp/900000003 ${line.slice('PRIVMSG BanchoBot :!mp make '.length)}\n`)
       const channel = line.split(' ')[1]
       const id = channel?.replace('#mp_', '')
-      if (line.endsWith(':!mp settings')) socket.write(`:BanchoBot PRIVMSG ${channel} :Room name: SYNTHETIC QA ROOM, History: https://osu.ppy.sh/mp/${id}\n:BanchoBot PRIVMSG ${channel} :Beatmap: https://osu.ppy.sh/b/123 Synthetic Artist - Map\n:BanchoBot PRIVMSG ${channel} :Team mode: TeamVs, Win condition: ScoreV2\n:BanchoBot PRIVMSG ${channel} :Active mods: None\n:BanchoBot PRIVMSG ${channel} :Players: 0\n`)
+      if (line.endsWith(':!mp settings')) socket.write(`:BanchoBot PRIVMSG ${channel} :Room name: SYNTHETIC QA ROOM, History: https://osu.ppy.sh/mp/${id}\n:BanchoBot PRIVMSG ${channel} :Beatmap: https://osu.ppy.sh/b/123 Synthetic Artist - Map\n:BanchoBot PRIVMSG ${channel} :Team mode: TeamVs, Win condition: ScoreV2\n:BanchoBot PRIVMSG ${channel} :Active mods: None\n:BanchoBot PRIVMSG ${channel} :Players: 2\n:BanchoBot PRIVMSG ${channel} :Slot 1 Ready https://osu.ppy.sh/u/101 Synthetic Red [Host / Team Red]\n:BanchoBot PRIVMSG ${channel} :Slot 4 Not Ready https://osu.ppy.sh/u/102 Synthetic Blue [Team Blue]\n`)
       if (line.endsWith(':!mp listrefs')) socket.write(`:BanchoBot PRIVMSG ${channel} :Match referees:\n:BanchoBot PRIVMSG ${channel} :${username}\n`)
     }
   })
@@ -82,6 +82,11 @@ async function main() {
   await delay(1100)
   await js('document.querySelectorAll(".query-actions button")[0].click()')
   await until(() => js('document.body.textContent.includes("History 連結相符")'))
+  await until(() => js('document.querySelectorAll(".player-slot").length === 16'))
+  assert.equal(await js('document.querySelector(".player-slots header").textContent.includes("準備 1 / 2")'), true)
+  assert.equal(await js('document.querySelectorAll(".player-slot.vacant").length'), 14)
+  assert.equal(await js('document.querySelector(".player-slot[data-team=red]").textContent.includes("房主")'), true)
+  fs.writeFileSync(path.join(output, 'player-slots-synthetic.png'), (await window.webContents.capturePage()).toPNG())
   await delay(1100)
   await js('document.querySelectorAll(".query-actions button")[1].click()')
   await until(() => js('document.body.textContent.includes("已列於裁判名單")'))
@@ -158,6 +163,7 @@ async function main() {
   peer.destroy()
   await until(() => js('(async () => (await window.oclr.snapshot()).connection === "reconnecting")()'))
   await until(() => js('document.querySelector("input[name=chat]").disabled'))
+  assert.equal(await js('document.querySelector(".player-slots").textContent.includes("空位")'), false)
   await delay(250)
   assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
   assert.equal(await js('document.querySelector(".app-footer").getBoundingClientRect().bottom <= innerHeight'), true)

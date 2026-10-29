@@ -232,3 +232,20 @@ main { min-height: 0; overflow: auto; }
 .oclr-ledger>li { padding: 10px 0; }
 .oclr-ledger>li>span { display: block; }
 @media (max-width: 1050px) { .oclr-view { padding: 25px; } .oclr-grid { grid-template-columns: 1fr; gap: 20px; } .oclr-fixtures { border-bottom: 1px solid #302a36; padding-bottom: 12px; } .oclr-fixture { display: none; } .oclr-fixture-picker { display: block; } .oclr-rosters { gap: 12px; } .oclr-session { padding-block: 12px; } }
+
+.player-slots { margin-bottom: 26px; }
+.player-slots header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.player-slots h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.player-slots header > span { font-size: 11px; color: #bca3ee; }
+.slots-caption { font-size: 10px; line-height: 1.7; color: #a397b0; margin: 8px 0; }
+.player-slot-list { list-style: none; padding: 0; margin: 12px 0; }
+.player-slot { min-height: 42px; display: flex; align-items: center; gap: 10px; padding: 7px 5px; border-bottom: 1px solid #2b2432; font-size: 12px; border-left: 2px solid transparent; }
+.slot-number { color: #94859f; font: 10px monospace; flex-shrink: 0; }
+.slot-player { min-width: 0; display: flex; flex-direction: column; gap: 3px; overflow-wrap: anywhere; }
+.slot-player strong { font-weight: 500; }
+.slot-status { font-size: 10px; color: #b7aabd; }
+.player-slot.vacant { color: #94859f; }
+.player-slot[data-team=red] { border-left-color: #dc8f9c; }
+.player-slot[data-team=blue] { border-left-color: #8eafe0; }
+.player-slot.unverified { opacity: .7; }
+@media (min-width: 1200px) { .room-grid { grid-template-columns: minmax(0, 1fr) 230px; } }
