@@ -1,8 +1,10 @@
-# OCLR-ref-tools
+# OCLR-IRC
 
-OCLR 賽事的裁判用 IRC 桌面客戶端，以 Electron、React 與 TypeScript 開發，使用免費 HeroUI，支援 Windows、macOS 與 Linux。
+osu! Chinese League Rookie（OCLR）賽事的裁判用 IRC 桌面客戶端，以 Electron、React 與 TypeScript 開發，使用免費 HeroUI，支援 Windows、macOS 與 Linux。
 
 目前為開發預覽版。IRC 工作區已可使用；OCLR 桌面授權及本機 IRC → 網站投影／命令轉送已接入，正式 OAuth 與 Bancho 房間仍需本人聯調。完整 MVP 與三平台實機驗收尚未完成。
+
+套件與下載產物目前仍沿用 `oclr-ref-tools`／`OCLR-ref-tools` 名稱。
 
 ## 已有功能
 
@@ -13,12 +15,22 @@ OCLR 賽事的裁判用 IRC 桌面客戶端，以 Electron、React 與 TypeScrip
 - **斷線恢復**：恢復連線與房間唯讀查詢，不重送聊天或開房命令。
 - **背景執行**：關窗後保留連線，可從系統匣／Dock／工作列恢復；Linux 保留最小化入口，完整退出請選「退出程式」。
 - **OCLR 場次接入層**：已實作系統瀏覽器授權、本人場次、三階段面板與命令預覽／複製；可用性取決於網站端是否提供相應 API。
+- **網站 IRC 投影與命令轉送**：將目前房間綁定至本人獲派場次，在網站查看房間訊息並送出支援的 MP 指令；本機核對目標、設定與裁判權限後才傳送。
 
 玩家槽位來自 `!mp settings` 觀測快照，可按「讀取設定」更新；16 個顯示位置不代表房間實際開放容量。房內快捷操作屬手動裁判工作流，送出後需核對 BanchoBot 回覆；啟用網站投影後，可接受綁定場次的網站 MP 指令；未啟用時仍是獨立手動工作區。socket 送出不等於 BanchoBot 確認。
 
+## 開始使用
+
+1. 使用 osu! **IRC 專用密碼**登入，建立或加入比賽房間。
+2. 讀取房間設定與裁判名單，核對房間、玩家及 Mods，再使用聊天或房內快捷操作。
+3. 如需網站整合，在「連接 OCLR」透過系統瀏覽器授權，選擇本人獲派場次，再按「將目前房間投影到網站」。OCLR 授權與 IRC 登入是兩個獨立連線，IRC 使用者名稱須與 OCLR 帳號相符。
+4. 在本機停止投影、切換房間或場次、登出或休眠後，命令轉送會停用；同步失敗須重新綁定，不會自動重送指令。
+
+IRC 密碼與連線由本機管理。啟用投影會把綁定房間的訊息及命令狀態傳至網站；未啟用時可獨立使用 IRC 工作區。詳細授權與命令限制見 [網站 IRC 投影](docs/m1/website-irc-relay.md)。
+
 ## 下載測試版
 
-前往 [Desktop test builds](https://github.com/OCLR-dev/OCLR-ref-tools/actions/workflows/test-builds.yml)，選擇所需提交且已成功的執行紀錄，登入 GitHub 後從 **Artifacts** 下載對應平台的 `OCLR-ref-tools-*` 檔案。Artifacts 保留 30 天，過期後需重新打包。
+前往 [Desktop test builds](https://github.com/OCLR-dev/OCLR-IRC/actions/workflows/test-builds.yml)，選擇所需提交且已成功的執行紀錄，登入 GitHub 後從 **Artifacts** 下載對應平台的 `OCLR-ref-tools-*` 檔案。Artifacts 保留 30 天，過期後需重新打包。
 
 | 平台 | CI 打包架構 |
 | --- | --- |
@@ -44,7 +56,7 @@ npm run build
 npm start
 ```
 
-登入使用 osu! **IRC 專用密碼**，不是網站密碼。osu! IRC 目前使用未加密連線。聊天與 OCLR 私人資料僅保留於記憶體；本機另保存最小開房防重送紀錄，以及使用者選擇保存的加密 IRC 憑證。
+登入使用 osu! **IRC 專用密碼**，不是網站密碼。osu! IRC 目前使用未加密連線。桌面端的聊天與 OCLR 私人資料僅保留於記憶體（啟用網站投影時，綁定房間訊息另會傳至網站）；本機另保存最小開房防重送紀錄，以及使用者選擇保存的加密 IRC 憑證。
 
 常用驗證與打包命令：
 
@@ -55,6 +67,12 @@ npm run test:ui
 ```
 
 介面測試需要桌面顯示環境與本機 loopback 連線；Linux CI 使用 Xvfb。各平台打包命令為 `npm run package:win`、`npm run package:linux`、`npm run package:mac`，輸出於 `release/`；macOS 打包需在 macOS 執行。
+
+## 目前限制
+
+- 完整 MVP、正式 OAuth／Bancho 聯調與三平台實機驗收尚未完成；合成測試不代表真實服務驗收。
+- 完整加密本機日誌、圖池操作計畫與自動核對仍屬待辦，詳見 [桌面端剩餘工作](docs/desktop-backlog.md)。
+- 命令已送出不等於已執行；只有支援且相符的 BanchoBot 回覆可自動確認，其餘結果仍須人工核對。未知結果不自動重送。
 
 ## 發布流程
 
