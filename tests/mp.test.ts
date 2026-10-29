@@ -139,3 +139,20 @@ test('website relay uses the existing verified room transport and never accepts 
     assert.throws(() => f.session.relaySend({...f.target(), roomEpoch: -1, text: '!mp abort'}))
   } finally {await f.close()}
 })
+
+test('Main evidence blocks forged complete state and obsolete connection generations', async () => {
+  const f = await fixture()
+  try {
+    await f.refresh()
+    const internals = f.session as unknown as { generation: number }
+    internals.generation++
+    assert.throws(() => f.session.previewMp({ ...f.target(), intent: { kind: 'abort' } }))
+    internals.generation--
+    const room = f.session.state.room!
+    const originalEpoch = room.epoch
+    room.epoch++
+    assert.throws(() => f.session.previewMp({ ...f.target(), intent: { kind: 'abort' } }))
+    room.epoch = originalEpoch
+    assert.ok(f.session.previewMp({ ...f.target(), intent: { kind: 'abort' } }).token)
+  } finally { await f.close() }
+})
