@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { OCLR_ORIGIN, metaSchema } from '../shared/oclr-contracts.ts'
+import { metaSchema } from '../shared/oclr-contracts.ts'
+import { oclrOrigin } from './oclr-origin.ts'
 
 const errorSchema = z.object({ error: z.object({ code: z.string().regex(/^[A-Z_]{1,64}$/), message: z.string().max(2000), requestId: z.uuid(), retryable: z.boolean() }) })
 export class OclrError extends Error {
@@ -24,6 +25,8 @@ export function publicOclrError(error: unknown): string {
     SESSION_LIMIT_REACHED: 'OCLR 有效桌面連線已達上限，請到網站撤銷舊連線。',
     SESSION_EXPIRED: 'OCLR 授權已過期，請重新登入。', SESSION_REVOKED: 'OCLR 授權已撤銷，請重新登入。',
     COLLECTION_CHANGED: '場次列表已變更，請重新整理。',
+    RELAY_ALREADY_ACTIVE: '網站投影已啟用，請先停止。',
+    RELAY_LOCAL_NOT_READY: '請先登入相同 osu! 帳號，選擇 OCLR 場次，並在 IRC 加入房間、讀取設定與裁判名單。',
     CANCELLED: '操作已取消。',
     SERVICE_UNAVAILABLE: '無法確認 OCLR 回應，請稍後重試；若正在登入或更新憑證，需重新授權。'
   }
@@ -33,12 +36,13 @@ export interface HttpReply { value: unknown; startedAt: number; receivedAt: numb
 export class OclrHttp {
   private fetcher: typeof fetch
   private now: () => number
-  constructor(fetcher: typeof fetch = fetch, now = () => performance.now()) { this.fetcher = fetcher; this.now = now }
+  readonly origin: string
+  constructor(fetcher: typeof fetch = fetch, now = () => performance.now(), origin?: string) { this.fetcher = fetcher; this.now = now; this.origin = oclrOrigin(origin) }
   async request(path: string, options: { method?: 'GET' | 'POST'; body?: unknown; token?: string; signal?: AbortSignal; maxBytes?: number } = {}): Promise<HttpReply> {
     // Paths are built by Main, never accepted from IPC or from a response link.
     if (!/^\/api\/(?:desktop|referee)\/v1\//.test(path) || /[\r\n#]/.test(path)) throw new OclrError('INVALID_RESPONSE')
-    const url = new URL(path, OCLR_ORIGIN)
-    if (url.origin !== OCLR_ORIGIN) throw new OclrError('INVALID_RESPONSE')
+    const url = new URL(path, this.origin)
+    if (url.origin !== this.origin) throw new OclrError('INVALID_RESPONSE')
     const maxBytes = options.maxBytes ?? 32768
     const timeout = AbortSignal.timeout(5000)
     const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout

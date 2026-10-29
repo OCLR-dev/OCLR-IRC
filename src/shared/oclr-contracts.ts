@@ -4,7 +4,7 @@ import { refereeSettingsSchema } from './oclr-website/referee-commands.ts'
 import { projectReferee, refereePolicySchema } from './oclr-website/referee-model.ts'
 
 export const OCLR_ORIGIN = 'https://oclr.org'
-export const OCLR_SCOPES = ['referee:fixtures:read', 'referee:context:read', 'referee:panel:read'] as const
+export const OCLR_SCOPES = ['referee:fixtures:read', 'referee:context:read', 'referee:panel:read', 'referee:relay'] as const
 export const uuid = z.uuid()
 export const positiveId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER)
 const text = z.string().max(2000)
@@ -57,7 +57,9 @@ const workspace = z.object({
 export const panelSchema = envelope(z.object({ viewer: subjectSchema, edition: editionSchema, capturedAt: instant, freshUntil: instant, workspace }))
 export type RefereePanel = z.infer<typeof panelSchema>['data']
 export interface OclrCommand { id: string; kind: string; text: string | null; reason: string | null; teamName?: string; playerName?: string }
+export interface OclrRelayState { status: 'off' | 'connecting' | 'connected' | 'error'; roomId: number | null; error: string | null }
 export interface OclrSnapshot {
+  relay: OclrRelayState
   status: 'disconnected' | 'authorizing' | 'connected' | 'refreshing' | 'error'
   subject: z.infer<typeof subjectSchema> | null
   authorization: { verificationCode: string; expiresAt: string } | null

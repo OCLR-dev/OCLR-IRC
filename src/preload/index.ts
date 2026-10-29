@@ -6,6 +6,8 @@ const api: DesktopAPI = {
   runInBackground: () => ipcRenderer.invoke('app:background'),
   quit: () => ipcRenderer.invoke('app:quit'),
   website: {
+    startRelay: () => ipcRenderer.invoke('oclr:relay-start'),
+    stopRelay: () => ipcRenderer.invoke('oclr:relay-stop'),
     snapshot: () => ipcRenderer.invoke('oclr:snapshot'),
     login: () => ipcRenderer.invoke('oclr:login'),
     cancelLogin: () => ipcRenderer.invoke('oclr:cancel-login'),

@@ -1,9 +1,9 @@
 import { EventEmitter } from 'node:events'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { z } from 'zod'
-import { authRequestSchema, fixturePageSchema, OCLR_ORIGIN, OCLR_SCOPES, panelSchema, tokenSchema, uuid } from '../shared/oclr-contracts.ts'
+import { authRequestSchema, fixturePageSchema, OCLR_SCOPES, panelSchema, tokenSchema, uuid } from '../shared/oclr-contracts.ts'
 import { emptyOclrState } from '../shared/oclr-state.ts'
-import type { FixtureSummary, OclrCommand, OclrSnapshot } from '../shared/oclr-contracts.ts'
+import type { FixtureSummary, OclrCommand, OclrSnapshot, OclrRelayState } from '../shared/oclr-contracts.ts'
 import { refereeCommands } from '../shared/oclr-website/referee-commands.ts'
 import { OclrError, OclrHttp, publicOclrError } from './oclr-http.ts'
 import type { HttpReply } from './oclr-http.ts'
@@ -11,6 +11,7 @@ import { openLoopback } from './oclr-loopback.ts'
 import type { Loopback } from './oclr-loopback.ts'
 
 interface Options {
+  origin?: string
   version: string
   platform: string
   openExternal(url: string): Promise<unknown>
@@ -57,7 +58,7 @@ export class OclrSession extends EventEmitter {
   private pollAfterSeconds = 15
   constructor(options: Options) {
     super(); this.options = options; this.now = options.now ?? (() => performance.now())
-    this.http = new OclrHttp(options.fetcher, this.now)
+    this.http = new OclrHttp(options.fetcher, this.now, options.origin)
   }
   get state(): OclrSnapshot {
     // Timer callbacks can be delayed; monotonic deadlines also gate every IPC snapshot.
@@ -104,6 +105,17 @@ export class OclrSession extends EventEmitter {
     if (!parsed.success) throw new OclrError('INVALID_RESPONSE')
     return parsed.data
   }
+  updateRelay(value: OclrRelayState) { this.value.relay = value; this.publish() }
+  async relayRequest(fixtureId: string, body: unknown) {
+    this.available()
+    if (!this.pair || !this.value.fixtures.some(f => f.fixtureId === fixtureId)) throw new OclrError('FIXTURE_NOT_AVAILABLE')
+    const generation = this.generation
+    if (this.refreshing) await this.refreshing
+    if (this.pair && this.now() >= this.pair.accessUntil) await this.refresh()
+    if (!this.pair || generation !== this.generation) throw new OclrError('CANCELLED')
+    // Relay mutations have at-most-once delivery: never retry a lost response.
+    return this.http.request(`/api/referee/v1/fixtures/${fixtureId}/relay`, {method: 'POST', token: this.pair.access_token, body, signal: this.controller.signal, maxBytes: 131072})
+  }
   async login() {
     this.available()
     if (this.value.status === 'authorizing' || this.pair) throw new OclrError('INVALID_RESPONSE')
@@ -121,7 +133,7 @@ export class OclrSession extends EventEmitter {
       if (generation !== this.generation) return
       const { data, meta } = this.validate(authRequestSchema, response)
       const url = new URL(data.authorization_url)
-      const expected = `${OCLR_ORIGIN}/desktop/authorize?request_id=${data.authorization_request_id}`
+      const expected = `${this.http.origin}/desktop/authorize?request_id=${data.authorization_request_id}`
       const remaining = Date.parse(data.expires_at) - Date.parse(meta.serverTime) - (response.receivedAt - response.startedAt)
       if (url.href !== expected || url.username || url.password || remaining <= 0 || remaining > 600000) throw new OclrError('INVALID_RESPONSE')
       listener.expireAfter(remaining)
@@ -360,7 +372,7 @@ export class OclrSession extends EventEmitter {
     await this.options.writeClipboard(command.text)
   }
   private reviewUrl(fixture: FixtureSummary) {
-    const expected = `${OCLR_ORIGIN}/admin/tournaments/${fixture.edition.slug}/matches/${fixture.fixtureId}`
+    const expected = `${this.http.origin}/admin/tournaments/${fixture.edition.slug}/matches/${fixture.fixtureId}`
     if (fixture.reviewUrl !== expected) throw new OclrError('INVALID_RESPONSE')
     return expected
   }

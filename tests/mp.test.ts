@@ -125,3 +125,17 @@ test('freshness, referee permission, empty lobby, active play and send failure g
     assert.equal(room.syncState, 'stale')
   } finally { await f.close() }
 })
+
+test('website relay uses the existing verified room transport and never accepts raw IRC', async () => {
+  const f = await fixture()
+  try {
+    assert.throws(() => f.session.relaySend({...f.target(), text: '!mp map 456 0'}))
+    await f.refresh()
+    assert.throws(() => f.session.relaySend({...f.target(), text: '!mp password secret'}))
+    f.session.relaySend({...f.target(), text: '!mp map 456 0'})
+    await until(() => f.sent.includes('PRIVMSG #mp_9 :!mp map 456 0'))
+    assert.equal(f.sent.filter(line => line.endsWith(':!mp map 456 0')).length, 1)
+    assert.ok(f.session.state.messages.some(m => m.text === '!mp map 456 0' && m.delivery === 'unconfirmed'))
+    assert.throws(() => f.session.relaySend({...f.target(), roomEpoch: -1, text: '!mp abort'}))
+  } finally {await f.close()}
+})
