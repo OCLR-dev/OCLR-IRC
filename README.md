@@ -65,6 +65,8 @@ npm run test:ui
 | 文件 | 內容 |
 | --- | --- |
 | [專案設計](docs/project-design.md) | 產品範圍、架構與操作流程 |
+| [開發代理指引](AGENTS.md) | 架構邊界、測試與交付規則 |
+| [桌面端剩餘工作](docs/desktop-backlog.md) | 缺口設計、依賴、驗收與 GitHub issues |
 | [MVP 開發任務](docs/mvp-plan.md) | 任務依賴、進度與尚未完成的驗收條件 |
 | [設計決策紀錄](docs/design-review.md) | 已確認決策與設計審查 |
 | [建立比賽房間](docs/m1/create-match-room.md) | 開房操作、防重送與限制 |

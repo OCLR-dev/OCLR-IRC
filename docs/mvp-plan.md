@@ -206,3 +206,7 @@ D01–D08 已確認並統一記錄於 [設計決策](design-review.md)。D06 改
 
 - 依使用者要求加入換圖、Mods、立即開始與中止；完成 Main 固定命令生成、裁判／房間快照 gate、一次性預覽確認與不重送。
 - 詳見 [手動 MP 快捷操作](m1/manual-mp-controls.md)。MAP／CONTROL 與 CORE 手動切片已實作；任意指令、倒數、正式 OCLR 執行、完整日誌及真實操作回覆驗收仍未完成，相關任務保持 partial，不建立 milestone tag。
+
+### 2026-10-30 桌面端剩餘工作設計
+
+[桌面 backlog](desktop-backlog.md) 以 `61f7ed4` 盤點已完成切片與 L01–L12 剩餘工作，分開實作缺口、真實驗收、外部 API 依賴及後續面板寫入。此輪只記錄設計與 GitHub issues，沒有變更 D01–D08、完成狀態或 M0–M4 的驗收門檻。CORE／LOG 的新拆分先定中立事件與最小恢復介面，避免相互等待。
