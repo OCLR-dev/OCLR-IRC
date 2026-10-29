@@ -1,9 +1,20 @@
+import { randomUUID } from 'node:crypto'
 import { redact } from './protocol.ts'
 import type { Room } from '../shared/types.ts'
 
 export function blankObservation(): Pick<Room, 'syncState' | 'observedAt' | 'beatmap' | 'mods' | 'slots' | 'phase'> {
   return { syncState: 'unknown', observedAt: null, beatmap: null, mods: null, slots: [], phase: 'unknown' }
 }
+export interface FieldObservation<T> {
+  value: T | null
+  knowledge: 'known' | 'unknown' | 'invalid'
+  observedAt: string
+  connectionGeneration: number
+  roomEpoch: number
+  source: 'settings'
+  queryId: string
+}
+
 /** A bounded, query-scoped snapshot. No inferred mods, player membership or UID. */
 export class SettingsCollector {
   private header = false
@@ -13,7 +24,22 @@ export class SettingsCollector {
     binding: 'unknown', name: null, mode: null, players: null, beatmap: null, mods: null, slots: []
   }
   private id: number
-  constructor(id: number) { this.id = id }
+  private readonly queryId = randomUUID()
+  private readonly connectionGeneration: number
+  constructor(id: number, connectionGeneration = 0) { this.id = id; this.connectionGeneration = connectionGeneration }
+  observations(roomEpoch: number, timedOut = false) {
+    const observedAt = new Date().toISOString()
+    const field = <T>(value: T | null): FieldObservation<T> => ({
+      value, knowledge: this.malformed || this.result.binding === 'mismatch' ? 'invalid' : timedOut || value === null ? 'unknown' : 'known',
+      observedAt, connectionGeneration: this.connectionGeneration, roomEpoch, source: 'settings', queryId: this.queryId
+    })
+    return {
+      name: field(this.result.name), mode: field(this.result.mode), beatmap: field(this.result.beatmap),
+      mods: field(this.result.mods), players: field(this.result.players),
+      slots: field(this.count !== null && this.result.slots.length === this.count ? this.result.slots.map(slot => ({ ...slot })) : null),
+      capacity: field<number>(null), individualMods: field<string[]>(null), phase: field<string>(null), timer: field<number>(null)
+    }
+  }
   feed(body: string): boolean {
     const header = /^Room name: (.*), History: https:\/\/osu\.ppy\.sh\/(?:mp|community\/matches)\/(\d+)$/.exec(body)
     if (header) {
