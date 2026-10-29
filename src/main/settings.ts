@@ -25,12 +25,13 @@ export class SettingsCollector {
   }
   private id: number
   private readonly queryId = randomUUID()
+  private readonly capturedAt = new Date().toISOString()
   private readonly connectionGeneration: number
   constructor(id: number, connectionGeneration = 0) { this.id = id; this.connectionGeneration = connectionGeneration }
   observations(roomEpoch: number, timedOut = false) {
-    const observedAt = new Date().toISOString()
+    const observedAt = this.capturedAt
     const field = <T>(value: T | null): FieldObservation<T> => ({
-      value, knowledge: this.malformed || this.result.binding === 'mismatch' ? 'invalid' : timedOut || value === null ? 'unknown' : 'known',
+      value: structuredClone(value), knowledge: this.malformed || this.result.binding === 'mismatch' ? 'invalid' : timedOut || value === null ? 'unknown' : 'known',
       observedAt, connectionGeneration: this.connectionGeneration, roomEpoch, source: 'settings', queryId: this.queryId
     })
     return {
@@ -72,9 +73,9 @@ export class SettingsCollector {
     return this.count !== null && this.result.slots.length === this.count
   }
   apply(room: Room, timedOut = false) {
-    Object.assign(room, this.result)
+    Object.assign(room, structuredClone(this.result))
     room.slots.sort((a, b) => a.slot - b.slot)
-    room.observedAt = new Date().toISOString()
+    room.observedAt = this.capturedAt
     room.syncState = !timedOut && !this.malformed && room.binding === 'verified' && room.mode !== null && room.beatmap !== null && room.mods !== null && this.count !== null && room.slots.length === this.count ? 'complete' : 'partial'
   }
 }
