@@ -32,3 +32,17 @@ test('returned slots cannot mutate collector evidence', () => {
   collector.observations(1).slots.value!.push({ slot: 1 } as never)
   assert.deepEqual(collector.observations(1).slots.value, [])
 })
+test('reading evidence never renews age or shares mutable map/mods', async () => {
+  const collector = new SettingsCollector(9)
+  collector.feed(header)
+  collector.feed('Beatmap: https://osu.ppy.sh/b/123 Synthetic')
+  collector.feed('Active mods: HD')
+  const first = collector.observations(1)
+  first.beatmap.value!.id = 999
+  first.mods.value!.push('HR')
+  await new Promise(resolve => setTimeout(resolve, 10))
+  const second = collector.observations(1)
+  assert.equal(second.beatmap.value!.id, 123)
+  assert.deepEqual(second.mods.value, ['HD'])
+  assert.equal(second.beatmap.observedAt, first.beatmap.observedAt)
+})

@@ -406,7 +406,7 @@ export class IrcSession extends EventEmitter {
     this.ready(view)
     this.send(`PRIVMSG ${view.room.channel} :!mp ${kind}`); this.lastQueryAt = Date.now()
     view.pending = kind; view.error = null; view.refsHeader = false
-    if (kind === 'settings') { this.clearFresh(view); view.collector = new SettingsCollector(view.room.id); Object.assign(view.room, blankObservation(), { syncState: 'loading' }); view.room.binding = 'unknown'; view.room.name = null; view.room.mode = null; view.room.players = null }
+    if (kind === 'settings') { this.clearFresh(view); view.collector = new SettingsCollector(view.room.id, this.generation); Object.assign(view.room, blankObservation(), { syncState: 'loading' }); view.room.binding = 'unknown'; view.room.name = null; view.room.mode = null; view.room.players = null }
     else { view.room.referee = 'unknown'; this.refereeSeen.delete(view) }
     this.note(view, `!mp ${kind}`, 'self', this.username)
     this.timeout(view, '尚未收到完整回覆；請稍後重新查詢，不代表沒有權限。'); this.publish()

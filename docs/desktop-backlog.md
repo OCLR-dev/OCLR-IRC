@@ -265,3 +265,5 @@ P0 表示完成既有 MVP 的必要工作，不表示所有項目當下可開始
 第一部分在 SettingsCollector 新增 query-scoped 欄位觀測介面，包含 knowledge、時間、connectionGeneration、roomEpoch 與 queryId。缺少資料保持 unknown；不合法快照及 History 不符保持 invalid。容量、個人 Mods、phase、timer 尚無定版來源，明確保持 unknown。回傳槽位複本避免呼叫端改寫收集結果。
 
 新增測試僅為 synthetic，涵蓋空房、缺行、逾時、History 不符、query 隔離及回傳資料隔離。目前尚未接入操作 gate／IPC，現有 complete 安全檢查維持；逐意圖欄位需求、真實樣本及完整 L01 驗收仍待完成，#5 不因此關閉。
+
+L01 後續修正：觀測年齡保守地從 query collector 建立時計算，重讀／apply 不刷新時間；所有可變欄位以複本交付。IRC 查詢傳入實際 connectionGeneration。此修正仍未替換操作 gate，完整 L01 保持未完成。
