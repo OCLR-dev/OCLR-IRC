@@ -29,6 +29,8 @@ export interface Snapshot {
   messages: Message[]
 }
 export interface DesktopAPI {
+  runInBackground(): Promise<{ ok: boolean; error?: string }>
+  quit(): Promise<{ ok: boolean; error?: string }>
   website: {
     snapshot(): Promise<OclrSnapshot>
     login(): Promise<{ ok: boolean; error?: string }>

@@ -3,6 +3,8 @@ import type { DesktopAPI, Snapshot } from '../shared/types.ts'
 import type { OclrSnapshot } from '../shared/oclr-contracts.ts'
 
 const api: DesktopAPI = {
+  runInBackground: () => ipcRenderer.invoke('app:background'),
+  quit: () => ipcRenderer.invoke('app:quit'),
   website: {
     snapshot: () => ipcRenderer.invoke('oclr:snapshot'),
     login: () => ipcRenderer.invoke('oclr:login'),

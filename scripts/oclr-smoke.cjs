@@ -128,6 +128,15 @@ async function main() {
   assert.equal(requests.filter(r => r.path.endsWith('/auth/exchange')).length, beforeReload)
   const snapshot = JSON.stringify(await js('window.oclr.website.snapshot()'))
   for (const forbidden of [access, refresh, authRequest.state, 'SYNTHETIC_UNEXPECTED_FIELD_NOT_FOR_RENDERER']) assert.equal(snapshot.includes(forbidden), false)
+  let minimizedForBackground = false
+  const minimize = window.minimize.bind(window)
+  window.minimize = () => { minimizedForBackground = true; minimize() }
+  window.close()
+  await until(() => process.env.CI && process.platform === 'linux' ? minimizedForBackground : !window.isVisible() || window.isMinimized())
+  assert.equal((await js('window.oclr.website.snapshot()')).status, 'connected')
+  app.emit('activate')
+  await until(() => window.isVisible() && !window.isMinimized())
+  assert.equal((await js('window.oclr.website.snapshot()')).subject.osuId, panel.data.viewer.osuId)
   stale = true
   await js('window.oclr.website.refreshPanel()')
   await until(() => js('document.body.textContent.includes("資料已過期")'))
@@ -140,7 +149,7 @@ async function main() {
   assert.ok(!sent.some(line => line.includes('!mp')))
   assert.deepEqual(errors, [])
   const report = { evidence: 'synthetic-oclr-desktop-integration', source: 'OCLR-website PR409@1abbab1ddd981025249af727d748e70e23b9096b', platform: process.platform, arch: process.arch, electron: process.versions.electron, recordedAt: new Date().toISOString(),
-    passed: ['undeployed HTML endpoint fails closed without opening browser', 'browser authorization comparison code', 'real one-shot 127.0.0.1 callback and S256 exchange', 'assigned fixtures and native preparation panel', 'Main-only constrained clipboard copy', 'pool preview uses shared website Mods builder', 'remote metadata renders as escaped text', '900x640 has no horizontal overflow', 'review URL opens fixed OCLR origin', 'renderer reload preserves Main session', 'no tokens/state/unexpected response fields in renderer snapshot', 'stale panel disables copying', 'logout clears OCLR data while IRC remains connected', 'no referee business writes or IRC commands sent', 'no renderer console errors'],
+    passed: ['undeployed HTML endpoint fails closed without opening browser', 'browser authorization comparison code', 'real one-shot 127.0.0.1 callback and S256 exchange', 'assigned fixtures and native preparation panel', 'Main-only constrained clipboard copy', 'pool preview uses shared website Mods builder', 'remote metadata renders as escaped text', '900x640 has no horizontal overflow', 'review URL opens fixed OCLR origin', 'renderer reload preserves Main session', 'no tokens/state/unexpected response fields in renderer snapshot', 'close-to-background preserves OCLR session and restore', 'stale panel disables copying', 'logout clears OCLR data while IRC remains connected', 'no referee business writes or IRC commands sent', 'no renderer console errors'],
     limitation: 'OCLR HTTPS API, browser approval, identities and IRC are synthetic. No real website authorization/deployment, production data, live IRC command or true IME acceptance.', requests }
   fs.writeFileSync(path.join(output, 'oclr-smoke.json'), JSON.stringify(report, null, 2) + '\n')
   console.log(JSON.stringify(report, null, 2)); app.exit(0)

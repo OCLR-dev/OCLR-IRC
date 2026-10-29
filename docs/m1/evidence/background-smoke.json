@@ -1,0 +1,18 @@
+{
+  "evidence": "synthetic-native-background",
+  "platform": "darwin",
+  "arch": "arm64",
+  "recordedAt": "2026-10-29T14:25:20.784Z",
+  "trayConstructed": true,
+  "passed": [
+    "close retains native window and authenticated IRC",
+    "IRC PING/PONG works while hidden/minimized",
+    "activate restores original window",
+    "explicit background IPC",
+    "tray open or Linux fallback restores window",
+    "second-instance event restores one window without relogin",
+    "quit clears IRC authentication and bypasses close-to-background",
+    "no match commands sent"
+  ],
+  "limitation": "Synthetic IRC; second-instance event is injected. Headless Linux checks minimize requests, not window-manager handling. CI tray construction does not prove physical system indicator visibility or OS shutdown/desktop-session behavior."
+}

@@ -81,6 +81,10 @@ function App() {
   }
   async function logout() { setPassword(''); setRemember(false); setCreateOpen(false); setFormError(null); setPage('account'); await window.oclr?.logout(); if (window.oclr) setSaved(await window.oclr.credentialStatus()) }
   const error = formError || state.error || state.credentialError
+  async function runInBackground() {
+    try { const result = await window.oclr?.runInBackground(); if (result && !result.ok) setFormError(result.error || '無法轉入背景。') }
+    catch { setFormError('桌面服務無法回應。') }
+  }
 
   return <div className="app-shell">
     <aside className="sidebar">
@@ -91,11 +95,11 @@ function App() {
         <button className={page === 'room' ? 'nav-item selected' : 'nav-item'} disabled={!online && !state.rooms.length} onClick={() => setPage('room')}><Icon name="room" />房間記錄</button>
         <button className={page === 'oclr' ? 'nav-item selected' : 'nav-item'} onClick={() => setPage('oclr')}><Icon name="connect" />OCLR 場次</button>
       </nav>
-      <div className="sidebar-note"><span className="small-label">初版預覽</span><p>建立或加入比賽房間，<br />聊天、同步設定與裁判資訊。</p></div>
+      <div className="sidebar-note"><span className="small-label">背景執行</span><p>關閉視窗後保留連線。<br />從系統匣、Dock 或工作列重新開啟。</p><Button variant="ghost" size="sm" isDisabled={!desktop} onPress={() => void runInBackground()}>轉入背景</Button><Button variant="ghost" size="sm" isDisabled={!desktop} onPress={() => { void window.oclr?.quit().catch(() => setFormError('無法退出程式。')) }}>退出程式</Button></div>
       <div className="sidebar-footer"><span className={`status-dot ${online ? 'online' : connecting ? 'connecting' : ''}`} /><div><strong>{online ? state.username : 'osu! IRC'}</strong><span>{statusText[state.connection]}</span></div>{state.username && <Button isIconOnly variant="ghost" aria-label="登出 IRC" onPress={() => void logout()}><Icon name="logout" /></Button>}</div>
     </aside>
     <div className="workspace">
-      <header className="topbar"><div><span>工作台</span><span className="breadcrumb-slash">/</span><strong>{page === 'account' ? '帳號連線' : page === 'oclr' ? 'OCLR 場次' : '房間記錄'}</strong></div><span className="version">v0.6.0 <span>PREVIEW</span></span></header>
+      <header className="topbar"><div><span>工作台</span><span className="breadcrumb-slash">/</span><strong>{page === 'account' ? '帳號連線' : page === 'oclr' ? 'OCLR 場次' : '房間記錄'}</strong></div><span className="version">v0.7.0 <span>PREVIEW</span></span></header>
       {state.connection !== 'online' && state.username && <div className="reconnect-notice" role="status">{statusText[state.connection]}{state.retryAttempt > 0 && ` · 第 ${state.retryAttempt}/5 次重試`}{state.retryAt && ` · ${new Date(state.retryAt).toLocaleTimeString()} 重試`}。操作不會自動重送。{state.connection === 'error' && <Button size="sm" variant="ghost" onPress={() => { void window.oclr?.retry().then(result => { if (!result.ok) setFormError(result.error || '重試失敗') }).catch(() => setFormError('桌面服務無法回應。')) }}>重新連線</Button>}<Button size="sm" variant="ghost" onPress={() => void logout()}>停止並登出</Button></div>}
       <main>
         {page === 'oclr' ? <OclrView /> : page === 'account' ? <div className="account-view enter">

@@ -8,6 +8,7 @@ import { messageLink } from './links.ts'
 import { SqliteCreationStore } from './creation-store.ts'
 import { OclrSession } from './oclr.ts'
 import { publicOclrError } from './oclr-http.ts'
+import { DesktopBackground } from './background.ts'
 
 const irc = new IrcSession()
 const oclr = new OclrSession({ version: app.getVersion(), platform: process.platform, openExternal: url => shell.openExternal(url), writeClipboard: text => clipboard.writeText(text) })
@@ -17,6 +18,11 @@ let credentialError: string | null = null
 function logout() { loginGeneration++; pendingSave = null; irc.logout() }
 function snapshot() { return { ...irc.state, credentialError } }
 let window: BrowserWindow | null = null
+let background: DesktopBackground | null = null
+let quitting = false
+const primaryInstance = app.requestSingleInstanceLock()
+if (!primaryInstance) app.quit()
+app.on('second-instance', () => background?.show())
 const productionURL = pathToFileURL(join(__dirname, '../renderer/index.html')).href
 const devURL = process.env.ELECTRON_RENDERER_URL
 function trusted(event: Electron.IpcMainInvokeEvent) {
@@ -29,6 +35,7 @@ function action(event: Electron.IpcMainInvokeEvent, fn: () => void) {
   try { fn(); return { ok: true } } catch (error) { return { ok: false, error: error instanceof Error ? error.message : '操作未完成，請再試一次。' } }
 }
 app.whenReady().then(() => {
+  if (!primaryInstance) return
   irc.setCreationStore(new SqliteCreationStore(join(app.getPath('userData'), 'room-creation.sqlite')))
   const store = new CredentialStore(join(app.getPath('userData'), 'irc-credentials.enc'), {
     // Linux async provider/fallback assurance is still unverified: fail closed.
@@ -113,6 +120,8 @@ app.whenReady().then(() => {
     } catch { return { ok: false, error: '無法開啟此訊息連結。' } }
   })
   ipcMain.handle('osu:account-settings', event => { trusted(event); return shell.openExternal('https://osu.ppy.sh/home/account/edit') })
+  ipcMain.handle('app:background', event => action(event, () => background?.hide()))
+  ipcMain.handle('app:quit', event => { trusted(event); setImmediate(() => app.quit()); return { ok: true } })
   let update: ReturnType<typeof setTimeout> | null = null
   irc.on('state', () => {
     if (update) return
@@ -130,12 +139,17 @@ app.whenReady().then(() => {
     window.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false))
     window.on('focus', () => oclr.setForeground(true))
     window.on('blur', () => oclr.setForeground(false))
+    window.on('hide', () => oclr.setForeground(false))
+    window.on('minimize', () => oclr.setForeground(false))
+    window.on('close', event => { if (!quitting && background) { event.preventDefault(); background.hide() } })
+    window.on('query-session-end', () => { quitting = true; logout(); oclr.dispose() })
     window.on('closed', () => { window = null; logout(); oclr.dispose() })
     if (devURL) void window.loadURL(devURL)
     else void window.loadFile(join(__dirname, '../renderer/index.html'))
   }
   create()
-  app.on('activate', () => { if (!window) create() })
+  background = new DesktopBackground(() => window, value => oclr.setForeground(value), () => app.quit())
+  app.on('activate', () => { if (!window) create(); background?.show() })
 })
-app.on('before-quit', () => { logout(); oclr.dispose() })
+app.on('before-quit', () => { quitting = true; logout(); oclr.dispose(); background?.destroy() })
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })

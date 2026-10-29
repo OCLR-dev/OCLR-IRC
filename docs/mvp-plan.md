@@ -110,6 +110,8 @@ SPIKE-01 若無法可靠取得特定狀態，正式規格使用 unknown／人工
 
 ### 3.5 端到端整合與交付
 
+2026-10-29：0.7.0 新增關窗保留 session／背景輪詢、系統匣恢復、Linux 工作列 fallback、單實例喚回及明確退出清理；見 [背景執行](m1/background-running.md)。屬 DESK-01／IRC 生命週期增量，無開機自啟或新保存政策，M1 實機 gate 與 OCLR 正式聯調缺口仍保留。
+
 2026-10-28 增量：使用者另要求手動新建房間按鈕，0.5.0 先交付 LOBBY-01 的 make 切片，連同 CORE-01／02 必需的單次意圖、送前持久化、節流、未知鎖定與重連不重送。新增安裝範圍最小 SQLite metadata，不包含私人日誌或 OCLR 綁定；詳細界線與證據見 [手動開房](m1/create-match-room.md)。CORE-01／02、LOG-01、LOBBY-01 **均保持 partial**，完整依賴未完成；尚需真實 make 樣本、正式分帳號／場次 migration、加密日誌、房內設定與權限等驗收。此功能版不代表 M1／M2 完成，不建立 milestone tag。
 
 2026-10-28 PR #409 增量：使用者指定只做桌面接入，網站 API 另行開發。0.6.0 交付 Main 的外部瀏覽器／PKCE／loopback／記憶體 token、single-flight refresh、本人場次／panel adapter、原生三階段視圖、共享 builder 預覽／複製及隱私清理。AUTH-03、INT-01／02 與 PANEL-R 均為 **partial（桌面合成驗證）**；後端 AUTH／CTX、正式 API 聯調與跨平台實機未通過，不把 panel wrapper 當完整操作 context。未開放 INT-03 的 IRC 執行、PANEL-W／C、結果寫入或 LOG-01。交接見 [候選契約](contracts/pr409-desktop-read.md)。

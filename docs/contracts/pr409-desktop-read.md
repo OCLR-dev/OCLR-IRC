@@ -93,7 +93,7 @@ reviewUrl 必須精確對應 `https://oclr.org/admin/tournaments/{edition.slug}/
 - 新 panel 完整驗證後一次替換，重產 previewId；改選地圖也重產。複製只接受當前 previewId＋已生成 commandId，不接受 raw command。過期、刷新授權、依賴變動、超長／控制字元、缺政策時禁用相應複製。
 - 私人 panel 於 capturedAt＋5 分鐘硬清除；列表也有限保留。失敗不延長期限，timer 延遲時 IPC 仍檢查 monotonic deadline。資料與 token 永不落盤，不從歷史重建權限。
 - 401 SESSION_REVOKED／SESSION_EXPIRED／INVALID_ACCESS_TOKEN、403 REFEREE_ACCESS_REVOKED／INSUFFICIENT_SCOPE 清全部 OCLR 私人資料；404 FIXTURE_NOT_AVAILABLE 只移除該場。未知 endpoint 的 404／HTML／未知契約顯示接入不可用，不冒充撤權或抓管理頁。
-- logout 立即清本機，再 best-effort revoke；失敗明示遠端未確認。App 關閉只清本機。為防不同 OS 的休眠時鐘行為延長快照，**本版休眠會清 OCLR 資料並嘗試撤銷，喚醒後重新授權**；IRC 仍依既有流程恢復。
+- logout 立即清本機，再 best-effort revoke；失敗明示遠端未確認。App 完整退出只清本機；0.7.0 關閉視窗改為背景執行，保留 session，仍受原到期／撤權與清除期限限制。為防不同 OS 的休眠時鐘行為延長快照，**本版休眠會清 OCLR 資料並嘗試撤銷，喚醒後重新授權**；IRC 仍依既有流程恢復。
 - 手動複製已寫入系統剪貼簿的文字，無法在撤權後追回；本版不讀取既有剪貼簿，不任意覆寫使用者其後的內容。
 
 ## 網站端驗收及交接缺口
