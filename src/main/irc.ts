@@ -412,13 +412,15 @@ export class IrcSession extends EventEmitter {
     this.note(view, `!mp ${kind}`, 'self', this.username)
     this.timeout(view, '尚未收到完整回覆；請稍後重新查詢，不代表沒有權限。'); this.publish()
   }
-  private mpReady(view: RoomView) {
+  private mpReady(view: RoomView, command = '') {
     this.ready(view)
     const room = view.room
     if (room.kind !== 'match' || this.selected !== room.id || room.binding !== 'verified') throw new Error('請先選取並核對比賽房間。')
-    if (room.syncState !== 'complete' || !room.observedAt || Date.now() - Date.parse(room.observedAt) >= 10000) throw new Error('請先重新讀取完整房間設定。')
+    const replacingMap = command.startsWith('!mp map ')
+    if ((room.syncState !== 'complete' && !(replacingMap && room.syncState === 'partial')) || !room.observedAt || Date.now() - Date.parse(room.observedAt) >= 10000) throw new Error('請先重新讀取完整房間設定。')
     const evidence = this.settingsEvidence.get(view)
-    if (!evidence || !([evidence.name, evidence.mode, evidence.beatmap, evidence.mods, evidence.players, evidence.slots]).every(field =>
+    const required = evidence ? [evidence.name, evidence.mode, evidence.players, evidence.slots, ...(replacingMap ? [] : [evidence.beatmap, evidence.mods])] : []
+    if (!evidence || !required.every(field =>
       field.knowledge === 'known' && field.connectionGeneration === this.generation && field.roomEpoch === room.epoch &&
       Number.isFinite(Date.parse(field.observedAt)) && Date.now() >= Date.parse(field.observedAt) && Date.now() - Date.parse(field.observedAt) < 10000
     )) throw new Error('房間觀測已失效，請重新讀取設定。')
@@ -427,8 +429,8 @@ export class IrcSession extends EventEmitter {
   previewMp(input: unknown) {
     this.mpPreview = null
     const view = this.target(input)
-    this.mpReady(view)
     const command = mpCommand((input as Record<string, unknown>).intent)
+    this.mpReady(view, command)
     if (command !== '!mp abort' && (view.room.phase === 'playing' || view.room.slots.some(slot => /^playing$/i.test(slot.status)))) throw new Error('比賽進行中，請先核對或中止比賽。')
     if (command === '!mp start' && !view.room.slots.length) throw new Error('房內沒有玩家，不能開始比賽。')
     const token = randomUUID()
@@ -441,7 +443,7 @@ export class IrcSession extends EventEmitter {
     const view = this.target(input)
     const value = input as Record<string, unknown>
     if (!preview || value.token !== preview.token || value.reviewed !== true || preview.view !== view || performance.now() >= preview.deadline || JSON.stringify(view.room) !== preview.fingerprint) throw new Error('確認已失效或房間狀態已變更，請重新預覽。')
-    this.mpReady(view)
+    this.mpReady(view, preview.command)
     this.clearFresh(view)
     view.room.syncState = 'stale'; view.room.referee = 'unknown'; this.refereeSeen.delete(view)
     this.lastQueryAt = Date.now()

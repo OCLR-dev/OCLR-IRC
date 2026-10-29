@@ -279,3 +279,11 @@ L01 Main 操作整合：手動預覽／執行及網站 relay 現在額外核對 
 ### L09 身分隔離修正（2026-10-30）
 
 網站 relay 綁定記錄 OCLR subject osuId；同名但 subject 改變會立即停止。bind 回覆到達後重新核對 subject、nickname、場次、房間 epoch、連線、裁判與 panel 新鮮度，變動時不開始同步。新增合成同名換帳號／晚到 bind 回覆測試。此修正不是 UID 與 IRC 身分配對證明；完整人工配對狀態及真實正式聯調仍待完成。
+
+### L01 真實空房證據與換圖 gate（2026-10-30）
+
+使用者指定測試房 122088337 並授權換圖、Mods、start／abort／timer。本次以客戶端已登入 Lapis 於 Asia/Taipei 07:46–07:47 僅執行加入、settings、listrefs；History 相符且 Lapis 列於裁判名單。真實 settings 回覆為房名／History、`Team mode: TeamVs, Win condition: ScoreV2`、`Players: 0`，沒有 Beatmap／Active mods 行。未在此階段執行變更指令，也未據此推定 Mods=None、容量或 phase。
+
+依這項樣本，手動 map 預覽／執行改核對 name、mode、players、完整 slots 的有效 Main 觀測，不要求舊 beatmap／mods；start、mods、abort 與網站 relay 保留完整資料要求。新增空房換圖合成回歸，完整 L01（其他真實變體及逐意圖覆蓋）仍未完成。
+
+另修正 macOS CI 的 mp-smoke 畫面時序：加入成功後等待 React 控制面板實際出現才操作，避免 Main 快照先於 renderer 更新時 null dereference。這不降低功能斷言，也不代表三平台實機驗收。
