@@ -259,3 +259,9 @@ P0 表示完成既有 MVP 的必要工作，不表示所有項目當下可開始
 | L12 | [#16 [P1／後續] L12 裁判面板寫入與核對回站的桌面方案](https://github.com/OCLR-dev/OCLR-ref-tools/issues/16) |
 
 以 issue 的實際進度與驗收證據更新，不由本清單推定完成。搜尋既有 issues 未找到重複項目；此輪建立總追蹤及 12 個工作 issue，未指定負責人或承諾交付日期。
+
+### L01 實作進度（2026-10-30）
+
+第一部分在 SettingsCollector 新增 query-scoped 欄位觀測介面，包含 knowledge、時間、connectionGeneration、roomEpoch 與 queryId。缺少資料保持 unknown；不合法快照及 History 不符保持 invalid。容量、個人 Mods、phase、timer 尚無定版來源，明確保持 unknown。回傳槽位複本避免呼叫端改寫收集結果。
+
+新增測試僅為 synthetic，涵蓋空房、缺行、逾時、History 不符、query 隔離及回傳資料隔離。目前尚未接入操作 gate／IPC，現有 complete 安全檢查維持；逐意圖欄位需求、真實樣本及完整 L01 驗收仍待完成，#5 不因此關閉。
