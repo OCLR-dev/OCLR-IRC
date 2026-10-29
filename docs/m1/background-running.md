@@ -16,7 +16,9 @@
 
 `npm run typecheck`、49 項核心測試及 Electron UI 回歸；新增 `background-smoke.cjs` 驗證原生 close 不銷毀視窗、背景 IRC PING／PONG、activate／系統匣恢復、單實例事件喚回、退出前清除身分且正常結束程序。OCLR 合成 UI 測試另確認背景與恢復保留 session。
 
-macOS arm64 本機以上檢查已通過；[背景測試證據](evidence/background-smoke.json)為 2026-10-29T14:25:20Z。回歸曾遇既有虛擬訊息列表的 DOM 提示等待逾時，重跑完整 UI 通過，未修改聊天邏輯。Headless Linux 的測試檢查最小化請求及連線保留，不冒充具備視窗管理器的實機驗證。
+macOS arm64 本機以上檢查已通過；[背景測試證據](evidence/background-smoke.json)為 2026-10-29T14:28:48Z。回歸曾遇既有虛擬訊息列表的 DOM 提示等待逾時，重跑完整 UI 通過，未修改聊天邏輯。Headless Linux 的測試檢查最小化請求及連線保留，不冒充具備視窗管理器的實機驗證。
+
+最終提交 `667ca5e` 的 [三平台 CI 40891914495](https://github.com/OCLR-dev/OCLR-ref-tools/actions/runs/40891914495) 已通過 Windows x64／Linux x64／macOS arm64 的核心、UI（含背景與退出）及原生打包；[CI 證據](evidence/background-ci.json)。本次一般 push CI 的 macOS 採 ad-hoc 簽章，未執行 Developer ID／公證或發布 Release。
 
 CI 的原生 Tray 建立不代表實機指示器可見性已驗收；不同 Linux 桌面、Windows 通知區、macOS 選單列、真正 OS 登出／關機仍需實機驗收。單實例喚回測試若採注入 second-instance 事件，僅證明事件處理，不宣稱第二程序鎖已實測。
 
