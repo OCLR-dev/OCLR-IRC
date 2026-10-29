@@ -4,7 +4,7 @@ export const serverTime = '2026-10-28T08:00:00.000Z'
 export const at = (seconds: number) => new Date(Date.parse(serverTime) + seconds * 1000).toISOString()
 export const subject = { osuId: 900000001, username: 'Synthetic Referee' }
 export const edition = { slug: 'synthetic-oclr', name: 'Synthetic OCLR' }
-export const scopes = ['referee:fixtures:read', 'referee:context:read', 'referee:panel:read']
+export const scopes = ['referee:fixtures:read', 'referee:context:read', 'referee:panel:read', 'referee:relay']
 export const meta = () => ({ apiVersion: '1', contractVersion: '1.1.0', requestId: id(999), serverTime, pollAfterSeconds: 15 })
 export function jsonResponse(data: unknown, status = 200, extra: Record<string, string> = {}) {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-OCLR-Desktop-Contract': '1.1.0', 'X-OCLR-Referee-Contract': '1.1.0', 'X-Request-Id': id(999), ...extra } })

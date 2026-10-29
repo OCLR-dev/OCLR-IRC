@@ -1,8 +1,9 @@
+import { relayCommand } from '../shared/relay-command.ts'
 import { mpCommand } from '../shared/mp-command.ts'
 import net from 'node:net'
 import { EventEmitter } from 'node:events'
 import { randomUUID } from 'node:crypto'
-import type { Connection, Message, Pending, Room, RoomCreation, Snapshot } from '../shared/types.ts'
+import type { Connection, Message, Pending, Room, RoomCreation, Snapshot, RoomTarget } from '../shared/types.ts'
 import type { CreationStore } from './creation-store.ts'
 import { blankObservation, SettingsCollector } from './settings.ts'
 import { chatText, credentials, Lines, matchName, normalize, parse, redact, roomId } from './protocol.ts'
@@ -87,6 +88,7 @@ export class IrcSession extends EventEmitter {
   private note(view: RoomView, text: string, kind: Message['kind'] = 'system', sender = '系統', delivery?: 'unconfirmed') {
     view.totalMessages++
     view.messages.push({ id: ++this.nextMessage, time: new Date().toISOString(), kind, sender: redact(sender), text: redact(text), ...(delivery ? { delivery } : {}) })
+    this.emit('message', { roomId: view.room.id, roomEpoch: view.room.epoch, message: { ...view.messages.at(-1)! } })
     if (view.messages.length > 1000) view.messages = view.messages.slice(-1000)
     if (view.room.id !== this.selected && kind !== 'self') {
       view.unread = Math.min(999, view.unread + 1)
@@ -441,6 +443,23 @@ export class IrcSession extends EventEmitter {
     this.note(view, '房內操作已嘗試送出，結果未確認；請核對 BanchoBot 回覆，再讀取設定與裁判名單。不會自動重送。')
     try { this.send(`PRIVMSG ${view.room.channel} :${preview.command}`) }
     finally { this.publish() }
+  }
+  relayReady(input: RoomTarget) { try { this.mpReady(this.target(input)); return true } catch { return false } }
+  relayRefresh(input: RoomTarget) {
+    const view = this.target(input)
+    if (this.connection !== 'online' || !view.room.joined || view.room.kind !== 'match' || this.selected !== view.room.id) throw new Error('請先加入並選取比賽房間。')
+    this.enqueue(view, 'settings'); this.enqueue(view, 'listrefs')
+  }
+  relaySend(input: RoomTarget & { text: string }) {
+    const view = this.target(input)
+    const text = relayCommand(input.text)
+    this.mpReady(view)
+    if (/^!mp (?:map|mods|set|start)\b/.test(text) && (view.room.phase === 'playing' || view.room.slots.some(slot => /^playing$/i.test(slot.status)))) throw new Error('比賽進行中，請先核對或中止比賽。')
+    this.lastQueryAt = Date.now()
+    this.clearFresh(view); view.room.syncState = 'stale'
+    this.note(view, text, 'self', this.username, 'unconfirmed')
+    try { this.send(`PRIVMSG ${view.room.channel} :${text}`) }
+    finally { this.enqueue(view, 'settings'); this.enqueue(view, 'listrefs'); this.publish() }
   }
   chat(input: unknown) {
     const view = this.target(input)

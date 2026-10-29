@@ -25,7 +25,7 @@ global.fetch = async (url, init = {}) => {
   if (target.pathname.endsWith('/auth/requests')) {
     if (unavailable) return new Response('<html>not deployed</html>', { headers: { 'Content-Type': 'text/html' } })
     authRequest = JSON.parse(init.body)
-    assert.deepEqual(authRequest.scope, ['referee:fixtures:read', 'referee:context:read', 'referee:panel:read'])
+    assert.deepEqual(authRequest.scope, ['referee:fixtures:read', 'referee:context:read', 'referee:panel:read', 'referee:relay'])
     return json({ data: { authorization_request_id: meta.requestId, authorization_url: 'https://oclr.org/desktop/authorize?request_id=' + meta.requestId, verification_code: 'ABCD-2345', expires_at: '2026-10-28T08:10:00.000Z' }, meta }, 201)
   }
   if (target.pathname.endsWith('/auth/exchange')) {

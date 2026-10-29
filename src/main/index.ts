@@ -6,12 +6,14 @@ import { CredentialStore } from './credential-store.ts'
 import { credentials } from './protocol.ts'
 import { messageLink } from './links.ts'
 import { SqliteCreationStore } from './creation-store.ts'
+import { OclrRelay } from './oclr-relay.ts'
 import { OclrSession } from './oclr.ts'
 import { publicOclrError } from './oclr-http.ts'
 import { DesktopBackground } from './background.ts'
 
 const irc = new IrcSession()
-const oclr = new OclrSession({ version: app.getVersion(), platform: process.platform, openExternal: url => shell.openExternal(url), writeClipboard: text => clipboard.writeText(text) })
+const oclr = new OclrSession({ origin: process.env.OCLR_SERVER_ORIGIN, version: app.getVersion(), platform: process.platform, openExternal: url => shell.openExternal(url), writeClipboard: text => clipboard.writeText(text) })
+const relay = new OclrRelay(oclr, irc)
 let loginGeneration = 0
 let pendingSave: { username: string; password: string } | null = null
 let credentialError: string | null = null
@@ -49,6 +51,8 @@ app.whenReady().then(() => {
     trusted(event)
     try { await fn(); return { ok: true } } catch (error) { return { ok: false, error: publicOclrError(error) } }
   }
+  ipcMain.handle('oclr:relay-start', event => websiteAction(event, () => relay.start()))
+  ipcMain.handle('oclr:relay-stop', event => websiteAction(event, () => relay.stop()))
   ipcMain.handle('oclr:snapshot', event => { trusted(event); return oclr.state })
   ipcMain.handle('oclr:login', event => websiteAction(event, () => oclr.login()))
   ipcMain.handle('oclr:cancel-login', event => websiteAction(event, () => oclr.cancelLogin()))
@@ -100,7 +104,7 @@ app.whenReady().then(() => {
     } catch { return { ok: false, error: '無法解密已保存的登入資料，請忘記後重新輸入。' } }
   })
   ipcMain.handle('irc:logout', event => { trusted(event); logout() })
-  powerMonitor.on('suspend', () => irc.suspend())
+  powerMonitor.on('suspend', () => { void relay.stop(); irc.suspend() })
   powerMonitor.on('suspend', () => oclr.suspend())
   powerMonitor.on('resume', () => irc.resume())
   ipcMain.handle('irc:retry', event => action(event, () => irc.retry()))

@@ -33,6 +33,8 @@ export interface DesktopAPI {
   runInBackground(): Promise<{ ok: boolean; error?: string }>
   quit(): Promise<{ ok: boolean; error?: string }>
   website: {
+    startRelay(): Promise<{ ok: boolean; error?: string }>
+    stopRelay(): Promise<{ ok: boolean; error?: string }>
     snapshot(): Promise<OclrSnapshot>
     login(): Promise<{ ok: boolean; error?: string }>
     cancelLogin(): Promise<{ ok: boolean; error?: string }>

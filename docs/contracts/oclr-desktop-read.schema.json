@@ -118,8 +118,8 @@
               "$ref": "#/$defs/__schema1"
             },
             "scope": {
-              "minItems": 3,
-              "maxItems": 3,
+              "minItems": 4,
+              "maxItems": 4,
               "type": "array",
               "items": {
                 "$ref": "#/$defs/__schema2"
@@ -209,7 +209,8 @@
           "enum": [
             "referee:fixtures:read",
             "referee:context:read",
-            "referee:panel:read"
+            "referee:panel:read",
+            "referee:relay"
           ]
         }
       }

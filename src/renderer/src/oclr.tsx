@@ -40,10 +40,11 @@ export function OclrView() {
     return <div className="oclr-commands">{state.commands.filter(c => kinds.includes(c.kind)).map(command => <CommandRow key={command.id} command={command} copied={copied === command.id} disabled={busy || !fresh} onCopy={() => api && void perform(() => api.copyCommand({ previewId: state.previewId, commandId: command.id }), command.id)} />)}</div>
   }
   return <div className="oclr-view enter">
-    <div className="room-heading"><div><div className="section-kicker">OCLR WORKSPACE</div><h1>{authorized ? '我的執裁場次' : '連接 OCLR'}</h1></div><span className="read-only-label">{authorized ? '面板只讀 · 指令預覽' : '獨立於 IRC 連線'}</span></div>
+    <div className="room-heading"><div><div className="section-kicker">OCLR WORKSPACE</div><h1>{authorized ? '我的執裁場次' : '連接 OCLR'}</h1></div><span className="read-only-label">{authorized ? '場次面板 · IRC 投影' : '獨立於 IRC 連線'}</span></div>
     {(error || state.error) && <div className="error-message" role="alert">{error || state.error}</div>}
     {state.retryAt && <p className="oclr-hint" role="status">請於 {new Date(state.retryAt).toLocaleTimeString()} 後重試。</p>}
     {state.remoteRevocation === 'unconfirmed' && <p className="oclr-hint" role="status">本機登入資料已清除，遠端撤銷尚未確認；可到 OCLR 網站管理桌面連線。</p>}
+    {authorized && <section className="oclr-session" aria-label="網站 IRC 投影"><div><strong>網站 IRC 投影</strong><p className="oclr-hint">先在房間記錄選取本場 IRC 房間，再選擇下方 OCLR 場次。啟用後，網站送出的房內指令將使用本機 IRC 連線；密碼不會上傳。</p><span role="status">{state.relay.status === 'connected' ? `已投影 #mp_${state.relay.roomId}` : state.relay.status === 'connecting' ? '正在連接…' : state.relay.error || '尚未啟用'}</span></div><Button isDisabled={busy || !state.selectedFixtureId || state.relay.status === 'connecting'} onPress={() => api && void perform(() => state.relay.status === 'connected' ? api.stopRelay() : api.startRelay())}>{state.relay.status === 'connected' ? '停止投影' : '將目前房間投影到網站'}</Button></section>}
     {!authorized ? <section className="oclr-login">
       <p>在系統瀏覽器登入 osu! 並授權 OCLR，讀取本人獲派場次、正式隊伍及保存的裁判面板。</p>
       <p className="oclr-hint">OCLR 登入不會登入或中斷 IRC。授權僅保留於本次應用程式，重新啟動後需再次登入。</p>

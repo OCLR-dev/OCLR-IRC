@@ -2,7 +2,7 @@
 
 OCLR 賽事的裁判用 IRC 桌面客戶端，以 Electron、React 與 TypeScript 開發，使用免費 HeroUI，支援 Windows、macOS 與 Linux。
 
-目前為開發預覽版。IRC 工作區已可使用；OCLR 桌面接入層已實作，仍需與網站端 API 聯調。完整 MVP 與三平台實機驗收尚未完成。
+目前為開發預覽版。IRC 工作區已可使用；OCLR 桌面授權及本機 IRC → 網站投影／命令轉送已接入，正式 OAuth 與 Bancho 房間仍需本人聯調。完整 MVP 與三平台實機驗收尚未完成。
 
 ## 已有功能
 
@@ -14,7 +14,7 @@ OCLR 賽事的裁判用 IRC 桌面客戶端，以 Electron、React 與 TypeScrip
 - **背景執行**：關窗後保留連線，可從系統匣／Dock／工作列恢復；Linux 保留最小化入口，完整退出請選「退出程式」。
 - **OCLR 場次接入層**：已實作系統瀏覽器授權、本人場次、三階段面板與命令預覽／複製；可用性取決於網站端是否提供相應 API。
 
-玩家槽位來自 `!mp settings` 觀測快照，可按「讀取設定」更新；16 個顯示位置不代表房間實際開放容量。房內快捷操作屬手動裁判工作流，送出後需核對 BanchoBot 回覆；OCLR 面板不會代送 IRC 指令或保存選禁結果。
+玩家槽位來自 `!mp settings` 觀測快照，可按「讀取設定」更新；16 個顯示位置不代表房間實際開放容量。房內快捷操作屬手動裁判工作流，送出後需核對 BanchoBot 回覆；啟用網站投影後，可接受綁定場次的網站 MP 指令；未啟用時仍是獨立手動工作區。socket 送出不等於 BanchoBot 確認。
 
 ## 下載測試版
 
@@ -72,6 +72,7 @@ npm run test:ui
 | [玩家槽位](docs/m1/player-slots.md) | 槽位顯示與驗證範圍 |
 | [房內快捷操作](docs/m1/manual-mp-controls.md) | 換圖、Mods、開始／中止與確認流程 |
 | [背景執行](docs/m1/background-running.md) | 平台差異、退出與生命週期 |
+| [網站 IRC 投影](docs/m1/website-irc-relay.md) | 本機測試、授權、投影及命令確認限制 |
 | [OCLR 桌面接入](docs/m1/oclr-read-integration.md) | 已實作的唯讀接入與待聯調項目 |
 | [PR409 接入契約與 JSON Schema](docs/contracts/pr409-desktop-read.md) | 提供網站端實作的桌面 API 契約 |
 | [網站裁判面板整合設計](docs/referee-panel-integration.md) | 三階段工作區與後續整合規劃 |
