@@ -65,6 +65,8 @@ async function main() {
   app.emit('second-instance', {}, [], process.cwd())
   await until(() => window.isVisible() && !window.isMinimized())
   assert.equal(welcomes, 1)
+  window.emit('query-session-end', { preventDefault() { throw new Error('Shutdown must not be blocked') } })
+  assert.equal((await js('window.oclr.snapshot()')).connection, 'online')
   assert.ok(!sent.some(line => line.includes('!mp')))
   app.on('before-quit', () => {
     // Main's cleanup listener is registered first; inspect without depending on a closing renderer.

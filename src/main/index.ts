@@ -142,7 +142,8 @@ app.whenReady().then(() => {
     window.on('hide', () => oclr.setForeground(false))
     window.on('minimize', () => oclr.setForeground(false))
     window.on('close', event => { if (!quitting && background) { event.preventDefault(); background.hide() } })
-    window.on('query-session-end', () => { quitting = true; logout(); oclr.dispose() })
+    // The shutdown query may be cancelled by the user; clean up only on confirmed end.
+    window.on('session-end', () => { quitting = true; logout(); oclr.dispose() })
     window.on('closed', () => { window = null; logout(); oclr.dispose() })
     if (devURL) void window.loadURL(devURL)
     else void window.loadFile(join(__dirname, '../renderer/index.html'))
