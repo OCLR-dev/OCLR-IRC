@@ -74,3 +74,26 @@ test('room projection bounds each chat line and removes control characters witho
     assert.equal(messages[1].sender.length, 100)
   } finally {await f.relay.stop()}
 })
+test('credential-shaped messages and confirmation evidence never leave the local relay', async () => {
+  const f = harness(); try {
+    const sensitive = [
+      '!mp password SYNTHETIC_PASSWORD', 'access_token: SYNTHETIC_ACCESS',
+      'refresh_token=SYNTHETIC_REFRESH', 'code_verifier: SYNTHETIC_VERIFIER',
+      'oclr_desk_at_SYNTHETIC_ACCESS', 'oclr_desk_rt_SYNTHETIC_REFRESH',
+      'PASS SYNTHETIC_IRC', ' AUTHENTICATE SYNTHETIC_AUTH',
+      'pass\tSYNTHETIC_IRC', 'access_\u202etoken=SYNTHETIC_FORMAT',
+      'x'.repeat(1100) + ' password=SYNTHETIC_SUFFIX',
+    ]
+    f.irc.state.messages = sensitive.map((text, i) => ({id: i + 1, sender: 'Player', text, time: '2026-10-29T12:00:00.000Z'}))
+    f.irc.state.messages.push({id: 20, sender: 'oclr_desk_at_SYNTHETIC_SENDER', text: 'hello', time: '2026-10-29T12:00:00.000Z'})
+    f.irc.state.messages.push({id: 21, sender: 'Player', text: 'ready', time: '2026-10-29T12:00:00.000Z'})
+    await f.relay.start(); f.command({id: id(50), text: '!mp map 42 0', target: '#mp_123'})
+    await until(() => f.writes.length === 1)
+    f.irc.emit('message', {roomId: 123, roomEpoch: 1, message: {id: 30, kind: 'bot', sender: 'BanchoBot', text: 'Beatmap changed to: Song (https://osu.ppy.sh/b/42) oclr_desk_at_SYNTHETIC_EVIDENCE'}})
+    await until(() => f.requests.filter(r => r.action === 'sync').length === 2)
+    const syncs = f.requests.filter(r => r.action === 'sync')
+    for (const sync of syncs) assert.deepEqual(sync.projection.messages.map((m: any) => m.text), ['ready'])
+    assert.equal(JSON.stringify(syncs).includes('SYNTHETIC_'), false)
+    assert.deepEqual(syncs.flatMap(r => r.receipts).map(r => r.status), ['sent'])
+  } finally {await f.relay.stop()}
+})

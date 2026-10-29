@@ -9,10 +9,14 @@ import { OclrError } from './oclr-http.ts'
 
 const replySchema = envelope(z.object({ connectionId: uuid, sequence: z.number().int().nonnegative(), command: z.object({ id: uuid, text: z.string().max(300), target: z.string().regex(/^#mp_[1-9]\d*$/) }).nullable() }))
 type Receipt = { commandId: string; status: 'sent' | 'confirmed' | 'failed' | 'unknown'; evidence?: {sender: string; target: string; text: string} }
-const cleanProjectionText = (value: string, length: number) => value.replace(/[\p{Cc}\p{Cf}\u2028\u2029]/gu, '').slice(0, length)
+const cleanProjectionText = (value: string) => value.replace(/[\p{Cc}\p{Cf}\u2028\u2029]/gu, '')
+const sensitiveProjectionText = (value: string) => /(?:password|access_token|refresh_token|code_verifier|oclr_desk_(?:at|rt)_|^\s*PASS\s|^\s*AUTHENTICATE\s)/i.test(value)
 function projectedMessage(message: Message) {
-  const sender = cleanProjectionText(message.sender, 100), text = cleanProjectionText(message.text, 1000)
-  return sender && text ? {id: String(message.id), sender, text, at: message.time} : null
+  const sender = cleanProjectionText(message.sender), text = cleanProjectionText(message.text)
+  // Drop before truncation and before HTTP, including markers separated by
+  // format characters. The same gate also protects confirmation evidence.
+  if ([message.sender, message.text, sender, text].some(sensitiveProjectionText)) return null
+  return sender && text ? {id: String(message.id), sender: sender.slice(0, 100), text: text.slice(0, 1000), at: message.time} : null
 }
 
 /** Local explicit room binding. No token or IRC password enters the renderer/projection. */

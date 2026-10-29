@@ -21,6 +21,7 @@
 - sync：`{action:"sync",connectionId,sequence,projection:{status:"connected"|"disconnected",messages:[{id,sender,text,at}]},receipts:[{commandId,status,evidence?}]}`。
 - sync 回應：`{connectionId,sequence,command:{id,text,target}|null}`；sequence 嚴格遞增，僅一個同步請求在途。每次投影至多最後100筆、只含綁定房間。
 - 每行會移除控制與格式字元，sender 限100字元、text 限1000字元，空行略過；確認證據使用相同清理規則。
+- 含密碼、桌面 token、PKCE verifier、PASS／AUTHENTICATE 標記的訊息與確認證據在本機直接略過，不上傳至網站；此檢查在截短前執行，亦核對清理格式字元後的內容。
 - disconnect：`{action:"disconnect",connectionId}`。
 - receipt 狀態 `sent`、`confirmed`、`failed`、`unknown`；evidence 為 `{sender,target,text}`。`sent` 僅代表 socket 寫入，不是 BanchoBot 已執行。
 
