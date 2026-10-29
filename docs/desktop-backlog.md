@@ -275,3 +275,7 @@ L01 Main 操作整合：手動預覽／執行及網站 relay 現在額外核對 
 新增 Main-only EncryptedJournal：每帳號包裝資料金鑰、AES-256-GCM、schema／帳號／產生時間 AAD、SQLite 密文、七天清理（啟動／讀取／寫入／每小時）、帳號切換、登出刪除與 generation 防晚到寫入。敏感標記在加密前去密，無 provider 或損毀密文不回退明文。測試使用合成 wrapping provider，不是 OS provider 實機證據。
 
 目前為未接入產品的儲存核心，沒有啟用聊天持久化：仍需補上偏好／歷史／原生匯出 UI、OCLR 逐場重新驗權及撤權清理、最小恢復記錄 migration，並執行三平台 provider 驗收。未取得完整整合前，不應把 OCLR 投影傳入此僅支援 IRC 帳號的儲存介面；#6 保持未完成。
+
+### L09 身分隔離修正（2026-10-30）
+
+網站 relay 綁定記錄 OCLR subject osuId；同名但 subject 改變會立即停止。bind 回覆到達後重新核對 subject、nickname、場次、房間 epoch、連線、裁判與 panel 新鮮度，變動時不開始同步。新增合成同名換帳號／晚到 bind 回覆測試。此修正不是 UID 與 IRC 身分配對證明；完整人工配對狀態及真實正式聯調仍待完成。
