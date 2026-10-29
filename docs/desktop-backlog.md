@@ -267,3 +267,5 @@ P0 表示完成既有 MVP 的必要工作，不表示所有項目當下可開始
 新增測試僅為 synthetic，涵蓋空房、缺行、逾時、History 不符、query 隔離及回傳資料隔離。目前尚未接入操作 gate／IPC，現有 complete 安全檢查維持；逐意圖欄位需求、真實樣本及完整 L01 驗收仍待完成，#5 不因此關閉。
 
 L01 後續修正：觀測年齡保守地從 query collector 建立時計算，重讀／apply 不刷新時間；所有可變欄位以複本交付。IRC 查詢傳入實際 connectionGeneration。此修正仍未替換操作 gate，完整 L01 保持未完成。
+
+L01 Main 操作整合：手動預覽／執行及網站 relay 現在額外核對 Main 私有觀測的 knowledge、generation、epoch 與有限年齡，不能僅依 complete 標記通行。查詢開始即清除舊證據；逾時不產生可執行證據。尚缺去密真實空房／省略行樣本，因此保留原完整快照要求，不先放寬換圖或初始化條件。此為 L01 真實樣本外部阻礙，相關驗收保持 pending。

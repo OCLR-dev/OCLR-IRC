@@ -61,6 +61,7 @@ export class IrcSession extends EventEmitter {
   private previousCreationId: string | null = null
   private creationName: string | null = null
   private mpPreview: { token: string; command: string; view: RoomView; fingerprint: string; deadline: number } | null = null
+  private settingsEvidence = new WeakMap<RoomView, ReturnType<SettingsCollector['observations']>>()
   private refereeSeen = new WeakMap<RoomView, number>()
   private creationTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -406,7 +407,7 @@ export class IrcSession extends EventEmitter {
     this.ready(view)
     this.send(`PRIVMSG ${view.room.channel} :!mp ${kind}`); this.lastQueryAt = Date.now()
     view.pending = kind; view.error = null; view.refsHeader = false
-    if (kind === 'settings') { this.clearFresh(view); view.collector = new SettingsCollector(view.room.id, this.generation); Object.assign(view.room, blankObservation(), { syncState: 'loading' }); view.room.binding = 'unknown'; view.room.name = null; view.room.mode = null; view.room.players = null }
+    if (kind === 'settings') { this.settingsEvidence.delete(view); this.clearFresh(view); view.collector = new SettingsCollector(view.room.id, this.generation); Object.assign(view.room, blankObservation(), { syncState: 'loading' }); view.room.binding = 'unknown'; view.room.name = null; view.room.mode = null; view.room.players = null }
     else { view.room.referee = 'unknown'; this.refereeSeen.delete(view) }
     this.note(view, `!mp ${kind}`, 'self', this.username)
     this.timeout(view, '尚未收到完整回覆；請稍後重新查詢，不代表沒有權限。'); this.publish()
@@ -416,6 +417,11 @@ export class IrcSession extends EventEmitter {
     const room = view.room
     if (room.kind !== 'match' || this.selected !== room.id || room.binding !== 'verified') throw new Error('請先選取並核對比賽房間。')
     if (room.syncState !== 'complete' || !room.observedAt || Date.now() - Date.parse(room.observedAt) >= 10000) throw new Error('請先重新讀取完整房間設定。')
+    const evidence = this.settingsEvidence.get(view)
+    if (!evidence || !([evidence.name, evidence.mode, evidence.beatmap, evidence.mods, evidence.players, evidence.slots]).every(field =>
+      field.knowledge === 'known' && field.connectionGeneration === this.generation && field.roomEpoch === room.epoch &&
+      Number.isFinite(Date.parse(field.observedAt)) && Date.now() >= Date.parse(field.observedAt) && Date.now() - Date.parse(field.observedAt) < 10000
+    )) throw new Error('房間觀測已失效，請重新讀取設定。')
     if (room.referee !== 'listed' || performance.now() - (this.refereeSeen.get(view) ?? -Infinity) >= 60000) throw new Error('請先重新讀取裁判名單，確認你的裁判權限。')
   }
   previewMp(input: unknown) {
@@ -534,7 +540,7 @@ export class IrcSession extends EventEmitter {
     const readingRefs = bot && view.pending === 'listrefs'
     if (observing) {
       if (view.collector?.feed(body)) {
-        view.collector.apply(room); this.expire(view); view.collector = null; this.clearTimer(view); view.pending = null
+        view.collector.apply(room); this.settingsEvidence.set(view, view.collector.observations(room.epoch)); this.expire(view); view.collector = null; this.clearTimer(view); view.pending = null
       }
     } else if (bot && view.pending === 'listrefs') {
       const header = /^(?:Match referees|Referees):\s*(.*)$/.exec(body)
