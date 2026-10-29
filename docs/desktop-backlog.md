@@ -241,4 +241,21 @@ P0 表示完成既有 MVP 的必要工作，不表示所有項目當下可開始
 
 ## GitHub issues
 
-建立後在此記錄對應連結；以 issue 的實際進度與驗收證據更新，不由本清單推定完成。
+總追蹤：[桌面端剩餘工作 #4](https://github.com/OCLR-dev/OCLR-ref-tools/issues/4)。
+
+| 設計 ID | GitHub issue |
+| --- | --- |
+| L01 | [#5 [P0] L01 房間欄位觀測與 Bancho 真實樣本定版](https://github.com/OCLR-dev/OCLR-ref-tools/issues/5) |
+| L02 | [#6 [P0] L02 預設加密本機日誌、帳號隔離與恢復記錄 migration](https://github.com/OCLR-dev/OCLR-ref-tools/issues/6) |
+| L03 | [#7 [P0] L03 共用操作佇列、結果核對與未知結果恢復](https://github.com/OCLR-dev/OCLR-ref-tools/issues/7) |
+| L04 | [#8 [P0] L04 補齊房間設定、初始化與關房流程](https://github.com/OCLR-dev/OCLR-ref-tools/issues/8) |
+| L05 | [#9 [P0] L05 選手邀請、lineup、隊伍與槽位管理](https://github.com/OCLR-dev/OCLR-ref-tools/issues/9) |
+| L06 | [#10 [P0] L06 圖池槽位、Mods profile 與逐步套用驗證](https://github.com/OCLR-dev/OCLR-ref-tools/issues/10) |
+| L07 | [#11 [P0] L07 一般計時、開始倒數、取消倒數與比賽階段](https://github.com/OCLR-dev/OCLR-ref-tools/issues/11) |
+| L08 | [#12 [P1] L08 常用訊息、指令搜尋與安全鍵盤操作](https://github.com/OCLR-dev/OCLR-ref-tools/issues/12) |
+| L09 | [#13 [P0] L09 OCLR 真實唯讀聯調與 IRC 帳號配對](https://github.com/OCLR-dev/OCLR-ref-tools/issues/13) |
+| L10 | [#14 [P0] L10 完整 context adapter、MP 綁定與 OCLR 衍生執行](https://github.com/OCLR-dev/OCLR-ref-tools/issues/14) |
+| L11 | [#15 [P0] L11 完成三平台實機驗收與內測升級／復原流程](https://github.com/OCLR-dev/OCLR-ref-tools/issues/15) |
+| L12 | [#16 [P1／後續] L12 裁判面板寫入與核對回站的桌面方案](https://github.com/OCLR-dev/OCLR-ref-tools/issues/16) |
+
+以 issue 的實際進度與驗收證據更新，不由本清單推定完成。搜尋既有 issues 未找到重複項目；此輪建立總追蹤及 12 個工作 issue，未指定負責人或承諾交付日期。
