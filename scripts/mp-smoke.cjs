@@ -81,7 +81,7 @@ async function main() {
   assert.equal(await js('typeof window.require'), 'undefined')
   assert.equal(window.webContents.getLastWebPreferences().sandbox, true)
   assert.equal((await js('window.oclr.login({username:"SyntheticRef",password:"SYNTHETIC_PASSWORD_ONLY"})')).ok, true)
-  await until(() => js('Boolean(document.querySelector(".join-form"))'))
+  await until(() => js('Boolean(document.querySelector(".join-room-button"))'))
   assert.equal((await js('window.oclr.join("900000001")')).ok, true)
   await until(() => js('(async () => (await window.oclr.snapshot()).room?.joined)()'))
   await until(() => js('Boolean(document.querySelector(".mp-controls button"))'))
@@ -117,6 +117,8 @@ async function main() {
     assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'),true)
     await js(`document.querySelector(${JSON.stringify(selector)}).open = false`)
   }
+  await js(`Array.from(document.querySelectorAll('[role=tab]')).find(b=>b.textContent==='操作').click()`)
+  await until(() => js('document.querySelector(".mp-controls").closest("[role=tabpanel]") !== null'))
   assert.equal(sent.length,beforeTools,'panel navigation sends nothing')
   await js('document.querySelector(".composer-templates").open = true')
   await js('Array.from(document.querySelectorAll(".composer-templates button")).find(b => b.textContent === "插入草稿").click()')
