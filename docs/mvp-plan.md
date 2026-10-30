@@ -254,3 +254,5 @@ D01–D08 已確認並統一記錄於 [設計決策](design-review.md)。D06 改
 已用合成 context 與真實 IrcSession 驗證開房預覽、派送前重讀、一次性提交、可信回覆來源追蹤、JOIN 後唯讀查詢、逾時不重送及晚到房間隱私處理。正式 context／授權與日誌 hook 未接入前不註冊產品 IPC／UI，不以既有 panel 直接放行。詳見開房流程文件。
 
 2026-10-30 #40 原因顯示補強：唯讀 panel 分別顯示已取消、賽果已核准、未開放操作與缺少規則；Main 仍拒絕複製指令。合成測試逐案驗證原因及拒絕效果，不代表正式 context 開房流程已接通。
+
+2026-10-30 #16：補充 [面板寫入候選方案](contracts/panel-write-proposal.md)，涵蓋 revision／冪等、unknown、撤權及雙端衝突測試矩陣。僅設計；PANEL-W／C 仍待正式契約與排程，不啟用寫入。最新逐項合成證據及外部／實機阻礙見 [backlog 更新](desktop-backlog.md)。
