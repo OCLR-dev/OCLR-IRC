@@ -28,6 +28,7 @@ export class EncryptedJournal {
   private key: Buffer | null = null
   private enabled = true
   private tail: Promise<unknown> = Promise.resolve()
+  private pendingAppend: { values: JournalEvent[]; generation: number; done: Promise<void> } | null = null
   status: 'saving' | 'memory_only' | 'failed' = 'memory_only'
   constructor(file: string, encryption: JournalEncryption, clock = Date.now) {
     this.encryption = encryption; this.clock = clock
@@ -51,6 +52,8 @@ export class EncryptedJournal {
     } catch (error) { this.db.close(); throw error }
   }
   private run<T>(fn: () => Promise<T>): Promise<T> {
+    // Reads, deletes and identity changes are ordering barriers between batches.
+    this.pendingAppend = null
     const next = this.tail.then(fn, fn); this.tail = next.catch(() => {}); return next
   }
   private clearKey() { this.key?.fill(0); this.key = null; this.status = 'memory_only' }
@@ -89,19 +92,39 @@ export class EncryptedJournal {
     const generation = this.generation
     // Copy and sanitize before queueing; never retain caller-owned event objects.
     const value = { time: event.time, room: clean(event.room), text: clean(event.text) }
-    return this.run(async () => {
+    if (this.pendingAppend?.generation === generation && this.pendingAppend.values.length < 256) {
+      this.pendingAppend.values.push(value)
+      return this.pendingAppend.done
+    }
+    const batch = { values: [value], generation, done: Promise.resolve() }
+    batch.done = this.run(async () => {
+      if (this.pendingAppend === batch) this.pendingAppend = null
       if (generation !== this.generation || !this.enabled || !this.key || !this.account) return
+      let transaction = false
       try {
         const now = this.clock()
-        if (!Number.isSafeInteger(value.time) || value.time <= now - RETENTION || value.time > now || value.room.length > 128 || value.text.length > 8192) throw new Error('Invalid journal event')
+        for (const value of batch.values) {
+          if (!Number.isSafeInteger(value.time) || value.time <= now - RETENTION || value.time > now || value.room.length > 128 || value.text.length > 8192) throw new Error('Invalid journal event')
+        }
+        this.db.exec('BEGIN IMMEDIATE'); transaction = true
         this.cleanup()
-        const nonce = randomBytes(12), cipher = createCipheriv('aes-256-gcm', this.key, nonce)
-        cipher.setAAD(Buffer.from(JSON.stringify([1, this.account, value.time])))
-        const encrypted = Buffer.concat([cipher.update(JSON.stringify(value), 'utf8'), cipher.final()])
-        this.db.prepare('INSERT INTO journal_events(account,time,payload) VALUES (?,?,?)').run(this.account, value.time, Buffer.concat([nonce, cipher.getAuthTag(), encrypted]))
-      } catch { this.clearKey(); this.status = 'failed' }
+        const insert = this.db.prepare('INSERT INTO journal_events(account,time,payload) VALUES (?,?,?)')
+        for (const value of batch.values) {
+          const nonce = randomBytes(12), cipher = createCipheriv('aes-256-gcm', this.key, nonce)
+          cipher.setAAD(Buffer.from(JSON.stringify([1, this.account, value.time])))
+          const encrypted = Buffer.concat([cipher.update(JSON.stringify(value), 'utf8'), cipher.final()])
+          insert.run(this.account, value.time, Buffer.concat([nonce, cipher.getAuthTag(), encrypted]))
+        }
+        this.db.exec('COMMIT'); transaction = false
+      } catch {
+        if (transaction) try { this.db.exec('ROLLBACK') } catch {}
+        this.clearKey(); this.status = 'failed'
+      }
     })
+    this.pendingAppend = batch
+    return batch.done
   }
+
   get isEnabled() { return this.enabled }
   private decode(row: Record<string, unknown>): JournalEvent {
     const data = Buffer.from(row.payload as Uint8Array)

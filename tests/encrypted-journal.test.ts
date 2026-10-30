@@ -102,3 +102,25 @@ test('queued reads cannot return another account after a synchronous account swi
     assert.equal((await f.journal.read())[0].text, 'Bob private')
   } finally { await f.close() }
 })
+
+test('bursts preserve order and encryption while clear/read remain strict batch boundaries', async () => {
+  const f = fixture()
+  try {
+    await f.journal.authenticate('Alice')
+    const burst = Array.from({ length: 1200 }, (_, i) => f.journal.append({ time: f.now(), room: '#burst', text: `SYNTHETIC_BURST_${i}` }))
+    await Promise.all(burst)
+    const recent = await f.journal.read('#burst')
+    assert.equal(recent.length, 1000)
+    assert.equal(recent[0].text, 'SYNTHETIC_BURST_200')
+    assert.equal(recent.at(-1)?.text, 'SYNTHETIC_BURST_1199')
+    assert.equal(readFileSync(f.file).includes(Buffer.from('SYNTHETIC_BURST')), false)
+    const before = f.journal.append({ time: f.now(), room: '#one', text: 'before clear' })
+    const cleared = f.journal.clear('#one')
+    const after = f.journal.append({ time: f.now(), room: '#one', text: 'after clear' })
+    const read = f.journal.read('#one')
+    const later = f.journal.append({ time: f.now(), room: '#one', text: 'after read' })
+    assert.deepEqual((await read).map(e => e.text), ['after clear'])
+    await Promise.all([before, cleared, after, later])
+    assert.deepEqual((await f.journal.read('#one')).map(e => e.text), ['after clear', 'after read'])
+  } finally { await f.close() }
+})
