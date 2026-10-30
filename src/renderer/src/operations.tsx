@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Button } from '@heroui/react'
 import type { Snapshot } from '../../shared/types'
 import { WorkspaceCheckbox } from './controls'
-const names: Record<string, string> = { mapprofile: '連續選圖', make: '建立房間', map: '換圖', mods: '設定 Mods', start: '開始比賽', abort: '中止比賽', timer: '一般計時', aborttimer: '取消倒數', set: '房間設定', invite: '邀請玩家', addref: '裁判設定' }
+const names: Record<string, string> = { rename: '更改房名', configure: '模式與容量', host: '指定房主', clearhost: '清除房主', password: '房間密碼', lock: '鎖定槽位', unlock: '解鎖槽位', close: '關閉房間', mapprofile: '連續選圖', make: '建立房間', map: '換圖', mods: '設定 Mods', start: '開始比賽', abort: '中止比賽', timer: '一般計時', aborttimer: '取消倒數', set: '房間設定', invite: '邀請玩家', addref: '裁判設定' }
 export function OperationsView({ state }: { state: Snapshot }) {
   const [selected, setSelected] = useState<string | null>(null)
   const [reviewed, setReviewed] = useState(false)

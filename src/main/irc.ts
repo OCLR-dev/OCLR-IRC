@@ -1,3 +1,5 @@
+import { lobbyIntent, lobbyCommand } from '../shared/lobby-command.ts'
+import type { LobbyIntent, LobbyPreview } from '../shared/lobby-command.ts'
 import { OperationPlan } from './operation-plan.ts'
 import { mapProfile, profileCommands } from '../shared/map-profile.ts'
 import type { MapProfile, MapPlanPreview } from '../shared/map-profile.ts'
@@ -74,6 +76,7 @@ export class IrcSession extends EventEmitter {
   private creationJoins = new Set<string>()
   private creationTimer: ReturnType<typeof setTimeout> | null = null
 
+  private lobbyPreview: { token: string; intent: LobbyIntent; view: RoomView; fingerprint: string; deadline: number } | null = null
   private mapPlan: OperationPlan | null = null
   private appliedProfile: MapProfile | null = null
   private profilePreview: { token: string; profile: MapProfile; view: RoomView; fingerprint: string; deadline: number } | null = null
@@ -124,7 +127,7 @@ export class IrcSession extends EventEmitter {
   }
   get sessionGeneration() { return this.generation }
   private disconnect() {
-    this.mapPlan?.cancel(); this.profilePreview = null
+    this.mapPlan?.cancel(); this.profilePreview = null; this.lobbyPreview = null
     this.operations.interrupt()
     this.creationJoins.clear()
     this.mpPreview = null
@@ -469,7 +472,7 @@ export class IrcSession extends EventEmitter {
     this.note(view, `!mp ${kind}`, 'self', this.username)
     this.timeout(view, '尚未收到完整回覆；請稍後重新查詢，不代表沒有權限。'); this.publish()
   }
-  private mpReady(view: RoomView, command = '') {
+  private mpReady(view: RoomView, command = '', roomOnly = false) {
     this.ready(view)
     const room = view.room
     if (room.kind !== 'match' || this.selected !== room.id || room.binding !== 'verified') throw new Error('請先選取並核對比賽房間。')
@@ -480,10 +483,10 @@ export class IrcSession extends EventEmitter {
     const timingOnly = /^!mp (?:timer |aborttimer$)/.test(command)
     const replacingMap = command.startsWith('!mp map ')
     const replacingMods = command.startsWith('!mp mods ')
-    const replacingSettings = replacingMap || replacingMods || timingOnly
+    const replacingSettings = replacingMap || replacingMods || timingOnly || roomOnly
     if ((room.syncState !== 'complete' && !(replacingSettings && room.syncState === 'partial')) || !room.observedAt || Date.now() - Date.parse(room.observedAt) >= 10000) throw new Error('請先重新讀取完整房間設定。')
     const evidence = this.settingsEvidence.get(view)
-    const required = evidence ? [evidence.name, evidence.mode, evidence.players, evidence.slots, ...(replacingMap || timingOnly ? [] : [evidence.beatmap]), ...(replacingSettings ? [] : [evidence.mods])] : []
+    const required = evidence ? [evidence.name, evidence.mode, evidence.players, evidence.slots, ...(replacingMap || timingOnly || roomOnly ? [] : [evidence.beatmap]), ...(replacingSettings ? [] : [evidence.mods])] : []
     if (!evidence || !required.every(field =>
       field.knowledge === 'known' && field.connectionGeneration === this.generation && field.roomEpoch === room.epoch &&
       Number.isFinite(Date.parse(field.observedAt)) && Date.now() >= Date.parse(field.observedAt) && Date.now() - Date.parse(field.observedAt) < 10000
@@ -493,6 +496,31 @@ export class IrcSession extends EventEmitter {
   private mpFingerprint(room: Room) {
     const { timer: _timer, startCountdown, ...rest } = room
     return JSON.stringify({ ...rest, startCountdown: startCountdown?.status ?? null })
+  }
+  previewLobby(input: unknown): LobbyPreview {
+    this.lobbyPreview = null
+    const view = this.target(input), intent = lobbyIntent((input as { intent?: unknown }).intent)
+    this.mpReady(view, '', true); this.profileIdle(view)
+    if (this.mapPlan?.active) throw new Error('請先停止目前的選圖計畫。')
+    if (intent.kind === 'host' && !view.room.slots.some(slot => slot.osuId === Number(intent.osuId))) throw new Error('玩家不在目前已核對的槽位內。')
+    const token = randomUUID()
+    this.lobbyPreview = { token, intent, view, fingerprint: this.mpFingerprint(view.room), deadline: performance.now() + 10000 }
+    return { token, channel: view.room.channel, command: lobbyCommand(intent), kind: intent.kind, ...(intent.kind === 'password' ? { passwordMode: intent.mode } : {}), expiresAt: new Date(Date.now() + 10000).toISOString() }
+  }
+  executeLobby(input: unknown) {
+    const preview = this.lobbyPreview; this.lobbyPreview = null
+    const view = this.target(input), value = input as Record<string, unknown>
+    if (!preview || preview.view !== view || preview.token !== value.token || value.reviewed !== true || performance.now() >= preview.deadline || preview.fingerprint !== this.mpFingerprint(view.room) || this.mapPlan?.active) throw new Error('房間設定確認已失效。')
+    this.mpReady(view, '', true); this.profileIdle(view)
+    if (preview.intent.kind === 'close' && value.closeRoom !== view.room.channel) throw new Error('請輸入完整頻道名稱以確認關房。')
+    if (preview.intent.kind === 'password' && preview.intent.mode === 'set' && value.password === undefined) throw new Error('請輸入房間密碼。')
+    const command = lobbyCommand(preview.intent, value.password), masked = lobbyCommand(preview.intent)
+    if (Buffer.byteLength(`PRIVMSG ${view.room.channel} :${command}`, 'utf8') > 510) throw new Error('房間設定過長。')
+    const id = this.operations.begin('manual', preview.intent.kind, view.room.id, view.room.epoch, this.generation, masked)
+    this.lastQueryAt = Date.now(); this.clearFresh(view); view.room.syncState = 'stale'; view.room.referee = 'unknown'; this.refereeSeen.delete(view)
+    this.note(view, masked, 'self', this.username, 'unconfirmed')
+    try { this.send(`PRIVMSG ${view.room.channel} :${command}`) } catch (error) { this.operations.finish(id, 'unknown'); throw error }
+    finally { this.publish() }
   }
   previewProfile(input: unknown): MapPlanPreview {
     this.profilePreview = null

@@ -92,7 +92,9 @@ P0 表示完成既有 MVP 的必要工作，不表示所有項目當下可開始
 
 優先級：P0。對應既有任務：LOBBY-01。
 
-**現況與缺口**：目前可手動開房／加入與離開頻道；尚無改名、遊戲模式／計分／容量、密碼、鎖房、房主與明確關房流程。
+**現況與缺口**：已提供 typed 改名、隊伍／計分／容量、密碼、槽位鎖定、房主與完整頻道確認關房；所有操作經 Main 一次性預覽與近期觀測驗證。合成測試涵蓋各指令、密碼不進 snapshot／記錄、重複送出阻擋與無地圖房間。逐步初始化及真實 Bancho 回覆樣本仍未完成，保持 partial。
+
+官方指令依據：[osu! tournament management commands](https://osu.ppy.sh/wiki/en/osu!_tournament_client/osu!tourney/Tournament_management_commands)。lock 僅限制玩家更換隊伍／槽位，不表示禁止加入；規則設定為隊伍與計分模式，未加入切換遊戲模式。
 
 **設計**：新增 typed intents：rename、configure（規則／計分／容量）、setPassword、lock／unlock、host／clearhost、close。初始化產生逐步差異預覽並停止於首個失敗／unknown；不宣稱整批原子成功。close 顯示確切 MP、影響與不可等同 PART 的確認。密碼採專用敏感參數通道，只在送出時使用，命令預覽與記錄遮罩。遠端房間綁定／跨裝置鎖不屬本期。
 
