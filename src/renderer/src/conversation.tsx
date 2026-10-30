@@ -1,3 +1,5 @@
+import { MESSAGE_TEMPLATES, messageTemplate } from '../../shared/referee-tools'
+import { WorkspaceSelect } from './controls'
 import React, { useRef, useState } from 'react'
 import { Button, Input, TextField } from '@heroui/react'
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
@@ -33,6 +35,7 @@ export function MessageList({ state, onError }: { state: Snapshot; onError: (mes
 }
 export function Composer({ state, onError }: { state: Snapshot; onError: (message: string | null) => void }) {
   const [draft, setDraft] = useState('')
+  const [template, setTemplate] = useState('ready')
   const [sending, setSending] = useState(false)
   const locked = useRef(false)
   const composing = useRef(false)
@@ -53,6 +56,17 @@ export function Composer({ state, onError }: { state: Snapshot; onError: (messag
     finally { locked.current = false; setSending(false) }
   }
   return <form className="composer" onSubmit={submit}>
+    {room?.kind === 'match' && <details className="composer-templates"><summary>常用訊息</summary><div>
+      <WorkspaceSelect label="常用訊息" value={template} onChange={setTemplate} disabled={!available || sending} options={MESSAGE_TEMPLATES.map(({ value, label }) => ({ value, label }))} />
+      <Button type="button" size="sm" variant="secondary" isDisabled={!available || sending} onPress={() => {
+        try {
+          const text = [draft, messageTemplate(template, room.channel)].filter(Boolean).join(' ')
+          if (new TextEncoder().encode(`PRIVMSG ${room.channel} :${text.trim()}`).length > 510) { onError('草稿過長，請先縮短訊息。'); return }
+          setDraft(text); onError(null)
+        } catch { onError('無法插入常用訊息。') }
+      }}>插入草稿</Button>
+    </div></details>}
+
     <div className="composer-controls"><TextField aria-label="房間聊天訊息" value={draft} onChange={setDraft} isDisabled={!available || sending} className="chat-field">
       <Input name="chat" placeholder={available ? `傳送至 ${room.channel}` : room?.kind === 'private' && room.channel.toLowerCase() === 'banchobot' ? 'BanchoBot 私訊僅供讀取' : '加入房間後即可聊天'} maxLength={510} autoComplete="off"
         onCompositionStart={() => { composing.current = true }} onCompositionEnd={() => { composing.current = false }}

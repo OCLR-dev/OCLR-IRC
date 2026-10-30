@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 
 export function WorkspaceSelect({ label, value, onChange, options, disabled, className = '' }: {
   label: string; value: string; onChange: (value: string) => void
-  options: { value: string; label: string }[]; disabled?: boolean; className?: string
+  options: readonly { value: string; label: string }[]; disabled?: boolean; className?: string
 }) {
   return <Select aria-label={label} selectedKey={value || null} onSelectionChange={key => { if (key !== null) onChange(String(key)) }} isDisabled={disabled} className={`workspace-select ${className}`} placeholder={label}>
     <Select.Trigger aria-label={label}><Select.Value /><Select.Indicator /></Select.Trigger>

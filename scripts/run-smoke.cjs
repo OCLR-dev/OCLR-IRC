@@ -5,10 +5,14 @@ const path = require('node:path')
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'oclr-ui-qa-'))
 try {
   for (const script of ['scripts/smoke.cjs', 'scripts/credential-smoke.cjs', 'scripts/oclr-smoke.cjs', 'scripts/background-smoke.cjs', 'scripts/mp-smoke.cjs', 'scripts/journal-smoke.cjs']) {
+    console.log(`[smoke] Starting ${script}`)
     const result = spawnSync(require('electron'), [script], {
       stdio: 'inherit', timeout: 60000, env: { ...process.env, OCLR_QA_TEMP: temp }
     })
     process.exitCode = result.status || (result.error ? 1 : 0)
-    if (process.exitCode) break
+    if (process.exitCode) {
+      console.error(`[smoke] ${script} failed: ${result.error?.message || result.signal || `exit ${result.status}`}`)
+      break
+    }
   }
 } finally { fs.rmSync(temp, { recursive: true, force: true }) }
