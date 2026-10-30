@@ -105,3 +105,16 @@ reviewUrl 必須精確對應 `https://oclr.org/admin/tournaments/{edition.slug}/
 5. PANEL-W／C、遠端寫入、完整 context 與 IRC 執行仍是後續工作；本次不擴大其 milestone，不建立完成 tag。
 
 本機驗證與交付狀態見 [0.6.0 桌面接入說明](../m1/oclr-read-integration.md)。
+
+## 2026-10-30：同 Mod Ban 相容補充
+
+網站來源 [`bbf03005`](https://github.com/OCLR-dev/OCLR-website/commit/bbf0300555fb80a78a6a16e4ceee9c6a5a329bea)
+的 policy 相容新增 `banCategoryRules: { allowRepeats, repeatExceptions }`。
+本分支同步 pinned model 與生成 JSON Schema；嚴格 parser 必須保留該欄位，不能忽略後宣稱允許操作。
+欄位缺省維持舊的允許重複 Ban 語意；設為禁止時只計同隊有效 Ban，例外可選 NM/HD/HR/DT/FM。
+撤回的 Ban 與 Pick 不計入；對手可 Ban 同 Mod，但任何設定均不可 Ban TB 或重用已選圖譜。
+這是 desktop panel 1.1.0 的可選資料延伸，不與網站 saved-read 1.7.0 版本號混用。
+網站保存與 IRC 真實執行邊界保持不變。
+
+驗證：Node 24 typecheck、148 項核心／契約測試通過，包含新欄位解析、舊 panel、TB 例外拒絕、重複 HD／TB Ban 驗證。
+沒有 UI／preload 改動，未進行 Electron 實機或真實 OAuth／Bancho 聯調；尚未合併或發布。

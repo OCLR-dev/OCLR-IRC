@@ -3,6 +3,8 @@
 This distribution includes derived code from OCLR-website PR #409, commit
 `1abbab1ddd981025249af727d748e70e23b9096b`:
 <https://github.com/OCLR-dev/OCLR-website/pull/409>.
+The event projection/model was additionally refreshed from OCLR-website commit
+`bbf0300555fb80a78a6a16e4ceee9c6a5a329bea` for repeated Mod Ban rules.
 The scoring-rules excerpt, command builder and event projection retain this license:
 
 MIT License
