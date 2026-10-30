@@ -6,7 +6,7 @@ import { Lines } from '../src/main/protocol.ts'
 import { mpCommand } from '../src/shared/mp-command.ts'
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 async function until(fn: () => boolean) { for (let i = 0; i < 200; i++) { if (fn()) return; await delay(10) }; throw new Error('Timed out') }
-async function fixture(empty = false) {
+async function fixture(empty: boolean | 'no-mods' = false) {
   const sent: string[] = [], sockets = new Set<net.Socket>()
   let peer: net.Socket
   const server = net.createServer(socket => {
@@ -19,8 +19,8 @@ async function fixture(empty = false) {
       const channel = line.split(' ')[1]
       if (line.endsWith(':!mp settings')) socket.write([
         `Room name: Synthetic, History: https://osu.ppy.sh/mp/${channel.slice(4)}`,
-        ...(empty ? ['Team mode: TeamVs, Win condition: ScoreV2', 'Players: 0'] : ['Beatmap: https://osu.ppy.sh/b/123 Synthetic', 'Team mode: TeamVs, Win condition: ScoreV2',
-        'Active mods: None', 'Players: 1', 'Slot 1 Ready https://osu.ppy.sh/u/101 Synthetic [Host / Team Red]'])
+        ...(empty === true ? ['Team mode: TeamVs, Win condition: ScoreV2', 'Players: 0'] : ['Beatmap: https://osu.ppy.sh/b/123 Synthetic', 'Team mode: TeamVs, Win condition: ScoreV2',
+        ...(empty === 'no-mods' ? [] : ['Active mods: None']), 'Players: 1', 'Slot 1 Ready https://osu.ppy.sh/u/101 Synthetic [Host / Team Red]'])
       ].map(body => `:BanchoBot PRIVMSG ${channel} :${body}\n`).join(''))
       if (line.endsWith(':!mp listrefs')) socket.write(`:BanchoBot PRIVMSG ${channel} :Match referees: Example\n`)
     } })
@@ -167,5 +167,18 @@ test('observed empty-room format permits map replacement without inferring missi
     f.session.executeMp({ ...f.target(), token: preview.token, reviewed: true })
     await until(() => f.sent.includes('PRIVMSG #mp_9 :!mp map 456'))
     assert.equal(f.sent.filter(line => line === 'PRIVMSG #mp_9 :!mp map 456').length, 1)
+  } finally { await f.close() }
+})
+test('explicit mods replacement does not require old mods but start still does', async () => {
+  const f = await fixture('no-mods')
+  try {
+    await f.refresh()
+    assert.equal(f.session.state.room!.mods, null)
+    assert.throws(() => f.session.previewMp({ ...f.target(), intent: { kind: 'start' } }))
+    const preview = f.session.previewMp({ ...f.target(), intent: { kind: 'mods', mods: ['HD'] } })
+    f.session.executeMp({ ...f.target(), token: preview.token, reviewed: true })
+    await until(() => f.sent.includes('PRIVMSG #mp_9 :!mp mods HD'))
+    assert.equal(f.session.state.room!.mods, null, 'sending must not infer observed effect')
+    assert.throws(() => f.session.executeMp({ ...f.target(), token: preview.token, reviewed: true }))
   } finally { await f.close() }
 })

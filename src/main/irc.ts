@@ -417,9 +417,11 @@ export class IrcSession extends EventEmitter {
     const room = view.room
     if (room.kind !== 'match' || this.selected !== room.id || room.binding !== 'verified') throw new Error('請先選取並核對比賽房間。')
     const replacingMap = command.startsWith('!mp map ')
-    if ((room.syncState !== 'complete' && !(replacingMap && room.syncState === 'partial')) || !room.observedAt || Date.now() - Date.parse(room.observedAt) >= 10000) throw new Error('請先重新讀取完整房間設定。')
+    const replacingMods = command.startsWith('!mp mods ')
+    const replacingSettings = replacingMap || replacingMods
+    if ((room.syncState !== 'complete' && !(replacingSettings && room.syncState === 'partial')) || !room.observedAt || Date.now() - Date.parse(room.observedAt) >= 10000) throw new Error('請先重新讀取完整房間設定。')
     const evidence = this.settingsEvidence.get(view)
-    const required = evidence ? [evidence.name, evidence.mode, evidence.players, evidence.slots, ...(replacingMap ? [] : [evidence.beatmap, evidence.mods])] : []
+    const required = evidence ? [evidence.name, evidence.mode, evidence.players, evidence.slots, ...(replacingMap ? [] : [evidence.beatmap]), ...(replacingSettings ? [] : [evidence.mods])] : []
     if (!evidence || !required.every(field =>
       field.knowledge === 'known' && field.connectionGeneration === this.generation && field.roomEpoch === room.epoch &&
       Number.isFinite(Date.parse(field.observedAt)) && Date.now() >= Date.parse(field.observedAt) && Date.now() - Date.parse(field.observedAt) < 10000
