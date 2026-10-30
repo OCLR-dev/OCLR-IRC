@@ -158,3 +158,35 @@ test('unreviewed same nickname never binds; reconnect invalidates review before 
     assert.equal(f.oclr.state.pairing.reviewed, false)
   } finally { await f.relay.stop() }
 })
+
+test('lost membership rejects late bot evidence and publishes disconnected without replay', async () => {
+  const f = harness()
+  try {
+    await f.relay.start(); f.command({id: id(80), text: '!mp map 42', target: '#mp_123'})
+    await until(() => f.writes.length === 1)
+    f.irc.state.room.joined = false
+    f.irc.emit('message', {roomId: 123, roomEpoch: 1, message: {id: 99, kind: 'bot', sender: 'BanchoBot', text: 'Changed beatmap to https://osu.ppy.sh/b/42 Song'}})
+    await until(() => f.oclr.state.relay.status === 'off')
+    const sync = f.requests.filter(r => r.action === 'sync').at(-1)
+    assert.equal(sync.projection.status, 'disconnected')
+    assert.deepEqual(sync.projection.messages, [])
+    assert.deepEqual(sync.receipts.map((r: any) => r.status), ['sent', 'unknown'])
+    assert.equal(f.writes.length, 1)
+  } finally { await f.relay.stop() }
+})
+
+test('membership lost during HTTP response cannot dispatch a newly received command', async () => {
+  const f = harness(); let release!: () => void
+  const original = f.oclr.relayRequest.bind(f.oclr)
+  f.oclr.relayRequest = async (fixture, body) => {
+    if (body.action === 'sync') await new Promise<void>(resolve => { release = resolve })
+    return original(fixture, body)
+  }
+  try {
+    await f.relay.start(); f.command({id: id(81), text: '!mp abort', target: '#mp_123'})
+    await until(() => Boolean(release)); f.irc.state.room.joined = false; release()
+    await until(() => f.oclr.state.relay.status === 'off')
+    assert.equal(f.writes.length, 0)
+    assert.ok(f.requests.some(r => r.action === 'disconnect'))
+  } finally { await f.relay.stop() }
+})
