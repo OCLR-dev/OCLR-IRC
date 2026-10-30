@@ -63,10 +63,14 @@ runs:
       id: archive
       shell: bash
       run: node scripts/archive-test-build.cjs
-    - name: Verify extracted macOS signature and packaged startup
-      if: runner.os == 'macOS'
+    - name: Verify extracted archive identity and packaged startup
+      if: runner.os != 'Linux'
       shell: bash
-      run: node scripts/verify-mac-archive.cjs
+      run: node scripts/verify-archive.cjs
+    - name: Verify extracted Linux archive and packaged startup
+      if: runner.os == 'Linux'
+      shell: bash
+      run: dbus-run-session -- xvfb-run -a -s "-screen 0 1280x1024x24" node scripts/verify-archive.cjs
     - name: Upload downloadable test build
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:

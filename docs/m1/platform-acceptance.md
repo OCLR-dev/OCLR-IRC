@@ -4,11 +4,11 @@
 
 ## 準備與打包
 
-各自在 Windows／Linux 的本機圖形桌面操作，使用 Node 24+、npm、Git。Linux 請以一般使用者執行，不以 root 或 `--no-sandbox` 規避 Electron sandbox。架構由當地 Node 的 `process.arch` 決定，先確認與預期一致。以下為原生平台打包指令，尚未在該平台實測，不宣稱已產生可下載安裝包。
+各自在 Windows／Linux 的本機圖形桌面操作，使用 Node 24+、npm、Git。Linux 請以一般使用者執行，不以 root 或 `--no-sandbox` 規避 Electron sandbox。架構由當地 Node 的 `process.arch` 決定，先確認與預期一致。以下為原生平台打包指令，CI 已提供原生測試壓縮包，仍不代表實機操作驗收。
 
 ```sh
-git clone https://github.com/OCLR-dev/OCLR-ref-tools.git
-cd OCLR-ref-tools
+git clone https://github.com/OCLR-dev/OCLR-IRC.git
+cd OCLR-IRC
 git rev-parse HEAD
 node --version
 node -p "process.platform + ' / ' + process.arch"
@@ -26,7 +26,7 @@ Windows 接著執行：
 npm run package:win
 ```
 
-開啟 `release/OCLR-ref-tools-win32-<arch>/OCLR-ref-tools.exe`。
+開啟 `release/OCLR IRC-win32-<arch>/OCLR IRC.exe`。
 
 Linux 接著執行：
 
@@ -34,7 +34,7 @@ Linux 接著執行：
 npm run package:linux
 ```
 
-開啟 `release/OCLR-ref-tools-linux-<arch>/OCLR-ref-tools`。這是未簽章的內部測試目錄，不是安裝器；保留整個目錄。若系統阻擋啟動，記錄提示回報，不要求停用系統保護。
+開啟 `release/OCLR IRC-linux-<arch>/OCLR IRC`。這是未簽章的內部測試目錄，不是安裝器；保留整個目錄。若系統阻擋啟動，記錄提示回報，不要求停用系統保護。
 
 `test:ui` 使用本機合成 IRC／加密 adapter，不使用真實憑證；產生 `artifacts/ui-smoke-recovery.json`，Windows 另有 `artifacts/credential-smoke.json`。Linux 的憑證 smoke 僅檢查保存停用，不宣稱保存生命週期通過。請分平台回傳結果，避免覆寫既有 macOS 證據。
 
@@ -77,15 +77,21 @@ P01～P10：逐項通過、失敗、未測或不適用；附理由
 
 ## GitHub CI 測試版下載
 
-[Desktop test builds](https://github.com/OCLR-dev/OCLR-ref-tools/actions/workflows/test-builds.yml) 在 main 的程式／建置變更、PR 及手動 Run workflow 執行。每個原生 runner 先跑 typecheck、核心測試及合成 Electron smoke，成功後才上傳測試 App；Linux smoke 使用 Xvfb，不關閉 sandbox。
+[Desktop test builds](https://github.com/OCLR-dev/OCLR-IRC/actions/workflows/test-builds.yml) 在 main 的程式／建置變更、PR 及手動 Run workflow 執行。每個原生 runner 先跑 typecheck、核心測試及合成 Electron smoke，成功後才上傳測試 App；Linux smoke 使用 Xvfb，不關閉 sandbox。
 
 | Artifact | 內容與啟動方式 |
 | --- | --- |
-| `OCLR-ref-tools-<version>-windows-x64-<commit>` | 內層 ZIP，完整解壓後啟動 `.exe` |
-| `OCLR-ref-tools-<version>-linux-x64-<commit>` | 內層 tar.gz，`tar -xzf <檔名>` 保留執行權限後啟動 |
-| `OCLR-ref-tools-<version>-macos-arm64-<commit>` | Apple Silicon 版 ZIP，以保留 macOS bundle 資料的 ditto 製作，解壓後開啟 `.app` |
+| `OCLR-IRC-<version>-windows-x64-<commit>` | 內層 ZIP，完整解壓後啟動 `.exe` |
+| `OCLR-IRC-<version>-linux-x64-<commit>` | 內層 tar.gz，`tar -xzf <檔名>` 保留執行權限後啟動 |
+| `OCLR-IRC-<version>-macos-arm64-<commit>` | Apple Silicon 版 ZIP，以保留 macOS bundle 資料的 ditto 製作，解壓後開啟 `.app` |
 | `qa-<platform>-<commit>` | 合成測試報告／截圖，**不是 App** |
 
 登入 GitHub 後開啟成功的 workflow run，在 Artifacts 下載對應平台。GitHub 的下載本身是外層 ZIP；解開後才是上表內層壓縮包、`SHA256SUMS.txt` 與 `build-info.json`。Artifacts 保留 30 天，過期可手動重新執行 workflow。
 
-校驗內層壓縮包：Windows 使用 `Get-FileHash <檔名> -Algorithm SHA256`，Linux 使用 `sha256sum <檔名>`，macOS 使用 `shasum -a 256 <檔名>`，與 SHA256SUMS.txt 比對。所有測試版未作公開發行簽章／公證，不建立 GitHub Release 或 M1 完成 tag。CI 成功不能取代實機 IME、休眠、OS 金鑰鏈與真實 Bancho 驗收。Intel Mac、Windows/Linux ARM64 暫不在此矩陣。
+校驗內層壓縮包：Windows 使用 `Get-FileHash <檔名> -Algorithm SHA256`，Linux 使用 `sha256sum <檔名>`，macOS 使用 `shasum -a 256 <檔名>`，與 SHA256SUMS.txt 比對。簽章／公證以該壓縮包 build-info.json 為準；普通 macOS CI 使用 ad-hoc 簽章，不能當成 Developer ID／公證通過。單次 CI 不授權建立 M1 完成 tag。CI 成功不能取代實機 IME、休眠、OS 金鑰鏈與真實 Bancho 驗收。Intel Mac、Windows/Linux ARM64 暫不在此矩陣。
+
+## 成品啟動 CI（2026-10-30）
+
+三平台共用 `scripts/verify-archive.cjs`：先核對完整 commit／版本／平台／架構與 SHA256，再解壓並核對內外 build-info，一律使用全新暫存 profile 啟動實際成品。檢查離線登入介面、preload IPC 及沒有 renderer Node 入口；不登入真實帳號，也不傳送 IRC 指令。Linux 使用 Xvfb／D-Bus，保留 sandbox；macOS 保留 strict deep 簽章，以及已公證成品的 stapler／Gatekeeper 檢查。成功後才上傳 App。
+
+這些是 CI 成品證據，不能替代真實 IME、系統匣、休眠、OS provider、升級／復原或使用者首次下載驗收。報告位於 `artifacts/<platform>-archive-verification.json`，以對應 commit 的實際 workflow 結果為準。
