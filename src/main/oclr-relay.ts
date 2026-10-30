@@ -36,7 +36,7 @@ export class OclrRelay {
     this.oclr = oclr; this.irc = irc
     irc.on('state', () => this.refreshPairing())
     irc.on('message', ({roomId, roomEpoch, message}: {roomId: number; roomEpoch: number; message: Message}) => {
-      if (!this.pairingReady() || !this.binding || roomId !== this.binding.roomId || roomEpoch !== this.binding.roomEpoch || !this.pending || message.kind !== 'bot' || normalize(message.sender) !== 'banchobot' || message.id <= this.pending.after) return
+      if (!this.pairingReady() || !this.sameRoom(this.irc.state) || !this.binding || roomId !== this.binding.roomId || roomEpoch !== this.binding.roomEpoch || !this.pending || message.kind !== 'bot' || normalize(message.sender) !== 'banchobot' || message.id <= this.pending.after) return
       const projected = projectedMessage(message)
       if (!projected) return
       const status = relayReply(this.pending.text, projected.text)
@@ -56,7 +56,7 @@ export class OclrRelay {
   }
   confirmPairing(input: unknown) { this.refreshPairing(); this.identity.confirm(input); this.oclr.updatePairing(this.identity.state) }
   private pairingReady() { this.refreshPairing(); return this.identity.ready }
-  private sameRoom(state: Snapshot) { const b = this.binding; return !!b && state.room?.id === b.roomId && state.room.epoch === b.roomEpoch && normalize(state.username) === b.username }
+  private sameRoom(state: Snapshot) { const b = this.binding; return !!b && state.room?.joined === true && state.room.kind === 'match' && state.room.id === b.roomId && state.room.epoch === b.roomEpoch && normalize(state.username) === b.username }
   async start() {
     if (!this.pairingReady()) throw new OclrError('RELAY_LOCAL_NOT_READY')
     if (this.binding || this.running) throw new OclrError('RELAY_ALREADY_ACTIVE')
@@ -93,6 +93,7 @@ export class OclrRelay {
       const reply = replySchema.parse(response.value).data
       if (!this.pairingReady() || generation !== this.generation) return
       if (reply.connectionId !== binding.connectionId || reply.sequence !== binding.sequence) throw new Error('Unexpected relay generation')
+      if (!this.sameRoom(this.irc.state)) { await this.stop(); return }
       const command = reply.command
       if (command && !this.consumed.has(command.id)) {
         // Consume before validation and socket write. Never retry after ambiguity.
