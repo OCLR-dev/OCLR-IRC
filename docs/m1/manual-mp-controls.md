@@ -46,3 +46,11 @@ Electron 測試透過真實 Main／sandboxed preload／renderer 和本機模擬 
 ### 逐操作觀測需求
 
 真實 settings 可省略 Active mods。明確換圖不要求舊地圖／Mods；明確設定 Mods 要求目前地圖，但不要求已知舊 Mods。兩者仍要求 Main 保存的房名、模式、玩家數及完整槽位觀測，並核對 generation、epoch、十秒有效期及裁判名單；Playing 繼續阻擋。Start／abort 與網站 relay 仍沿用完整觀測要求。送出新的 Mods 不會直接改寫觀測值；必須從後續回覆核對，缺省不推定 None。
+
+### 開賽狀態與剩餘時間（#11，2026-10-30）
+
+收到同一已加入房間的 BanchoBot `The match has started!` 才顯示「進行中 · In progress」，並經既有節流佇列自動讀取一次 settings，更新玩家槽位狀態。重新查詢保持已確認比賽階段；結束／中止回覆切回未進行，斷線／離房使觀測失效。僅倒數或本機 start 寫入不表示已開賽。
+
+Main 從固定官方 `https://osu.ppy.sh/osu/{beatmapId}` 讀取公開譜面（無憑證、8 秒期限、2 MB 上限、拒絕 redirect），驗證 BeatmapID，按最後物件結束時間估算 osu!standard 譜面時長，涵蓋 slider repeats／SV 與 spinner；其他 ruleset 保持未知。資料只用於顯示，不參與操作授權。晚到資料核對房間 epoch／連線 generation／目前地圖。官方格式參考：https://osu.ppy.sh/wiki/en/Client/File_formats/osu_(file_format)。
+
+剩餘時間自 Bancho 開賽確認起估算，依已知 DT／NC（1.5x）、HT（0.75x）調整，包含載入與傳輸誤差，不等於音檔長度。Mods／時長未知時顯示已進行時間與「剩餘未知」；歸零不宣告賽事完成。玩家槽位的完整性獨立於缺少 Mods 行，仍顯示其新鮮度。測試圖 75 的官方公開 v3 譜面計算結果為 143869 ms；這不是已完成真實 start 的證據。

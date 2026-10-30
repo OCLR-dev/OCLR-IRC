@@ -1,3 +1,4 @@
+import { fetchBeatmapDuration } from './beatmap-duration.ts'
 import { app, BrowserWindow, ipcMain, shell, powerMonitor, safeStorage, clipboard } from 'electron'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -11,7 +12,7 @@ import { OclrSession } from './oclr.ts'
 import { publicOclrError } from './oclr-http.ts'
 import { DesktopBackground } from './background.ts'
 
-const irc = new IrcSession()
+const irc = new IrcSession(undefined, {}, fetchBeatmapDuration)
 const oclr = new OclrSession({ origin: process.env.OCLR_SERVER_ORIGIN, version: app.getVersion(), platform: process.platform, openExternal: url => shell.openExternal(url), writeClipboard: text => clipboard.writeText(text) })
 const relay = new OclrRelay(oclr, irc)
 let loginGeneration = 0

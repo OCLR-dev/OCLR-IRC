@@ -2,7 +2,7 @@ import type { Room } from '../../shared/types'
 
 /** Settings reports occupied slots, not the configured room capacity. */
 export function PlayerSlots({ room }: { room: Room }) {
-  const current = room.syncState === 'complete' && room.binding === 'verified' && room.joined
+  const current = (room.syncState === 'complete' || room.syncState === 'partial') && room.slotsVerified === true && room.binding === 'verified' && room.joined
   const ready = room.slots.filter(slot => /^ready$/i.test(slot.status)).length
   const state = { unknown: '尚未同步', loading: '同步中', partial: '資料不完整', complete: '設定快照', stale: '資料已過期' }[room.syncState]
   return <section className="player-slots" aria-label="玩家槽位">

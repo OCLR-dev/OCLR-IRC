@@ -1,3 +1,4 @@
+import { MatchStatus } from './match-status'
 import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Button, Description, FieldError, Input, Label, Spinner, TextField } from '@heroui/react'
@@ -147,6 +148,7 @@ function App() {
           {error && (!connecting || formError || state.credentialError) && <div className="error-message room-error" role="alert">{error}</div>}
           <div className="room-grid"><section className="conversation" aria-label="房間訊息">
             <div className="conversation-header"><span className="channel-name">{state.room?.channel || '# 尚未加入房間'}</span><div className="query-actions"><Button size="sm" variant="ghost" isDisabled={!online || !state.room?.joined || state.room.kind !== 'match' || Boolean(state.pending)} onPress={() => void query('settings')}>讀取設定</Button><Button size="sm" variant="ghost" isDisabled={!online || !state.room?.joined || state.room.kind !== 'match' || Boolean(state.pending)} onPress={() => void query('listrefs')}>裁判名單</Button></div></div>
+            {state.room?.kind === 'match' && <MatchStatus room={state.room} />}
             <MessageList key={`messages-${state.room?.epoch ?? 0}`} state={state} onError={setFormError} />
             <Composer key={`composer-${state.room?.epoch ?? 0}-${state.connection}`} state={state} onError={setFormError} />
             <div className="conversation-footer"><span className={state.pending ? 'pending-state' : ''}>{state.pending ? '正在等待伺服器回覆…' : '一般聊天 · 指令請使用房內快捷操作'}</span><span>本次連線記錄 · 最多 1,000 則</span></div>

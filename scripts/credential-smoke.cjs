@@ -44,6 +44,7 @@ async function main() {
     assert.equal(options.host, 'irc.ppy.sh')
     return create({ host: '127.0.0.1', port: server.address().port })
   }
+  require('./mock-beatmap-fetch.cjs')
   require('../out/main/index.js')
   await app.whenReady()
   await until(() => BrowserWindow.getAllWindows().length)

@@ -34,6 +34,7 @@ async function main() {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
   const connect = net.createConnection
   net.createConnection = options => { assert.equal(options.host, 'irc.ppy.sh'); return connect({ host: '127.0.0.1', port: server.address().port }) }
+  require('./mock-beatmap-fetch.cjs')
   require('../out/main/index.js')
   await app.whenReady()
   await until(() => BrowserWindow.getAllWindows().length > 0)

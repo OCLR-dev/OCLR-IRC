@@ -46,3 +46,14 @@ test('reading evidence never renews age or shares mutable map/mods', async () =>
   assert.deepEqual(second.mods.value, ['HD'])
   assert.equal(second.beatmap.observedAt, first.beatmap.observedAt)
 })
+
+test('missing mods does not invalidate a complete empty player snapshot', () => {
+  const collector = new SettingsCollector(9)
+  collector.feed(header); collector.feed('Players: 0')
+  const room = { id: 9, epoch: 1 } as import('../src/shared/types.ts').Room
+  collector.apply(room)
+  assert.equal(room.slotsVerified, true)
+  assert.equal(room.mods, null)
+  collector.apply(room, true)
+  assert.equal(room.slotsVerified, false)
+})

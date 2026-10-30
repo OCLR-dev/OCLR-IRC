@@ -12,6 +12,7 @@ const output = path.resolve('artifacts')
 fs.mkdirSync(output, { recursive: true })
 const sent = []
 let username = ''
+let playing = false
 let peer
 const opened = []
 shell.openExternal = async url => { opened.push(url) }
@@ -32,7 +33,7 @@ const server = net.createServer(socket => {
       if (line.startsWith('PRIVMSG BanchoBot :!mp make ')) socket.write(`:BanchoBot PRIVMSG ${username} :Created the tournament match https://osu.ppy.sh/mp/900000003 ${line.slice('PRIVMSG BanchoBot :!mp make '.length)}\n`)
       const channel = line.split(' ')[1]
       const id = channel?.replace('#mp_', '')
-      if (line.endsWith(':!mp settings')) socket.write(`:BanchoBot PRIVMSG ${channel} :Room name: SYNTHETIC QA ROOM, History: https://osu.ppy.sh/mp/${id}\n:BanchoBot PRIVMSG ${channel} :Beatmap: https://osu.ppy.sh/b/123 Synthetic Artist - Map\n:BanchoBot PRIVMSG ${channel} :Team mode: TeamVs, Win condition: ScoreV2\n:BanchoBot PRIVMSG ${channel} :Active mods: None\n:BanchoBot PRIVMSG ${channel} :Players: 2\n:BanchoBot PRIVMSG ${channel} :Slot 1 Ready https://osu.ppy.sh/u/101 Synthetic Red [Host / Team Red]\n:BanchoBot PRIVMSG ${channel} :Slot 4 Not Ready https://osu.ppy.sh/u/102 Synthetic Blue [Team Blue]\n`)
+      if (line.endsWith(':!mp settings')) socket.write(`:BanchoBot PRIVMSG ${channel} :Room name: SYNTHETIC QA ROOM, History: https://osu.ppy.sh/mp/${id}\n:BanchoBot PRIVMSG ${channel} :Beatmap: https://osu.ppy.sh/b/123 Synthetic Artist - Map\n:BanchoBot PRIVMSG ${channel} :Team mode: TeamVs, Win condition: ScoreV2\n:BanchoBot PRIVMSG ${channel} :Active mods: None\n:BanchoBot PRIVMSG ${channel} :Players: 2\n:BanchoBot PRIVMSG ${channel} :Slot 1 ${playing ? 'Playing' : 'Ready'} https://osu.ppy.sh/u/101 Synthetic Red [Host / Team Red]\n:BanchoBot PRIVMSG ${channel} :Slot 4 Not Ready https://osu.ppy.sh/u/102 Synthetic Blue [Team Blue]\n`)
       if (line.endsWith(':!mp listrefs')) socket.write(`:BanchoBot PRIVMSG ${channel} :Match referees:\n:BanchoBot PRIVMSG ${channel} :${username}\n`)
     }
   })
@@ -55,6 +56,7 @@ async function main() {
     if (options.host !== 'irc.ppy.sh') throw new Error('Unexpected network target')
     return originalConnect.call(net, { host: '127.0.0.1', port }, ...rest)
   }
+  require('./mock-beatmap-fetch.cjs')
   require('../out/main/index.js')
   await app.whenReady()
   await until(() => BrowserWindow.getAllWindows().length > 0)
@@ -117,6 +119,19 @@ async function main() {
   assert.equal(sent.length, beforeCancel)
   assert.equal((await js('window.oclr.executeMp({roomId:900000001,roomEpoch:0,token:"forged",reviewed:true})')).ok,false)
   assert.ok(!sent.some(line => /!mp (close|password)/.test(line)))
+  const readsBeforeStart = sent.filter(line => line.endsWith(':!mp settings')).length
+  playing = true
+  peer.write(':BanchoBot PRIVMSG #mp_900000001 :The match has started!\n')
+  await until(() => sent.filter(line => line.endsWith(':!mp settings')).length > readsBeforeStart)
+  await until(() => js('document.querySelector(".match-status").textContent.includes("In progress") && document.querySelector(".slot-status").textContent.includes("Playing")'))
+  assert.ok(await js('document.querySelector(".match-status").textContent.includes("Synthetic Artist - Map")'))
+  assert.ok(await js('document.querySelector(".match-status").textContent.includes("NoMod")'))
+  await until(() => js('document.querySelector(".match-status").textContent.includes("剩餘約")'))
+  assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
+  fs.writeFileSync(path.join(output, 'match-status-synthetic.png'), (await window.webContents.capturePage()).toPNG())
+  playing = false
+  peer.write(':BanchoBot PRIVMSG #mp_900000001 :Aborted the match\n')
+  await until(() => js('document.querySelector(".match-status").textContent.includes("比賽未進行")'))
   assert.deepEqual(errors, [])
   const report = { evidence: 'synthetic-manual-mp-ui', platform: process.platform, arch: process.arch, recordedAt: new Date().toISOString(), passed: ['disabled before room/permission sync', 'four commands preview exact target and wire text', 'explicit confirmation checkbox', 'single send and stale permission after execution', '900x640 composer remains visible', 'cancel sends nothing', 'forged IPC rejected', 'no close/password commands or renderer errors'], sent, limitation: 'Local synthetic IRC only; no real Bancho mutation or server acknowledgement validation.' }
   fs.writeFileSync(path.join(output,'mp-smoke.json'), JSON.stringify(report,null,2)+'\n')

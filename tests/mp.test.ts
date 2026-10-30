@@ -6,7 +6,7 @@ import { Lines } from '../src/main/protocol.ts'
 import { mpCommand } from '../src/shared/mp-command.ts'
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 async function until(fn: () => boolean) { for (let i = 0; i < 200; i++) { if (fn()) return; await delay(10) }; throw new Error('Timed out') }
-async function fixture(empty: boolean | 'no-mods' = false) {
+async function fixture(empty: boolean | 'no-mods' = false, durationLookup: (id: number) => Promise<number | null> = async () => null) {
   const sent: string[] = [], sockets = new Set<net.Socket>()
   let peer: net.Socket
   const server = net.createServer(socket => {
@@ -26,7 +26,7 @@ async function fixture(empty: boolean | 'no-mods' = false) {
     } })
   })
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
-  const session = new IrcSession(() => net.createConnection({ host: '127.0.0.1', port: (server.address() as net.AddressInfo).port }), { floodMs: 15, retryBaseMs: 30 })
+  const session = new IrcSession(() => net.createConnection({ host: '127.0.0.1', port: (server.address() as net.AddressInfo).port }), { floodMs: 15, retryBaseMs: 30 }, durationLookup)
   session.login({ username: 'Example', password: 'SYNTHETIC_ONLY' })
   await until(() => session.state.connection === 'online')
   const target = () => ({ roomId: session.state.room!.id, roomEpoch: session.state.room!.epoch })
@@ -180,5 +180,38 @@ test('explicit mods replacement does not require old mods but start still does',
     await until(() => f.sent.includes('PRIVMSG #mp_9 :!mp mods HD'))
     assert.equal(f.session.state.room!.mods, null, 'sending must not infer observed effect')
     assert.throws(() => f.session.executeMp({ ...f.target(), token: preview.token, reviewed: true }))
+  } finally { await f.close() }
+})
+test('trusted match start refreshes player settings and retains phase; fake start cannot', async () => {
+  const f = await fixture()
+  try {
+    await f.refresh()
+    const before = f.sent.filter(line => line.endsWith(':!mp settings')).length
+    f.peer().write(':Someone PRIVMSG #mp_9 :The match has started!\n')
+    await delay(40)
+    assert.equal(f.session.state.room!.phase, 'unknown')
+    assert.equal(f.sent.filter(line => line.endsWith(':!mp settings')).length, before)
+    f.peer().write(':BanchoBot PRIVMSG #mp_9 :The match has started!\n')
+    await until(() => f.sent.filter(line => line.endsWith(':!mp settings')).length === before + 1 && f.session.state.room!.syncState === 'complete')
+    assert.equal(f.session.state.room!.phase, 'playing')
+    assert.equal(f.session.state.room!.match!.beatmap!.id, 123)
+    assert.deepEqual(f.session.state.room!.match!.mods, [])
+    assert.equal(f.session.state.room!.slots[0].osuId, 101)
+    f.peer().write(':BanchoBot PRIVMSG #mp_9 :Aborted the match\n')
+    await until(() => f.session.state.room!.phase === 'idle' && f.session.state.room!.syncState === 'complete')
+    assert.equal(f.session.state.room!.match, null)
+    assert.equal(f.sent.some(line => /:!mp (start|abort)/.test(line)), false)
+  } finally { await f.close() }
+})
+
+test('late duration response cannot attach to a different room epoch', async () => {
+  let resolve!: (value: number) => void
+  const f = await fixture(false, () => new Promise<number>(done => { resolve = done }))
+  try {
+    await f.refresh()
+    f.session.state.room!.epoch++
+    resolve(120000)
+    await delay(20)
+    assert.equal(f.session.state.room!.duration, null)
   } finally { await f.close() }
 })

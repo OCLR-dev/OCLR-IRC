@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto'
 import { redact } from './protocol.ts'
 import type { Room } from '../shared/types.ts'
 
-export function blankObservation(): Pick<Room, 'syncState' | 'observedAt' | 'beatmap' | 'mods' | 'slots' | 'phase'> {
-  return { syncState: 'unknown', observedAt: null, beatmap: null, mods: null, slots: [], phase: 'unknown' }
+export function blankObservation(): Pick<Room, 'syncState' | 'observedAt' | 'beatmap' | 'mods' | 'slots' | 'phase' | 'match' | 'slotsVerified' | 'duration'> {
+  return { syncState: 'unknown', observedAt: null, beatmap: null, mods: null, slots: [], phase: 'unknown', match: null, slotsVerified: false, duration: null }
 }
 export interface FieldObservation<T> {
   value: T | null
@@ -75,6 +75,7 @@ export class SettingsCollector {
   apply(room: Room, timedOut = false) {
     Object.assign(room, structuredClone(this.result))
     room.slots.sort((a, b) => a.slot - b.slot)
+    room.slotsVerified = !timedOut && !this.malformed && room.binding === 'verified' && this.count !== null && room.slots.length === this.count
     room.observedAt = this.capturedAt
     room.syncState = !timedOut && !this.malformed && room.binding === 'verified' && room.mode !== null && room.beatmap !== null && room.mods !== null && this.count !== null && room.slots.length === this.count ? 'complete' : 'partial'
   }
