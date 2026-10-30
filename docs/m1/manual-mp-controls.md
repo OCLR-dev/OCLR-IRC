@@ -54,3 +54,11 @@ Electron 測試透過真實 Main／sandboxed preload／renderer 和本機模擬 
 Main 從固定官方 `https://osu.ppy.sh/osu/{beatmapId}` 讀取公開譜面（無憑證、8 秒期限、2 MB 上限、拒絕 redirect），驗證 BeatmapID，按最後物件結束時間估算 osu!standard 譜面時長，涵蓋 slider repeats／SV 與 spinner；其他 ruleset 保持未知。資料只用於顯示，不參與操作授權。晚到資料核對房間 epoch／連線 generation／目前地圖。官方格式參考：https://osu.ppy.sh/wiki/en/Client/File_formats/osu_(file_format)。
 
 剩餘時間自 Bancho 開賽確認起估算，依已知 DT／NC（1.5x）、HT（0.75x）調整，包含載入與傳輸誤差，不等於音檔長度。Mods／時長未知時顯示已進行時間與「剩餘未知」；歸零不宣告賽事完成。玩家槽位的完整性獨立於缺少 Mods 行，仍顯示其新鮮度。測試圖 75 的官方公開 v3 譜面計算結果為 143869 ms；這不是已完成真實 start 的證據。
+
+### 計時與開賽倒數（#11）
+
+新增 `timer`（1–600 秒）、`start` 可選延遲（1–600 秒）與 `aborttimer` 結構化 intent。共用既有一次性預覽、人工確認、全連線節流與 Main 目標／裁判檢查；一般 timer／取消倒數只要求已核對的房名、模式、玩家／槽位，不依賴地圖或 Mods，延遲 start 維持完整開賽要求及非空玩家檢查。
+
+一般計時與開賽倒數各自記錄可信同房 BanchoBot 的觀測時間與估算截止時間。沒有回覆不推定開始；歸零顯示等待伺服器確認，只有開賽回覆才能轉 playing。送出 aborttimer 將現有計時觀測轉 unknown，兩種取消回覆各自確認，不互相冒充。倒數中及取消結果不明時阻擋換圖、Mods、再次 start 與相應 relay 變更；外部變更仍作廢預覽。斷線／休眠清除觀測，不重送計時指令。
+
+回覆格式參考 [bancho.js 上游解析](https://github.com/ThePooN/bancho.js/blob/master/lib/Multiplayer/BanchoLobbyRegexes.js)，指令語義依 [osu! 官方管理指令](https://osu.ppy.sh/wiki/en/osu!_tournament_client/osu!tourney/Tournament_management_commands)。合成測試與真實回覆證據分開記錄；完整操作日誌／恢復與 OCLR context 尚依賴 #6、#7、#14，不宣稱 #11 全部驗收完成。

@@ -88,10 +88,11 @@ async function main() {
   async function choose(kind) {
     await js(`(() => {const e=document.querySelector('select[aria-label="房內操作"]'); e.value=${JSON.stringify(kind)};e.dispatchEvent(new Event('change',{bubbles:true}))})()`)
   }
-  for (const [kind, command] of [['map','!mp map 456'],['mods','!mp mods HD HR'],['start','!mp start'],['abort','!mp abort']]) {
+  for (const [kind, command] of [['map','!mp map 456'],['mods','!mp mods HD HR'],['start','!mp start'],['abort','!mp abort'],['timer','!mp timer 30'],['aborttimer','!mp aborttimer'],['start','!mp start 30']]) {
     await refresh()
     await choose(kind)
     if (kind === 'map') await js(`(() => {const e=document.querySelector('input[name=beatmapId]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'456');e.dispatchEvent(new Event('input',{bubbles:true}))})()`)
+    if (command === '!mp start 30') await js('document.querySelector(".mp-controls fieldset input[type=checkbox]").click()')
     if (kind === 'mods') await js(`Array.from(document.querySelectorAll('.mp-mods label')).filter(e => ['HD','HR'].includes(e.textContent)).forEach(e => e.querySelector('input').click())`)
     await button('預覽指令')
     await until(() => js('Boolean(document.querySelector(".mp-confirm"))'))
@@ -119,6 +120,15 @@ async function main() {
   assert.equal(sent.length, beforeCancel)
   assert.equal((await js('window.oclr.executeMp({roomId:900000001,roomEpoch:0,token:"forged",reviewed:true})')).ok,false)
   assert.ok(!sent.some(line => /!mp (close|password)/.test(line)))
+  peer.write(':BanchoBot PRIVMSG #mp_900000001 :Countdown ends in 1 second\n:BanchoBot PRIVMSG #mp_900000001 :Match starts in 1 second\n')
+  await until(() => js('document.querySelector(".match-status").textContent.includes("一般計時") && document.querySelector(".match-status").textContent.includes("開賽倒數")'))
+  await until(() => js('document.querySelector(".match-status").textContent.includes("等待伺服器確認")'))
+  assert.equal((await js('window.oclr.snapshot()')).room.phase, 'unknown')
+  assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
+  assert.equal(await js('Array.from(document.querySelectorAll(".countdown-status span")).every(e => e.getBoundingClientRect().right <= document.querySelector(".match-status").getBoundingClientRect().right)'), true)
+  fs.writeFileSync(path.join(output, 'countdown-synthetic.png'), (await window.webContents.capturePage()).toPNG())
+  peer.write(':BanchoBot PRIVMSG #mp_900000001 :Countdown aborted\n:BanchoBot PRIVMSG #mp_900000001 :Aborted the match start timer\n')
+  await until(() => js('(async () => (await window.oclr.snapshot()).room.startCountdown?.status === "cancelled")()'))
   const readsBeforeStart = sent.filter(line => line.endsWith(':!mp settings')).length
   playing = true
   peer.write(':BanchoBot PRIVMSG #mp_900000001 :The match has started!\n')
@@ -133,7 +143,7 @@ async function main() {
   peer.write(':BanchoBot PRIVMSG #mp_900000001 :Aborted the match\n')
   await until(() => js('document.querySelector(".match-status").textContent.includes("比賽未進行")'))
   assert.deepEqual(errors, [])
-  const report = { evidence: 'synthetic-manual-mp-ui', platform: process.platform, arch: process.arch, recordedAt: new Date().toISOString(), passed: ['disabled before room/permission sync', 'four commands preview exact target and wire text', 'explicit confirmation checkbox', 'single send and stale permission after execution', '900x640 composer remains visible', 'cancel sends nothing', 'forged IPC rejected', 'no close/password commands or renderer errors'], sent, limitation: 'Local synthetic IRC only; no real Bancho mutation or server acknowledgement validation.' }
+  const report = { evidence: 'synthetic-manual-mp-ui', platform: process.platform, arch: process.arch, recordedAt: new Date().toISOString(), passed: ['disabled before room/permission sync', 'map/mods/start/abort/timer/aborttimer and delayed start preview exact target and wire text', 'separate countdowns expire to waiting, not playing', 'explicit confirmation checkbox', 'single send and stale permission after execution', '900x640 composer remains visible', 'cancel sends nothing', 'forged IPC rejected', 'no close/password commands or renderer errors'], sent, limitation: 'Local synthetic IRC only; no real Bancho mutation or server acknowledgement validation.' }
   fs.writeFileSync(path.join(output,'mp-smoke.json'), JSON.stringify(report,null,2)+'\n')
   console.log(JSON.stringify(report,null,2)); app.exit(0)
 }

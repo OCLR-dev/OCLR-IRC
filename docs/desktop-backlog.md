@@ -287,3 +287,7 @@ L01 Main 操作整合：手動預覽／執行及網站 relay 現在額外核對 
 依這項樣本，手動 map 預覽／執行改核對 name、mode、players、完整 slots 的有效 Main 觀測，不要求舊 beatmap／mods；start、mods、abort 與網站 relay 保留完整資料要求。新增空房換圖合成回歸，完整 L01（其他真實變體及逐意圖覆蓋）仍未完成。
 
 另修正 macOS CI 的 mp-smoke 畫面時序：加入成功後等待 React 控制面板實際出現才操作，避免 Main 快照先於 renderer 更新時 null dereference。這不降低功能斷言，也不代表三平台實機驗收。
+
+### L07 計時控制進度（2026-10-30）
+
+一般 timer、延遲 start、aborttimer 已接既有手動預覽與 Main gate。一般計時／開賽倒數分開觀測；本機歸零等待伺服器，不推定 playing；取消結果不明不放行倒數衝突操作，重連不重送。合成案例覆蓋來源／房間隔離、空房 timer、延遲 start、取消回覆遺失、外部 start 及重連。完整共用 operation 恢復、正式 context Start 核對與真實玩家／三平台 IME 仍待驗，#11 保持 partial。

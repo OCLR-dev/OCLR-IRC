@@ -267,3 +267,6 @@ main { min-height: 0; overflow: auto; }
 .match-status span { overflow-wrap: anywhere; min-width: 0; }
 .match-status time { font-variant-numeric: tabular-nums; flex-shrink: 0; }
 .match-status small { display: block; margin-top: 6px; opacity: .7; }
+
+.match-status > .countdown-status { flex-wrap: wrap; }
+.match-status > .countdown-status > span { flex: 1 1 180px; white-space: normal; }

@@ -1,3 +1,4 @@
+import type { Countdown } from './countdown.ts'
 import type { MpIntent, MpPreview } from './mp-command.ts'
 import type { OclrSnapshot } from './oclr-contracts.ts'
 
@@ -5,7 +6,7 @@ export type Connection = 'offline' | 'connecting' | 'online' | 'error' | 'reconn
 export interface Message { id: number; time: string; sender: string; text: string; kind: 'system' | 'bot' | 'chat' | 'self'; delivery?: 'sent' | 'unconfirmed' }
 export interface RoomTarget { roomId: number; roomEpoch: number }
 export interface PlayerSlot { slot: number; osuId: number; username: string; status: string; team: 'red' | 'blue' | null; host: boolean }
-export interface Room { duration?: { beatmapId: number; milliseconds: number } | null; slotsVerified?: boolean; match?: { startedAt: string; beatmap: { id: number; title: string } | null; mods: string[] | null } | null; id: number; epoch: number; channel: string; joined: boolean; binding: 'unknown' | 'verified' | 'mismatch'; referee: 'unknown' | 'listed'; name: string | null; mode: string | null; players: number | null; kind: 'match' | 'channel' | 'private'; members: string[]; syncState: 'unknown' | 'loading' | 'partial' | 'complete' | 'stale'; observedAt: string | null; beatmap: { id: number; title: string } | null; mods: string[] | null; slots: PlayerSlot[]; phase: 'unknown' | 'idle' | 'playing' }
+export interface Room { timer?: Countdown | null; startCountdown?: Countdown | null; duration?: { beatmapId: number; milliseconds: number } | null; slotsVerified?: boolean; match?: { startedAt: string; beatmap: { id: number; title: string } | null; mods: string[] | null } | null; id: number; epoch: number; channel: string; joined: boolean; binding: 'unknown' | 'verified' | 'mismatch'; referee: 'unknown' | 'listed'; name: string | null; mode: string | null; players: number | null; kind: 'match' | 'channel' | 'private'; members: string[]; syncState: 'unknown' | 'loading' | 'partial' | 'complete' | 'stale'; observedAt: string | null; beatmap: { id: number; title: string } | null; mods: string[] | null; slots: PlayerSlot[]; phase: 'unknown' | 'idle' | 'playing' }
 export type Pending = 'join' | 'settings' | 'listrefs' | null
 export interface RoomTab { id: number; epoch: number; channel: string; joined: boolean; unread: number; mentions: number; pending: Pending; error: string | null }
 export interface RoomCreation {

@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto'
 import { redact } from './protocol.ts'
 import type { Room } from '../shared/types.ts'
 
-export function blankObservation(): Pick<Room, 'syncState' | 'observedAt' | 'beatmap' | 'mods' | 'slots' | 'phase' | 'match' | 'slotsVerified' | 'duration'> {
-  return { syncState: 'unknown', observedAt: null, beatmap: null, mods: null, slots: [], phase: 'unknown', match: null, slotsVerified: false, duration: null }
+export function blankObservation(): Pick<Room, 'syncState' | 'observedAt' | 'beatmap' | 'mods' | 'slots' | 'phase' | 'match' | 'slotsVerified' | 'duration' | 'timer' | 'startCountdown'> {
+  return { syncState: 'unknown', observedAt: null, beatmap: null, mods: null, slots: [], phase: 'unknown', match: null, slotsVerified: false, duration: null, timer: null, startCountdown: null }
 }
 export interface FieldObservation<T> {
   value: T | null
