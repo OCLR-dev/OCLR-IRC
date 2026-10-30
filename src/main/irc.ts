@@ -65,6 +65,7 @@ export class IrcSession extends EventEmitter {
   private durationRequests = new WeakMap<RoomView, string>()
   private settingsEvidence = new WeakMap<RoomView, ReturnType<SettingsCollector['observations']>>()
   private refereeSeen = new WeakMap<RoomView, number>()
+  private creationJoins = new Set<string>()
   private creationTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(createSocket = () => net.createConnection({ host: 'irc.ppy.sh', port: 6667 }), timing: Partial<Timing> = {}, durationLookup: (id: number) => Promise<number | null> = async () => null) {
@@ -106,6 +107,7 @@ export class IrcSession extends EventEmitter {
     this.socket.write(line + '\r\n')
   }
   private disconnect() {
+    this.creationJoins.clear()
     this.mpPreview = null
     if (this.creation.status === 'awaiting') this.creationUnknown('開房時連線中斷，結果不明。請核對既有房間；不會自動重送。')
     if (this.creationTimer) clearTimeout(this.creationTimer)
@@ -323,6 +325,7 @@ export class IrcSession extends EventEmitter {
     }
   }
   private creationUnknown(message: string) {
+    this.creationJoins.clear()
     if (this.creationTimer) clearTimeout(this.creationTimer)
     this.creationTimer = null; this.creationName = null
     this.creation = { ...this.creation, status: 'unknown', message: [message, this.creation.message?.startsWith('BanchoBot：') ? this.creation.message : null].filter(Boolean).join(' ') }
@@ -344,6 +347,7 @@ export class IrcSession extends EventEmitter {
       this.creation = { ...this.creation, status: 'blocked', message: '無法保存開房記錄，或其他視窗已開房。本次指令未送出，請重新登入後核對。' }
       this.publish(); throw new Error(this.creation.message!)
     }
+    this.creationJoins.clear()
     this.creationName = name
     this.creation = { ...this.creation, status: 'awaiting', roomId: null, message: null }
     this.lastQueryAt = Date.now()
@@ -372,8 +376,20 @@ export class IrcSession extends EventEmitter {
     this.join(String(id))
     const view = this.views.get(id)!
     view.needsSync = true
+    if (this.creationJoins.has(view.room.channel)) this.confirmJoin(view)
+    this.creationJoins.clear()
     this.note(view, `BanchoBot 已確認建立房間 ${id}；權限與設定仍需查詢核對。`)
     this.publish(); return true
+  }
+  private confirmJoin(view: RoomView) {
+    this.clearTimer(view); view.pending = null; view.error = null; view.room.joined = true
+    // Bancho may auto-join during make, before the queued JOIN is written.
+    this.work = this.work.filter(job => job.view !== view || job.kind !== 'join')
+    this.note(view, '已加入頻道。')
+    if (view.needsSync && view.room.kind === 'match') {
+      view.needsSync = false; this.enqueue(view, 'settings'); this.enqueue(view, 'listrefs')
+    }
+    this.publish()
   }
   private timeout(view: RoomView, message: string) {
     this.clearTimer(view)
@@ -514,6 +530,7 @@ export class IrcSession extends EventEmitter {
       this.fail(command === '464' ? '登入失敗。請使用 osu! 帳號設定中的 IRC 專用密碼。' : '使用者名稱無法登入，請確認名稱後重試。'); return
     }
     if (command === 'ERROR' || command === 'QUIT' && self) { this.lost('伺服器已中斷連線，正在嘗試恢復。'); return }
+    if ((command === 'PART' && self) || (command === 'KICK' && normalize(params[1] || '') === normalize(this.username))) this.creationJoins.delete(normalize(params[0] || ''))
     if (command === 'PART' && self && this.departing.delete(params[0])) { this.publish(); return }
     if ((command === 'QUIT' || command === 'NICK') && !self) {
       for (const view of this.views.values()) view.room.members = view.room.members.flatMap(n => normalize(n) !== normalize(sender) ? [n] : command === 'NICK' && /^[a-zA-Z0-9_\[\]-]{1,32}$/.test(params[0] || '') ? [params[0]] : [])
@@ -529,7 +546,12 @@ export class IrcSession extends EventEmitter {
     const channel = ['353'].includes(command) ? params[2] : /^\d{3}$/.test(command) ? params[1] : params[0]
     const target = command === 'PRIVMSG' && ownTarget ? sender : channel
     const view = [...this.views.values()].find(v => normalize(v.room.channel) === normalize(target || ''))
-    if (!view) return
+    if (!view) {
+      // Only retain own JOINs during this one pending creation, in memory and bounded.
+      // They are consumed only by a matching trusted creation reply, never as permissions.
+      if (command === 'JOIN' && self && this.creation.status === 'awaiting' && /^#mp_[1-9]\d*$/.test(channel || '') && this.creationJoins.size < MAX_ROOMS) this.creationJoins.add(normalize(channel))
+      return
+    }
     const room = view.room
     if ((command === 'KICK' && normalize(params[1] || '') === normalize(this.username)) || (command === 'PART' && self)) {
       this.unavailable(view, '已離開或被移出房間，請確認房間後重新加入。'); return
@@ -538,11 +560,8 @@ export class IrcSession extends EventEmitter {
     if (['403', '404', '405', '471', '473', '474', '475'].includes(command) && ownTarget) {
       this.unavailable(view, command === '403' ? '找不到開放中的房間。請確認 MP 編號，或改用新的比賽房間。' : '目前無法加入或讀取此房間，請核對房間與帳號權限。'); return
     }
-    if ((command === 'JOIN' && self || command === '366' && ownTarget) && view.pending === 'join') {
-      this.clearTimer(view); view.pending = null; room.joined = true
-      this.note(view, '已加入頻道。房間狀態需以新查詢核對。')
-      if (view.needsSync && room.kind === 'match') { view.needsSync = false; this.enqueue(view, 'settings'); this.enqueue(view, 'listrefs') }
-      this.publish(); return
+    if ((command === 'JOIN' && self || command === '366' && ownTarget && view.joinSent) && view.restore && !room.joined && (view.pending === 'join' || view.joinSent && !view.pending)) {
+      this.confirmJoin(view); return
     }
     if (command === '353' && ownTarget) {
       room.members = [...new Set([...room.members, ...(params[3] || '').split(' ').map(n => n.replace(/^[@+%&~]+/, '')).filter(n => /^[a-zA-Z0-9_\[\]-]{1,32}$/.test(n))])].slice(0, 1000)

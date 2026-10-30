@@ -14,7 +14,7 @@ async function until(predicate: () => boolean) {
   for (let i = 0; i < 200; i++) { if (predicate()) return; await delay(10) }
   throw new Error('condition timed out')
 }
-async function fixture() {
+async function fixture(replyJoin = true) {
   const dir = mkdtempSync(join(tmpdir(), 'oclr-creation-test-'))
   const store = new SqliteCreationStore(join(dir, 'creation.sqlite'))
   const sent: string[] = [], sockets = new Set<net.Socket>()
@@ -25,7 +25,7 @@ async function fixture() {
     socket.on('data', chunk => { for (const line of parser.feed(chunk)) {
       sent.push(line)
       if (line.startsWith('USER ')) socket.write(':server 001 Example :welcome\n')
-      if (line.startsWith('JOIN ')) socket.write(`:server 366 Example ${line.slice(5)} :End\n`)
+      if (replyJoin && line.startsWith('JOIN ')) socket.write(`:server 366 Example ${line.slice(5)} :End\n`)
       if (line.endsWith(':!mp settings')) socket.write(`:BanchoBot PRIVMSG #mp_9 :Room name: 測試, History: https://osu.ppy.sh/mp/9\n:BanchoBot PRIVMSG #mp_9 :Team mode: TeamVs, Win condition: ScoreV2\n:BanchoBot PRIVMSG #mp_9 :Players: 0\n`)
       if (line.endsWith(':!mp listrefs')) socket.write(':BanchoBot PRIVMSG #mp_9 :Match referees:\n:BanchoBot PRIVMSG #mp_9 :Example\n')
     } })
@@ -185,5 +185,59 @@ test('creation shares flood limit and reserves capacity against joins and unsoli
     assert.equal(f.session.state.rooms.some(r => r.channel === 'Unsolicited'), false)
     await delay(25)
     assert.throws(() => f.session.createRoom(input(f.session)), /8/)
+  } finally { await f.close() }
+})
+
+for (const order of ['before', 'after'] as const) test(`own JOIN ${order} creation reply cancels redundant JOIN and reads settings once`, async () => {
+  const f = await fixture(false)
+  try {
+    await login(f.session)
+    f.session.createRoom(input(f.session))
+    await until(() => f.sent.some(line => line.includes('!mp make')))
+    const joined = ':Example!user@host JOIN :#mp_9\r\n'
+    const created = ':BanchoBot PRIVMSG Example :Created the tournament match https://osu.ppy.sh/mp/9 測試\r\n'
+    f.peer().write(order === 'before' ? joined + created : created + joined)
+    await until(() => f.session.state.room?.referee === 'listed')
+    await delay(180)
+    assert.equal(f.session.state.room?.joined, true)
+    assert.equal(f.session.state.error, null)
+    assert.equal(f.sent.filter(line => line === 'JOIN #mp_9').length, 0)
+    assert.equal(f.sent.filter(line => line.endsWith(':!mp settings')).length, 1)
+    assert.equal(f.session.state.room?.binding, 'verified')
+  } finally { await f.close() }
+})
+
+test('foreign, unrelated and revoked early JOIN do not confirm a created room', async () => {
+  for (const early of [':Other JOIN :#mp_9\n', ':Example JOIN :#mp_8\n', ':Example JOIN :#mp_9\n:Example PART #mp_9 :bye\n']) {
+    const f = await fixture(false)
+    try {
+      await login(f.session); f.session.createRoom(input(f.session))
+      await until(() => f.sent.some(line => line.includes('!mp make')))
+      f.peer().write(early); confirmed(f.peer())
+      await until(() => Boolean(f.session.state.error))
+      assert.equal(f.session.state.room?.joined, false)
+      assert.equal(f.sent.filter(line => line === 'JOIN #mp_9').length, 1)
+    } finally { await f.close() }
+  }
+})
+
+test('late own JOIN recovers timeout but cannot resurrect kicked or closed rooms', async () => {
+  const f = await fixture(false)
+  try {
+    await login(f.session); f.session.join('9')
+    await until(() => Boolean(f.session.state.error))
+    f.peer().write(':Other JOIN :#mp_9\n:server 366 Other #mp_9 :End\n')
+    await delay(20); assert.equal(f.session.state.room?.joined, false)
+    f.peer().write(':Example!user@host JOIN :#mp_9\n')
+    await until(() => f.session.state.room?.joined === true)
+    assert.equal(f.session.state.error, null)
+    assert.equal(f.session.state.room?.referee, 'unknown')
+    f.peer().write(':server KICK #mp_9 Example :removed\n:Example JOIN :#mp_9\n')
+    await until(() => f.session.state.room?.joined === false)
+    assert.equal(f.session.state.room?.joined, false)
+    const room = f.session.state.room!
+    f.session.leaveRoom({ roomId: room.id, roomEpoch: room.epoch })
+    f.peer().write(':Example JOIN :#mp_9\n')
+    await delay(20); assert.equal(f.session.state.room, null)
   } finally { await f.close() }
 })

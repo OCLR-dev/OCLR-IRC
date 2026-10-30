@@ -45,3 +45,9 @@ Bancho 不回傳客戶端 operation ID，因此無法保證與其他 IRC 客戶�
 
 - [osu! 官方 tournament commands](https://osu.ppy.sh/wiki/en/osu%21_tournament_client/osu%21tourney/Tournament_management_commands)：make 語意與房間生命週期。
 - [bancho.js createLobby 實作](https://github.com/ThePooN/bancho.js/blob/master/lib/BanchoClient.js)：公開來源可見確認回覆的 URL＋房名格式；本次未引入整個套件，也不把第三方 parser 視為真實 Bancho 實測證據。
+
+### JOIN 回覆時序
+
+開房期間若先收到本帳號的 MP JOIN，再收到可信 BanchoBot 的開房確認，Main 會短暫保留最多 8 個頻道名稱；只有與本次開房回覆房號相符的 JOIN 才會用於確認加入。資料僅留記憶體，開房結束、結果未知或斷線即清除，PART／KICK 會撤銷相關觀測。不因 JOIN 推定裁判權限、玩家或設定。
+
+已確認加入時取消尚未送出的重複 JOIN；接續只讀取設定與裁判名單。已送出 JOIN 的同一房間若在逾時後收到自己的 JOIN 或發給本帳號的 366，且沒有離開／被踢／拒絕加入，允許恢復加入狀態並清除逾時錯誤。關閉的分頁不會被延遲回覆重建。這些時序以本機合成測試覆蓋，真實服務驗收另行記錄。
