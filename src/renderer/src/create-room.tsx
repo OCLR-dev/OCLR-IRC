@@ -1,3 +1,4 @@
+import { WorkspaceCheckbox } from './controls'
 import React, { useEffect, useState } from 'react'
 import { Button, Input, Label, Spinner, TextField } from '@heroui/react'
 import type { Snapshot } from '../../shared/types'
@@ -32,7 +33,7 @@ export function CreateRoom({ state, onClose }: { state: Snapshot; onClose: () =>
     {state.creation.roomId && <p className="create-room-help">最近建立的房間：{state.creation.roomId}</p>}
     {state.creation.message && <p className={blocked ? 'error-message' : 'create-room-help'} role="status">{state.creation.message}</p>}
     {stale && !submitted && <p className="error-message" role="alert">連線或開房狀態已更新，請關閉並重新開啟此表單。</p>}
-    {!blocked && <label className="remember-option"><input name="reviewedCreation" type="checkbox" checked={reviewed} disabled={disabled} onChange={event => setReviewed(event.target.checked)} />我已核對既有房間，確認需要另開新房間</label>}
+    {!blocked && <WorkspaceCheckbox name="reviewedCreation" selected={reviewed} disabled={disabled} onChange={setReviewed}>我已核對既有房間，確認需要另開新房間</WorkspaceCheckbox>}
     {error && <p className="error-message" role="alert">{error}</p>}
     {!blocked && <Button type="submit" className="primary-button" isDisabled={disabled || !reviewed || !name.trim() || [...name.trim()].length > 50}>{waiting || busy ? <><Spinner size="sm" />等待 Bancho 確認…</> : '建立並加入'}</Button>}
   </form>

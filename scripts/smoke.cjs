@@ -5,8 +5,9 @@ const net = require('node:net')
 const fs = require('node:fs')
 const path = require('node:path')
 const assert = require('node:assert/strict')
-// Hosted Linux has a virtual display, not a hardware GPU. Keep renderer sandbox enabled.
-if (process.env.CI && process.platform === 'linux') app.disableHardwareAcceleration()
+// Synthetic capture must also work with an occluded window / virtual display.
+// Keep the renderer sandbox enabled; avoid platform GPU capture failures.
+app.disableHardwareAcceleration()
 app.setPath('userData', process.env.OCLR_QA_TEMP)
 const output = path.resolve('artifacts')
 fs.mkdirSync(output, { recursive: true })
@@ -60,6 +61,18 @@ async function main() {
   await app.whenReady()
   await until(() => BrowserWindow.getAllWindows().length > 0)
   const window = BrowserWindow.getAllWindows()[0]
+  // Keep virtualized UI measurement active when the test window is occluded.
+  window.webContents.setBackgroundThrottling(false)
+  async function capture() {
+    // Native compositor can briefly invalidate a frame during resize/show.
+    for (let attempt = 0; ; attempt++) {
+      try { return await window.webContents.capturePage() }
+      catch (error) {
+        if (attempt >= 2 || !String(error).includes('UnknownVizError')) throw error
+        window.show(); await delay(200)
+      }
+    }
+  }
   await until(() => !window.webContents.isLoading())
   const js = code => window.webContents.executeJavaScript(code).catch(error => { throw new Error(`Synthetic UI evaluation failed: ${code.slice(0, 200)}; ${error.message}; console: ${errors.join(' | ')}`) })
   await until(() => js('Boolean(document.querySelector("input[name=username]"))'))
@@ -67,7 +80,7 @@ async function main() {
   assert.equal(await js('typeof window.require'), 'undefined')
   assert.equal(window.webContents.getLastWebPreferences().sandbox, true)
   await delay(400)
-  fs.writeFileSync(path.join(output, 'login.png'), (await window.webContents.capturePage()).toPNG())
+  fs.writeFileSync(path.join(output, 'login.png'), (await capture()).toPNG())
   async function fill(selector, value) {
     await js(`(() => {const element=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(element,${JSON.stringify(value)});element.dispatchEvent(new Event('input',{bubbles:true}));element.dispatchEvent(new Event('change',{bubbles:true}));})()`)
     await delay(100)
@@ -87,7 +100,7 @@ async function main() {
   assert.equal(await js('document.querySelector(".player-slots header").textContent.includes("準備 1 / 2")'), true)
   assert.equal(await js('document.querySelectorAll(".player-slot.vacant").length'), 14)
   assert.equal(await js('document.querySelector(".player-slot[data-team=red]").textContent.includes("房主")'), true)
-  fs.writeFileSync(path.join(output, 'player-slots-synthetic.png'), (await window.webContents.capturePage()).toPNG())
+  fs.writeFileSync(path.join(output, 'player-slots-synthetic.png'), (await capture()).toPNG())
   await delay(1100)
   await js('document.querySelectorAll(".query-actions button")[1].click()')
   await until(() => js('document.body.textContent.includes("已列於裁判名單")'))
@@ -115,7 +128,7 @@ async function main() {
   assert.equal((await js('window.oclr.openMessageLink("file:///tmp/test")')).ok, false)
   assert.equal((await js('window.oclr.openMessageLink("https://unknown.invalid")')).ok, false)
   await delay(300)
-  fs.writeFileSync(path.join(output, 'workspace-chat-synthetic.png'), (await window.webContents.capturePage()).toPNG())
+  fs.writeFileSync(path.join(output, 'workspace-chat-synthetic.png'), (await capture()).toPNG())
   peer.write(Array.from({ length: 1200 }, (_, i) => `:Player PRIVMSG #mp_900000001 :SYNTHETIC row ${i}\n`).join(''))
   await until(() => js('(async () => (await window.oclr.snapshot()).messages.at(-1)?.text === "SYNTHETIC row 1199")()'))
   await delay(500)
@@ -132,7 +145,7 @@ async function main() {
   window.setSize(900, 640)
   await delay(300)
   assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
-  fs.writeFileSync(path.join(output, 'workspace-compact-synthetic.png'), (await window.webContents.capturePage()).toPNG())
+  fs.writeFileSync(path.join(output, 'workspace-compact-synthetic.png'), (await capture()).toPNG())
   // Preserve A's history while joining B; an inactive A mention is routed to A.
   await fill('.join-form input', '900000002')
   await js('document.querySelector(".join-form button[type=submit]").click()')
@@ -148,7 +161,7 @@ async function main() {
   await until(() => js(`(() => { const viewport=document.querySelector('[data-virtuoso-scroller]').getBoundingClientRect(); return Array.from(document.querySelectorAll('.message-row')).some(row => { const rect=row.getBoundingClientRect(); return row.textContent.includes('please check room A') && rect.top < viewport.bottom && rect.bottom > viewport.top; }); })()`))
   await delay(300)
   assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
-  fs.writeFileSync(path.join(output, 'workspace-tabs-synthetic.png'), (await window.webContents.capturePage()).toPNG())
+  fs.writeFileSync(path.join(output, 'workspace-tabs-synthetic.png'), (await capture()).toPNG())
   // Reloading the renderer preserves Main's socket, tabs and observations.
   const welcomesBeforeReload = sent.filter(line => line.startsWith('USER ')).length
   window.webContents.reload()
@@ -168,7 +181,7 @@ async function main() {
   await delay(250)
   assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
   assert.equal(await js('document.querySelector(".app-footer").getBoundingClientRect().bottom <= innerHeight'), true)
-  fs.writeFileSync(path.join(output, 'workspace-reconnecting-synthetic.png'), (await window.webContents.capturePage()).toPNG())
+  fs.writeFileSync(path.join(output, 'workspace-reconnecting-synthetic.png'), (await capture()).toPNG())
   await until(() => js('(async () => { const s = await window.oclr.snapshot(); return s.connection === "online" && s.room?.referee === "listed" && s.room?.syncState === "complete" })()'))
   const afterRecovery = await js('window.oclr.snapshot()')
   assert.notEqual(afterRecovery.room.epoch, beforeRecovery.room.epoch)
@@ -177,7 +190,7 @@ async function main() {
   assert.equal(sent.filter(line => line.endsWith(':中文輸入測試')).length, 1)
   assert.equal((await js(`window.oclr.chat(${JSON.stringify({ roomId: beforeRecovery.room.id, roomEpoch: beforeRecovery.room.epoch, text: 'old draft' })})`)).ok, false)
   await until(() => js('document.body.textContent.includes("完整觀測")'))
-  fs.writeFileSync(path.join(output, 'workspace-recovered-synthetic.png'), (await window.webContents.capturePage()).toPNG())
+  fs.writeFileSync(path.join(output, 'workspace-recovered-synthetic.png'), (await capture()).toPNG())
   powerMonitor.emit('suspend')
   await until(() => js('(async () => (await window.oclr.snapshot()).connection === "suspended")()'))
   powerMonitor.emit('resume')
@@ -187,7 +200,9 @@ async function main() {
   assert.equal(await js('document.querySelector(".query-actions button").disabled'), true)
   // Exercise generic channel/PM entry and completion through the real renderer.
   window.setSize(1180, 780)
-  await js(`(() => { const e = document.querySelector('select[aria-label="對話類型"]'); e.value = 'channel'; e.dispatchEvent(new Event('change', { bubbles: true })); })()`)
+  await js(`document.querySelector('button[aria-label="對話類型"]').click()`)
+  await until(() => js('Boolean(document.querySelector("[role=option]"))'))
+  await js(`Array.from(document.querySelectorAll('[role=option]')).find(e => e.textContent === 'IRC 頻道').click()`)
   await fill('.join-form input', '#osu')
   await js('document.querySelector(".join-form button[type=submit]").click()')
   await until(() => js('(async () => (await window.oclr.snapshot()).room?.channel === "#osu" && (await window.oclr.snapshot()).room?.joined)()'))
@@ -206,7 +221,7 @@ async function main() {
   await fill('input[name=chat]', 'SYNTHETIC PRIVATE REPLY')
   await js('document.querySelector(".composer button[type=submit]").click()')
   await until(() => sent.includes('PRIVMSG OtherPlayer :SYNTHETIC PRIVATE REPLY'))
-  fs.writeFileSync(path.join(output, 'workspace-private-synthetic.png'), (await window.webContents.capturePage()).toPNG())
+  fs.writeFileSync(path.join(output, 'workspace-private-synthetic.png'), (await capture()).toPNG())
   // Create through the real renderer/preload/Main and a local synthetic Bancho reply.
   await delay(1100)
   await js('document.querySelector(".new-room-button").click()')
@@ -218,7 +233,7 @@ async function main() {
   await until(() => js('!document.querySelector(".create-room-form button[type=submit]").disabled'))
   window.setSize(900, 640)
   await delay(250)
-  fs.writeFileSync(path.join(output, 'workspace-create-form-synthetic.png'), (await window.webContents.capturePage()).toPNG())
+  fs.writeFileSync(path.join(output, 'workspace-create-form-synthetic.png'), (await capture()).toPNG())
   const createRequest = (await js('window.oclr.snapshot()')).creation.requestId
   await js('document.querySelector(".create-room-form button[type=submit]").click()')
   await until(() => js('(async () => { const s = await window.oclr.snapshot(); return s.room?.id === 900000003 && s.room.referee === "listed" && s.room.binding === "verified" })()'))
@@ -228,10 +243,10 @@ async function main() {
   assert.equal((await js('window.oclr.snapshot()')).creation.status, 'created')
   assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
   await delay(300)
-  fs.writeFileSync(path.join(output, 'workspace-created-synthetic.png'), (await window.webContents.capturePage()).toPNG())
+  fs.writeFileSync(path.join(output, 'workspace-created-synthetic.png'), (await capture()).toPNG())
   assert.ok(!sent.some(line => /!mp (?:start|close|abort)/.test(line)))
   await delay(300)
-  fs.writeFileSync(path.join(output, 'workspace-synthetic.png'), (await window.webContents.capturePage()).toPNG())
+  fs.writeFileSync(path.join(output, 'workspace-synthetic.png'), (await capture()).toPNG())
   assert.ok(!JSON.stringify(await js('window.oclr.snapshot()')).includes('SYNTHETIC_PASSWORD_ONLY'))
   await js(`document.querySelector('button[aria-label="登出 IRC"]').click()`)
   await until(() => js('Boolean(document.querySelector("input[name=password]"))'))

@@ -5,8 +5,9 @@ const net = require('node:net')
 const fs = require('node:fs')
 const path = require('node:path')
 const assert = require('node:assert/strict')
-// Hosted Linux has a virtual display, not a hardware GPU. Keep renderer sandbox enabled.
-if (process.env.CI && process.platform === 'linux') app.disableHardwareAcceleration()
+// Synthetic capture must also work with an occluded window / virtual display.
+// Keep the renderer sandbox enabled; avoid platform GPU capture failures.
+app.disableHardwareAcceleration()
 app.setPath('userData', process.env.OCLR_QA_TEMP)
 const output = path.resolve('artifacts')
 fs.mkdirSync(output, { recursive: true })
@@ -61,6 +62,18 @@ async function main() {
   await app.whenReady()
   await until(() => BrowserWindow.getAllWindows().length > 0)
   const window = BrowserWindow.getAllWindows()[0]
+  // Keep virtualized UI measurement active when the test window is occluded.
+  window.webContents.setBackgroundThrottling(false)
+  async function capture() {
+    // Native compositor can briefly invalidate a frame during resize/show.
+    for (let attempt = 0; ; attempt++) {
+      try { return await window.webContents.capturePage() }
+      catch (error) {
+        if (attempt >= 2 || !String(error).includes('UnknownVizError')) throw error
+        window.show(); await delay(200)
+      }
+    }
+  }
   await until(() => !window.webContents.isLoading())
   const js = code => window.webContents.executeJavaScript(code).catch(error => { throw new Error(`Synthetic UI evaluation failed: ${code.slice(0, 200)}; ${error.message}; console: ${errors.join(' | ')}`) })
   await until(() => js('Boolean(document.querySelector("input[name=username]"))'))
@@ -73,7 +86,7 @@ async function main() {
   await until(() => js('(async () => (await window.oclr.snapshot()).room?.joined)()'))
   await until(() => js('Boolean(document.querySelector(".mp-controls button"))'))
   await js('document.querySelector(".mp-controls").open = true')
-  assert.equal(await js('document.querySelector(".mp-controls button").disabled'), true)
+  assert.equal(await js('Array.from(document.querySelectorAll(".mp-controls button")).find(b => b.textContent === "預覽指令").disabled'), true)
   async function refresh() {
     for (const kind of ['settings', 'listrefs']) {
       await delay(1100)
@@ -86,7 +99,10 @@ async function main() {
     await js(`Array.from(document.querySelectorAll('.mp-controls button')).find(b => b.textContent === ${JSON.stringify(text)}).click()`)
   }
   async function choose(kind) {
-    await js(`(() => {const e=document.querySelector('select[aria-label="房內操作"]'); e.value=${JSON.stringify(kind)};e.dispatchEvent(new Event('change',{bubbles:true}))})()`)
+    await js(`document.querySelector('button[aria-label="房內操作"]').click()`)
+    await until(() => js('Boolean(document.querySelector("[role=option]"))'))
+    const labels = { map: '換圖', mods: '設定 Mods', start: '開始比賽', timer: '一般計時', aborttimer: '取消倒數', abort: '中止比賽' }
+    await js(`Array.from(document.querySelectorAll('[role=option]')).find(e => e.textContent === ${JSON.stringify(labels[kind])}).click()`)
   }
   for (const [kind, command] of [['map','!mp map 456'],['mods','!mp mods HD HR'],['start','!mp start'],['abort','!mp abort'],['timer','!mp timer 30'],['aborttimer','!mp aborttimer'],['start','!mp start 30']]) {
     await refresh()
@@ -97,15 +113,15 @@ async function main() {
     await button('預覽指令')
     await until(() => js('Boolean(document.querySelector(".mp-confirm"))'))
     assert.equal(await js('document.querySelector(".mp-confirm code").textContent'), command)
-    assert.equal(await js('document.querySelector(".mp-confirm button").disabled'), true)
+    assert.equal(await js('Array.from(document.querySelectorAll(".mp-confirm button")).find(b => b.textContent === "確認送出").disabled'), true)
     assert.ok(!sent.some(line => line === 'PRIVMSG #mp_900000001 :' + command))
     if (kind === 'start') {
       window.setSize(900, 640); await delay(200)
       await js('document.querySelector(".mp-confirm").scrollIntoView({block:"nearest"})')
       assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
-      fs.writeFileSync(path.join(output,'mp-confirm-synthetic.png'), (await window.webContents.capturePage()).toPNG())
+      fs.writeFileSync(path.join(output,'mp-confirm-synthetic.png'), (await capture()).toPNG())
     }
-    await js('document.querySelector(".mp-confirm input").click()')
+    await js('document.querySelector(".mp-confirm input[type=checkbox]").click()')
     await button('確認送出')
     await until(() => sent.includes('PRIVMSG #mp_900000001 :' + command))
     await until(() => js('!document.querySelector(".mp-confirm")'))
@@ -126,7 +142,7 @@ async function main() {
   assert.equal((await js('window.oclr.snapshot()')).room.phase, 'unknown')
   assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
   assert.equal(await js('Array.from(document.querySelectorAll(".countdown-status span")).every(e => e.getBoundingClientRect().right <= document.querySelector(".match-status").getBoundingClientRect().right)'), true)
-  fs.writeFileSync(path.join(output, 'countdown-synthetic.png'), (await window.webContents.capturePage()).toPNG())
+  fs.writeFileSync(path.join(output, 'countdown-synthetic.png'), (await capture()).toPNG())
   peer.write(':BanchoBot PRIVMSG #mp_900000001 :Countdown aborted\n:BanchoBot PRIVMSG #mp_900000001 :Aborted the match start timer\n')
   await until(() => js('(async () => (await window.oclr.snapshot()).room.startCountdown?.status === "cancelled")()'))
   const readsBeforeStart = sent.filter(line => line.endsWith(':!mp settings')).length
@@ -138,7 +154,7 @@ async function main() {
   assert.ok(await js('document.querySelector(".match-status").textContent.includes("NoMod")'))
   await until(() => js('document.querySelector(".match-status").textContent.includes("剩餘約")'))
   assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
-  fs.writeFileSync(path.join(output, 'match-status-synthetic.png'), (await window.webContents.capturePage()).toPNG())
+  fs.writeFileSync(path.join(output, 'match-status-synthetic.png'), (await capture()).toPNG())
   playing = false
   peer.write(':BanchoBot PRIVMSG #mp_900000001 :Aborted the match\n')
   await until(() => js('document.querySelector(".match-status").textContent.includes("比賽未進行")'))
