@@ -270,3 +270,48 @@ main { min-height: 0; overflow: auto; }
 
 .match-status > .countdown-status { flex-wrap: wrap; }
 .match-status > .countdown-status > span { flex: 1 1 180px; white-space: normal; }
+
+/* Compact workspace, with shared HeroUI controls. */
+.topbar { height: 54px; padding-inline: 24px; }
+.room-view { padding: 22px 24px 16px; }
+.room-heading h1 { font-size: 22px; }
+.room-heading .section-kicker { margin-bottom: 5px; font-size: 9px; }
+.join-form { margin: 18px 0; }
+.room-input { min-width: 0; }
+.room-grid { grid-template-columns: minmax(0, 1fr) 220px; }
+.room-grid-empty { grid-template-columns: minmax(0, 1fr); }
+.room-grid-empty .composer { padding-right: 0; }
+.room-grid-empty .query-actions { display: none; }
+.room-inspector { padding: 16px 0 0 16px; scrollbar-width: thin; }
+.sidebar-note { display: grid; gap: 6px; padding-top: 24px; }
+.sidebar-note .small-label { margin-bottom: 4px; }
+.sidebar-note .button { justify-content: flex-start; width: 100%; font-size: 12px; height: 34px; border-radius: 7px; }
+.login-form { margin-top: 28px; }
+.workspace-select { min-width: 0; width: 100%; font-size: 12px; }
+.workspace-select .select__trigger { width: 100%; min-height: 42px; border: 1px solid #34323f; border-radius: 7px; background: #1b1a22; color: #e8e7ee; padding-inline: 12px; box-shadow: none; }
+.workspace-select .select__value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-select .select__trigger[data-focus-visible] { outline: 2px solid #b4a0ff; outline-offset: 2px; }
+.select__popover { background: #22202a; color: #e8e7ee; border: 1px solid #44394f; }
+.join-form > .workspace-select { width: 124px; flex-shrink: 0; }
+.workspace-checkbox { font-size: 12px; color: #c3bbcd; }
+.workspace-checkbox .checkbox__content { align-items: flex-start; gap: 8px; line-height: 1.6; text-align: left; }
+.workspace-checkbox .checkbox__control { flex-shrink: 0; margin-top: 2px; }
+.mp-controls fieldset { display: flex; flex-direction: column; gap: 12px; }
+.mp-mods { gap: 10px 14px; }
+.oclr-fixture-picker { padding: 0; height: auto; border: 0; background: transparent; }
+@media (max-width: 1000px) {
+  .app-shell { grid-template-columns: 174px minmax(0, 1fr); }
+  .room-view { padding: 18px 18px 12px; }
+  .room-grid { grid-template-columns: minmax(0, 1fr) 196px; }
+  .room-grid-empty { grid-template-columns: minmax(0, 1fr); }
+  .sidebar { padding-inline: 12px; }
+  .query-actions { padding-right: 4px; gap: 0; }
+  .query-actions .button { padding-inline: 5px; }
+  .conversation-header { flex-wrap: wrap; }
+  .message-row { grid-template-columns: 52px 58px minmax(0, 1fr); }
+}
+
+.mods-chip { flex-shrink: 0; max-width: 48%; height: auto; min-height: 24px; }
+.mods-chip .chip__label { white-space: normal; overflow-wrap: anywhere; }
+.workspace-checkbox .label { font-size: 12px; font-weight: 400; line-height: 1.65; color: inherit; }
+.mp-controls .text-field > .label { font-size: 12px; font-weight: 500; }
