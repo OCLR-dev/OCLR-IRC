@@ -88,3 +88,36 @@ test('cancel and manual review stop unsent steps; FM confirmation and stale prev
     await pause(150); assert.equal(f.sent.some(s => s.includes(':!mp mods ')), false)
   } finally { await f.close() }
 })
+
+test('pool revisions invalidate previews and Start confirmations without blocking another valid entry', async () => {
+  const f=await fixture()
+  try {
+    const entries=[{id:'nm1',label:'NM1',profile},{id:'fm1',label:'FM1',profile:{...profile,freemod:true}}]
+    f.session.replaceManualPool({revision:f.session.state.manualPool!.revision,entries})
+    const select=()=>({...f.target(),revision:f.session.state.manualPool!.revision,entryId:'nm1'})
+    assert.throws(()=>f.session.previewPoolEntry({...select(),entryId:'fm1'}))
+    let preview=f.session.previewPoolEntry(select())
+    f.session.replaceManualPool({revision:f.session.state.manualPool!.revision,entries})
+    assert.throws(()=>f.session.executeProfile({...f.target(),token:preview.token,reviewed:true}))
+    preview=f.session.previewPoolEntry(select())
+    f.session.executeProfile({...f.target(),token:preview.token,reviewed:true})
+    await until(()=>f.session.state.mapPlan?.state==='observed')
+    f.session.previewMp({...f.target(),intent:{kind:'start'}})
+    f.session.replaceManualPool({revision:f.session.state.manualPool!.revision,entries})
+    assert.throws(()=>f.session.previewMp({...f.target(),intent:{kind:'start'}}))
+    f.session.logout();assert.equal(f.session.state.manualPool!.entries.length,0)
+  }finally{await f.close()}
+})
+test('editing a pool during execution cancels unsent mods without replay', async () => {
+  const f=await fixture('timeout')
+  try {
+    const entries=[{id:'nm1',label:'NM1',profile}]
+    f.session.replaceManualPool({revision:f.session.state.manualPool!.revision,entries})
+    const preview=f.session.previewPoolEntry({...f.target(),revision:f.session.state.manualPool!.revision,entryId:'nm1'})
+    f.session.executeProfile({...f.target(),token:preview.token,reviewed:true})
+    f.session.replaceManualPool({revision:f.session.state.manualPool!.revision,entries:[]})
+    assert.equal(f.session.state.mapPlan!.state,'unknown')
+    assert.equal(f.session.state.mapPlan!.steps[1].state,'cancelled')
+    await pause(100);assert.equal(f.sent.some(line=>line.includes(':!mp mods ')),false)
+  }finally{await f.close()}
+})

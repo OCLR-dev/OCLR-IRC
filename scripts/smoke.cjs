@@ -102,6 +102,7 @@ async function main() {
   assert.equal(await js('document.querySelector(".player-slot[data-team=red]").textContent.includes("房主")'), true)
   fs.writeFileSync(path.join(output, 'player-slots-synthetic.png'), (await capture()).toPNG())
   await delay(1100)
+  await until(() => js('document.querySelectorAll(".query-actions button")[1]?.disabled === false'))
   await js('document.querySelectorAll(".query-actions button")[1].click()')
   await until(() => js('document.body.textContent.includes("已列於裁判名單")'))
   await delay(1100)

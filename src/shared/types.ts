@@ -1,3 +1,4 @@
+import type { ManualPoolState, ManualPoolUpdate } from './manual-pool.ts'
 import type { RoomPlanInput, RoomPlanPreview } from './room-plan.ts'
 import type { LobbyIntent, LobbyPreview } from './lobby-command.ts'
 import type { MapProfile, MapPlanState, MapPlanPreview } from './map-profile.ts'
@@ -20,6 +21,7 @@ export interface RoomCreation {
   message: string | null
 }
 export interface Snapshot {
+  manualPool?: ManualPoolState
   roomPlan?: MapPlanState | null
   mapPlan?: MapPlanState | null
   operations?: { records: OperationRecord[]; failed: boolean }
@@ -40,6 +42,8 @@ export interface Snapshot {
 export interface JournalEntry { time: number; room: string; text: string }
 export interface JournalState { enabled: boolean; status: 'saving' | 'memory_only' | 'failed'; account: string | null }
 export interface DesktopAPI {
+  replaceManualPool(input: ManualPoolUpdate): Promise<{ok: boolean; error?: string}>
+  previewPoolEntry(input: RoomTarget & {revision: string; entryId: string}): Promise<{ok: boolean; preview?: MapPlanPreview; error?: string}>
   previewRoomPlan(input: RoomTarget & { plan: RoomPlanInput }): Promise<{ok: boolean; preview?: RoomPlanPreview; error?: string}>
   executeRoomPlan(input: RoomTarget & {token: string; reviewed: boolean; names?: string[]; policyReviewed?: boolean}): Promise<{ok: boolean; error?: string}>
   cancelRoomPlan(input: {id: string}): Promise<{ok: boolean; error?: string}>

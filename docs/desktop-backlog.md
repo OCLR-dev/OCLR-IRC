@@ -126,7 +126,7 @@ P0 表示完成既有 MVP 的必要工作，不表示所有項目當下可開始
 
 優先級：P0。對應既有任務：MAP-01。
 
-**現況與缺口**：目前已有手填 beatmap ID 與全域 Mods 多選；尚無圖池工作流、Freemod 個人規則、map＋mods 連續步驟及一致性驗證。
+**現況與缺口**：已具備 Main 記憶體手動圖池（最多 200 槽）、完整 room Mods／FM 人工規則 profile 與 map→mods 逐步讀回。單項無效不鎖其他有效槽位；圖池版本變更使預覽失效、停止後續步驟並要求重新核對 Start。正式 OCLR entry 授權、ruleset 切換與個人 Mods 真實觀測仍分開待完成。
 
 **設計**：新增 MapSelection 與完整 CommandProfile，區分 roomMods、freemod、individualModsPolicy、ruleset 與 profileRevision。先以合成／明確手動資料驗證，不用正式 OCLR 名義保存私人圖池。計畫先換圖並核對 beatmap，再套 Mods 並核對；任一步 unknown 停止，不能跳過剩餘步驟顯示完成。NF 由 profile 決定，不硬編碼。metadata 失敗不改變有效 beatmap ID 判定。
 

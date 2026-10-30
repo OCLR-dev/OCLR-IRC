@@ -1,3 +1,4 @@
+import { ManualPool } from './manual-pool.ts'
 import { roomPlan, roomPlanMatches } from '../shared/room-plan.ts'
 import type { RoomPlanDefinition, RoomPlanPreview } from '../shared/room-plan.ts'
 import { lobbyIntent, lobbyCommand } from '../shared/lobby-command.ts'
@@ -81,9 +82,11 @@ export class IrcSession extends EventEmitter {
   private lobbyPreview: { playerName?: string; token: string; intent: LobbyIntent; view: RoomView; fingerprint: string; deadline: number } | null = null
   private roomPlan: OperationPlan | null = null
   private roomPlanPreview: { definition: RoomPlanDefinition; view: RoomView; token: string; fingerprint: string; deadline: number } | null = null
+  private manualPool = new ManualPool()
+  private appliedPoolRevision: string | null = null
   private mapPlan: OperationPlan | null = null
   private appliedProfile: MapProfile | null = null
-  private profilePreview: { token: string; profile: MapProfile; view: RoomView; fingerprint: string; deadline: number } | null = null
+  private profilePreview: { poolRevision?: string; token: string; profile: MapProfile; view: RoomView; fingerprint: string; deadline: number } | null = null
   private operations = new Operations(() => this.publish())
   private creationOperation: string | null = null
   setOperationStore(store: OperationStore) { this.operations.setStore(store) }
@@ -98,6 +101,7 @@ export class IrcSession extends EventEmitter {
   get state(): Snapshot {
     const view = this.selected === null ? undefined : this.views.get(this.selected)
     return {
+      manualPool: this.manualPool.state,
       roomPlan: this.roomPlan?.state ?? null,
       mapPlan: this.mapPlan?.state ?? null,
       operations: this.operations.snapshot,
@@ -158,7 +162,7 @@ export class IrcSession extends EventEmitter {
   logout(preserveRecovery = false) {
     this.disconnect()
     this.operations.logout(preserveRecovery)
-    this.roomPlan = null; this.mapPlan = null; this.appliedProfile = null
+    this.manualPool.clear(); this.appliedPoolRevision = null; this.roomPlan = null; this.mapPlan = null; this.appliedProfile = null
     this.views.clear(); this.selected = null
     if (this.auth) this.auth.password = ''
     this.auth = null; this.retryAttempt = 0
@@ -481,6 +485,7 @@ export class IrcSession extends EventEmitter {
     this.ready(view)
     const room = view.room
     if (room.kind !== 'match' || this.selected !== room.id || room.binding !== 'verified') throw new Error('請先選取並核對比賽房間。')
+    if (command.startsWith('!mp start') && this.appliedPoolRevision && this.appliedPoolRevision !== this.manualPool.state.revision) throw new Error('圖池已更新，請重新選圖並核對 Mods。')
     if (command.startsWith('!mp start') && this.mapPlan?.state.roomId === room.id && this.appliedProfile) {
       const p = this.appliedProfile, desired = [...p.roomMods, ...(p.freemod ? ['Freemod'] : [])].map(normalize).sort().join(',')
       if (this.mapPlan.state.state !== 'observed' || room.beatmap?.id !== Number(p.beatmapId) || room.mods === null || room.mods.map(normalize).sort().join(',') !== desired) throw new Error('選圖計畫尚未完成或地圖／Mods 已變更，請重新套用與核對。')
@@ -594,6 +599,19 @@ export class IrcSession extends EventEmitter {
     }, stepMs)
     this.roomPlan.start(); this.publish()
   }
+  replaceManualPool(input: unknown) {
+    if (this.connection !== 'online') throw new Error('請先登入 IRC。')
+    this.manualPool.replace(input)
+    if (this.profilePreview?.poolRevision) this.profilePreview = null
+    if (this.appliedPoolRevision) this.mapPlan?.cancel()
+    this.publish()
+  }
+  previewPoolEntry(input: unknown): MapPlanPreview {
+    this.target(input)
+    const profile = this.manualPool.profile(input), result = this.previewProfile({ ...(input as object), profile })
+    this.profilePreview!.poolRevision = this.manualPool.state.revision
+    return result
+  }
   previewProfile(input: unknown): MapPlanPreview {
     this.profilePreview = null
     const view = this.target(input), profile = mapProfile((input as { profile?: unknown }).profile)
@@ -615,10 +633,11 @@ export class IrcSession extends EventEmitter {
   executeProfile(input: unknown) {
     const preview = this.profilePreview; this.profilePreview = null
     const view = this.target(input), value = input as Record<string, unknown>
-    if (!preview || value.token !== preview.token || value.reviewed !== true || preview.profile.freemod && value.individualReviewed !== true || preview.view !== view || performance.now() >= preview.deadline || preview.fingerprint !== this.mpFingerprint(view.room) || this.mapPlan?.active || this.roomPlan?.active) throw new Error('選圖確認已失效，請重新預覽與核對。')
+    if (!preview || value.token !== preview.token || value.reviewed !== true || preview.profile.freemod && value.individualReviewed !== true || preview.poolRevision && preview.poolRevision !== this.manualPool.state.revision || preview.view !== view || performance.now() >= preview.deadline || preview.fingerprint !== this.mpFingerprint(view.room) || this.mapPlan?.active || this.roomPlan?.active) throw new Error('選圖確認已失效，請重新預覽與核對。')
     const commands = profileCommands(preview.profile), epoch = view.room.epoch, generation = this.generation
     this.mpReady(view, commands[0]); this.profileIdle(view)
     const id = this.operations.begin('manual', 'mapprofile', view.room.id, epoch, generation, '', (this.timing.queryMs * 2 + this.timing.floodMs * 4) * 2 + 1000)
+    this.appliedPoolRevision = preview.poolRevision ?? null
     this.appliedProfile = preview.profile
     const priorQueries: (string | undefined)[] = []
     const scope = () => this.connection === 'online' && this.generation === generation && this.views.get(view.room.id) === view && view.room.epoch === epoch && view.room.joined && this.selected === view.room.id
