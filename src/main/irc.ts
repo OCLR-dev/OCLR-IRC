@@ -61,12 +61,15 @@ export class IrcSession extends EventEmitter {
   private previousCreationId: string | null = null
   private creationName: string | null = null
   private mpPreview: { token: string; command: string; view: RoomView; fingerprint: string; deadline: number } | null = null
+  private durationLookup: (id: number) => Promise<number | null>
+  private durationRequests = new WeakMap<RoomView, string>()
   private settingsEvidence = new WeakMap<RoomView, ReturnType<SettingsCollector['observations']>>()
   private refereeSeen = new WeakMap<RoomView, number>()
   private creationTimer: ReturnType<typeof setTimeout> | null = null
 
-  constructor(createSocket = () => net.createConnection({ host: 'irc.ppy.sh', port: 6667 }), timing: Partial<Timing> = {}) {
+  constructor(createSocket = () => net.createConnection({ host: 'irc.ppy.sh', port: 6667 }), timing: Partial<Timing> = {}, durationLookup: (id: number) => Promise<number | null> = async () => null) {
     super()
+    this.durationLookup = durationLookup
     this.createSocket = createSocket
     this.timing = { ...defaults, ...timing }
   }
@@ -387,6 +390,16 @@ export class IrcSession extends EventEmitter {
     if (timer) clearTimeout(timer)
     this.freshTimers.delete(view)
   }
+  private loadDuration(view: RoomView) {
+    const id = view.room.beatmap?.id, epoch = view.room.epoch, generation = this.generation
+    const requestKey = `${generation}:${epoch}:${id}`
+    if (!id || view.room.duration?.beatmapId === id || this.durationRequests.get(view) === requestKey) return
+    this.durationRequests.set(view, requestKey)
+    void this.durationLookup(id).then(milliseconds => {
+      if (generation !== this.generation || epoch !== view.room.epoch || this.views.get(view.room.id) !== view || view.room.beatmap?.id !== id) return
+      if (milliseconds !== null) { view.room.duration = { beatmapId: id, milliseconds }; this.publish() }
+    })
+  }
   private expire(view: RoomView) {
     this.clearFresh(view)
     this.freshTimers.set(view, setTimeout(() => {
@@ -407,7 +420,7 @@ export class IrcSession extends EventEmitter {
     this.ready(view)
     this.send(`PRIVMSG ${view.room.channel} :!mp ${kind}`); this.lastQueryAt = Date.now()
     view.pending = kind; view.error = null; view.refsHeader = false
-    if (kind === 'settings') { this.settingsEvidence.delete(view); this.clearFresh(view); view.collector = new SettingsCollector(view.room.id, this.generation); Object.assign(view.room, blankObservation(), { syncState: 'loading' }); view.room.binding = 'unknown'; view.room.name = null; view.room.mode = null; view.room.players = null }
+    if (kind === 'settings') { this.settingsEvidence.delete(view); this.clearFresh(view); view.collector = new SettingsCollector(view.room.id, this.generation); Object.assign(view.room, blankObservation(), { syncState: 'loading', phase: view.room.phase, match: view.room.match, duration: view.room.duration }); view.room.binding = 'unknown'; view.room.name = null; view.room.mode = null; view.room.players = null }
     else { view.room.referee = 'unknown'; this.refereeSeen.delete(view) }
     this.note(view, `!mp ${kind}`, 'self', this.username)
     this.timeout(view, '尚未收到完整回覆；請稍後重新查詢，不代表沒有權限。'); this.publish()
@@ -540,11 +553,23 @@ export class IrcSession extends EventEmitter {
     if (command !== 'PRIVMSG' || params.length !== 2) return
     const body = params[1]; const bot = normalize(sender) === 'banchobot'
     this.note(view, body, bot ? 'bot' : self ? 'self' : 'chat', sender)
+    const started = bot && /^The match has started[!.]?$/.test(body)
+    const ended = bot && /^(?:The match has finished|Aborted the match)[!.]?$/.test(body)
+    if (room.kind === 'match' && room.joined && (started || ended)) {
+      if (started && room.phase !== 'playing') room.match = { startedAt: new Date().toISOString(), beatmap: structuredClone(room.beatmap), mods: structuredClone(room.mods) }
+      room.phase = started ? 'playing' : 'idle'
+      if (ended) room.match = null
+      // A lifecycle event invalidates an in-progress settings collection; query again
+      // through the shared bounded read queue, never replay a mutation.
+      if (view.pending === 'settings') { view.collector = null; this.clearTimer(view); view.pending = null }
+      this.settingsEvidence.delete(view); room.syncState = 'stale'
+      this.enqueue(view, 'settings'); this.publish(); return
+    }
     const observing = bot && view.pending === 'settings'
     const readingRefs = bot && view.pending === 'listrefs'
     if (observing) {
       if (view.collector?.feed(body)) {
-        view.collector.apply(room); this.settingsEvidence.set(view, view.collector.observations(room.epoch)); this.expire(view); view.collector = null; this.clearTimer(view); view.pending = null
+        view.collector.apply(room); this.loadDuration(view); this.settingsEvidence.set(view, view.collector.observations(room.epoch)); this.expire(view); view.collector = null; this.clearTimer(view); view.pending = null
       }
     } else if (bot && view.pending === 'listrefs') {
       const header = /^(?:Match referees|Referees):\s*(.*)$/.exec(body)
@@ -555,11 +580,11 @@ export class IrcSession extends EventEmitter {
       }
     }
     if (bot && !observing && !readingRefs && room.syncState !== 'unknown') room.syncState = 'stale'
-    if (bot && view.pending !== 'settings' && /^(?:Beatmap changed|Changed (?:match|team|win)|Active mods:|.+ (?:joined in slot|left the game|moved to slot|changed to)|The match has (?:started|finished)|Aborted the match)/.test(body)) {
+    if (bot && view.pending !== 'settings' && /^(?:Beatmap changed|Changed (?:beatmap|match|team|win)|Active mods:|.+ (?:joined in slot|left the game|moved to slot|changed to)|The match has (?:started|finished)|Aborted the match)/.test(body)) {
       room.syncState = 'stale'
       if (body.startsWith('The match has started')) room.phase = 'playing'
       else if (/^(?:The match has finished|Aborted the match)/.test(body)) room.phase = 'idle'
-      else { room.phase = 'unknown'; if (room.kind === 'match' && room.joined) this.enqueue(view, 'settings') }
+      else { if (/^(?:Beatmap changed|Changed beatmap)/.test(body)) { room.phase = 'unknown'; room.match = null }; if (room.kind === 'match' && room.joined) this.enqueue(view, 'settings') }
     }
     this.publish()
   }

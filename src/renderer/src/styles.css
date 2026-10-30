@@ -260,3 +260,10 @@ main { min-height: 0; overflow: auto; }
 .mp-confirm { display: flex; flex-direction: column; gap: 10px; overflow-wrap: anywhere; }
 .mp-confirm code { color: #c7b7ff; }
 .mp-impact, .mp-result { color: #edbfc8; font-size: 11px; line-height: 1.7; }
+
+.match-status { padding: 12px 18px; border-bottom: 1px solid var(--border, #302a37); font-size: 13px; }
+.match-status > div { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.match-status > div + div { margin-top: 8px; }
+.match-status span { overflow-wrap: anywhere; min-width: 0; }
+.match-status time { font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.match-status small { display: block; margin-top: 6px; opacity: .7; }
