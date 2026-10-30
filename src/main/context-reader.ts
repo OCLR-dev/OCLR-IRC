@@ -21,6 +21,7 @@ export class ContextReader {
   private now:()=>number
   constructor(read:(id:string,signal:AbortSignal)=>Promise<HttpReply>,now=()=>performance.now()){this.read=read;this.now=now}
   select(scope:Scope|null){if(scope&&(!Number.isSafeInteger(scope.subjectId)||scope.subjectId<1||!uuid.safeParse(scope.fixtureId).success||!Number.isSafeInteger(scope.generation)||scope.generation<0))throw new OclrError('INVALID_RESPONSE');if(JSON.stringify(scope)===JSON.stringify(this.scope))return;this.controller.abort();this.controller=new AbortController();this.generation++;if(this.purgeTimer)clearTimeout(this.purgeTimer);this.purgeTimer=null;this.scope=scope?{...scope}:null;this.value=null;this.deadline=this.purge=this.serverAt=this.serverAnchor=0;this.pending=null}
+  get selection(){return this.scope?{...this.scope}:null}
   get state(){if(this.value&&this.now()>=this.purge){this.value=null;this.deadline=0}return {context:this.value?structuredClone(this.value):null,fresh:Boolean(this.value&&this.now()<this.deadline),retryAt:this.blockedUntil>this.now()?this.blockedUntil:null}}
   refresh():Promise<ContextSnapshot>{
     if(!this.scope)return Promise.reject(new OclrError('SESSION_EXPIRED'))
