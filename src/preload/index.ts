@@ -3,6 +3,8 @@ import type { DesktopAPI, Snapshot } from '../shared/types.ts'
 import type { OclrSnapshot } from '../shared/oclr-contracts.ts'
 
 const api: DesktopAPI = {
+  replaceManualPool: input => ipcRenderer.invoke('irc:manual-pool-replace', input),
+  previewPoolEntry: input => ipcRenderer.invoke('irc:pool-entry-preview', input),
   previewRoomPlan: input => ipcRenderer.invoke('irc:room-plan-preview', input),
   executeRoomPlan: input => ipcRenderer.invoke('irc:room-plan-execute', input),
   cancelRoomPlan: input => ipcRenderer.invoke('irc:room-plan-cancel', input),

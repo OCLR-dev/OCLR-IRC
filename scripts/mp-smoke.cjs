@@ -224,6 +224,10 @@ async function main() {
   await js('document.querySelector(".player-controls").open = false')
   await js('document.querySelector(".map-profile").open = true')
   await js(`(() => {const e=document.querySelector('input[name=profileMap]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'123');e.dispatchEvent(new Event('input',{bubbles:true}))})()`)
+  await js(`(() => {const e=document.querySelector('input[name=poolLabel]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'NM1');e.dispatchEvent(new Event('input',{bubbles:true}))})()`)
+  await button('保存圖池槽位')
+  await until(() => js('(async () => (await window.oclr.snapshot()).manualPool?.entries[0]?.label === "NM1")()'))
+  await until(() => js('document.querySelector("button[aria-label=手動圖池槽位]").textContent.includes("NM1")'))
   await button('預覽選圖計畫')
   await until(() => js('Boolean(document.querySelector(".profile-confirm"))'))
   const profileBefore = sent.filter(line => /:!mp (map|mods) /.test(line)).length
@@ -236,7 +240,7 @@ async function main() {
   assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
   fs.writeFileSync(path.join(output, 'map-profile-synthetic.png'), (await capture()).toPNG())
   assert.deepEqual(errors, [])
-  const report = { evidence: 'synthetic-manual-mp-ui', platform: process.platform, arch: process.arch, recordedAt: new Date().toISOString(), passed: ['manual map profile previews and confirms two observed steps through UI', 'disabled before room/permission sync', 'map/mods/start/abort/timer/aborttimer and delayed start preview exact target and wire text', 'separate countdowns expire to waiting, not playing', 'explicit confirmation checkbox', 'single send and stale permission after execution', '900x640 composer remains visible', 'cancel sends nothing', 'forged IPC rejected', 'no close/password commands or renderer errors'], sent, limitation: 'Local synthetic IRC only; no real Bancho mutation or server acknowledgement validation.' }
+  const report = { evidence: 'synthetic-manual-mp-ui', platform: process.platform, arch: process.arch, recordedAt: new Date().toISOString(), passed: ['manual pool slot saves in Main and applies two observed steps through UI', 'disabled before room/permission sync', 'map/mods/start/abort/timer/aborttimer and delayed start preview exact target and wire text', 'separate countdowns expire to waiting, not playing', 'explicit confirmation checkbox', 'single send and stale permission after execution', '900x640 composer remains visible', 'cancel sends nothing', 'forged IPC rejected', 'no close/password commands or renderer errors'], sent, limitation: 'Local synthetic IRC only; no real Bancho mutation or server acknowledgement validation.' }
   fs.writeFileSync(path.join(output,'mp-smoke.json'), JSON.stringify(report,null,2)+'\n')
   console.log(JSON.stringify(report,null,2)); app.exit(0)
 }
