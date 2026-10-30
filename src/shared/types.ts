@@ -39,7 +39,7 @@ export interface JournalEntry { time: number; room: string; text: string }
 export interface JournalState { enabled: boolean; status: 'saving' | 'memory_only' | 'failed'; account: string | null }
 export interface DesktopAPI {
   previewLobby(input: RoomTarget & { intent: LobbyIntent }): Promise<{ ok: boolean; preview?: LobbyPreview; error?: string }>
-  executeLobby(input: RoomTarget & { token: string; reviewed: boolean; password?: string; closeRoom?: string }): Promise<{ ok: boolean; error?: string }>
+  executeLobby(input: RoomTarget & { token: string; reviewed: boolean; password?: string; closeRoom?: string; playerName?: string }): Promise<{ ok: boolean; error?: string }>
   previewProfile(input: RoomTarget & { profile: MapProfile }): Promise<{ ok: boolean; preview?: MapPlanPreview; error?: string }>
   executeProfile(input: RoomTarget & { token: string; reviewed: boolean; individualReviewed: boolean }): Promise<{ ok: boolean; error?: string }>
   cancelProfile(input: { id: string }): Promise<{ ok: boolean; error?: string }>

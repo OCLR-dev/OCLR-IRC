@@ -76,7 +76,7 @@ export class IrcSession extends EventEmitter {
   private creationJoins = new Set<string>()
   private creationTimer: ReturnType<typeof setTimeout> | null = null
 
-  private lobbyPreview: { token: string; intent: LobbyIntent; view: RoomView; fingerprint: string; deadline: number } | null = null
+  private lobbyPreview: { playerName?: string; token: string; intent: LobbyIntent; view: RoomView; fingerprint: string; deadline: number } | null = null
   private mapPlan: OperationPlan | null = null
   private appliedProfile: MapProfile | null = null
   private profilePreview: { token: string; profile: MapProfile; view: RoomView; fingerprint: string; deadline: number } | null = null
@@ -503,15 +503,29 @@ export class IrcSession extends EventEmitter {
     this.mpReady(view, '', true); this.profileIdle(view)
     if (this.mapPlan?.active) throw new Error('請先停止目前的選圖計畫。')
     if (intent.kind === 'host' && !view.room.slots.some(slot => slot.osuId === Number(intent.osuId))) throw new Error('玩家不在目前已核對的槽位內。')
+    let playerName: string | undefined
+    if (['invite', 'move', 'team', 'kick'].includes(intent.kind) && 'osuId' in intent) {
+      const slot = view.room.slots.find(player => player.osuId === Number(intent.osuId))
+      if (intent.kind === 'invite') {
+        if (slot) throw new Error('玩家已在目前房間內。')
+        playerName = intent.name
+      } else {
+        if (!slot) throw new Error('玩家不在目前已核對的槽位內。')
+        playerName = slot.username
+      }
+      if (intent.kind === 'move' && view.room.slots.some(player => player.slot === Number(intent.slot) && player.osuId !== Number(intent.osuId))) throw new Error('目標槽位已有其他玩家。')
+      if (intent.kind === 'team' && !/^(?:TeamVs|TagTeamVs)\b/.test(view.room.mode ?? '')) throw new Error('目前不是已核對的分隊模式。')
+    }
     const token = randomUUID()
-    this.lobbyPreview = { token, intent, view, fingerprint: this.mpFingerprint(view.room), deadline: performance.now() + 10000 }
-    return { token, channel: view.room.channel, command: lobbyCommand(intent), kind: intent.kind, ...(intent.kind === 'password' ? { passwordMode: intent.mode } : {}), expiresAt: new Date(Date.now() + 10000).toISOString() }
+    this.lobbyPreview = { playerName, token, intent, view, fingerprint: this.mpFingerprint(view.room), deadline: performance.now() + 10000 }
+    return { token, channel: view.room.channel, command: lobbyCommand(intent), kind: intent.kind, ...(playerName ? { playerName } : {}), ...(intent.kind === 'password' ? { passwordMode: intent.mode } : {}), expiresAt: new Date(Date.now() + 10000).toISOString() }
   }
   executeLobby(input: unknown) {
     const preview = this.lobbyPreview; this.lobbyPreview = null
     const view = this.target(input), value = input as Record<string, unknown>
     if (!preview || preview.view !== view || preview.token !== value.token || value.reviewed !== true || performance.now() >= preview.deadline || preview.fingerprint !== this.mpFingerprint(view.room) || this.mapPlan?.active) throw new Error('房間設定確認已失效。')
     this.mpReady(view, '', true); this.profileIdle(view)
+    if (preview.playerName !== undefined && value.playerName !== preview.playerName) throw new Error('請輸入預覽中的玩家名稱以確認身份。')
     if (preview.intent.kind === 'close' && value.closeRoom !== view.room.channel) throw new Error('請輸入完整頻道名稱以確認關房。')
     if (preview.intent.kind === 'password' && preview.intent.mode === 'set' && value.password === undefined) throw new Error('請輸入房間密碼。')
     const command = lobbyCommand(preview.intent, value.password), masked = lobbyCommand(preview.intent)

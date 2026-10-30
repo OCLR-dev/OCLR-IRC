@@ -21,7 +21,7 @@ async function fixture(mode = 'success') {
       }
       if (line.includes(':!mp mods ') && mode !== 'wrong-mods') mods = line.split(':!mp mods ')[1]
       if (line.endsWith(':!mp settings') && !(mode === 'timeout' && map === '456')) socket.write([
-        'Room name: Synthetic, History: https://osu.ppy.sh/mp/9', `Beatmap: https://osu.ppy.sh/b/${map} Synthetic`, 'Team mode: TeamVs, Win condition: ScoreV2', `Active mods: ${mods}`, 'Players: 1', 'Slot 1 Ready https://osu.ppy.sh/u/101 Synthetic [Host / Team Red]'
+        'Room name: Synthetic, History: https://osu.ppy.sh/mp/9', `Beatmap: https://osu.ppy.sh/b/${map} Synthetic`, `Team mode: ${mode === 'solo' ? 'HeadToHead' : 'TeamVs'}, Win condition: ScoreV2`, `Active mods: ${mods}`, `Players: ${mode === 'occupied' ? 2 : 1}`, 'Slot 1 Ready https://osu.ppy.sh/u/101 Synthetic [Host / Team Red]', ...(mode === 'occupied' ? ['Slot 2 Ready https://osu.ppy.sh/u/102 Other [Team Blue]'] : [])
       ].filter(body => mode !== 'mapless' || !/^(Beatmap|Active mods):/.test(body)).map(body => `:BanchoBot PRIVMSG #mp_9 :${body}\n`).join(''))
       if (line.endsWith(':!mp listrefs')) socket.write(':BanchoBot PRIVMSG #mp_9 :Match referees: Example\n')
     } })
@@ -80,4 +80,44 @@ test('mapless settings allow independent room controls; changed state invalidate
     assert.throws(() => f.session.executeLobby({...f.target(),token:preview.token,reviewed:true}))
     assert.equal(f.sent.some(line => line.endsWith(':!mp lock')), false)
   } finally { await f.close() }
+})
+
+test('player commands require typed UID, explicit name confirmation and one-use fixed target', async () => {
+  for (const intent of [{kind:'invite',osuId:'999',name:'Manual Player'}, {kind:'move',osuId:'101',slot:'4'}, {kind:'team',osuId:'101',team:'blue'}, {kind:'kick',osuId:'101'}]) {
+    const f = await fixture()
+    try {
+      const first = f.session.previewLobby({...f.target(),intent})
+      assert.equal(first.playerName, intent.kind === 'invite' ? 'Manual Player' : 'Synthetic')
+      assert.throws(() => f.session.executeLobby({...f.target(),token:first.token,reviewed:true,playerName:'Wrong Player'}))
+      assert.throws(() => f.session.executeLobby({...f.target(),token:first.token,reviewed:true,playerName:first.playerName}))
+      const next = f.session.previewLobby({...f.target(),intent})
+      f.session.executeLobby({...f.target(),token:next.token,reviewed:true,playerName:next.playerName})
+      await until(() => f.sent.some(line => line.includes(`:!mp ${intent.kind} `)))
+      assert.equal(f.sent.filter(line=>line.includes(`:!mp ${intent.kind} `)).length, 1)
+      assert.equal(f.session.state.operations!.records.at(-1)!.state, 'awaiting')
+      // Invitation does not create a player observation.
+      assert.equal(f.session.state.room!.slots.some(player=>player.osuId === 999), false)
+    } finally { await f.close() }
+  }
+})
+test('unknown targets, existing invitees, invalid slots and unsafe player identity are blocked', async () => {
+  const f = await fixture()
+  try {
+    for (const intent of [{kind:'invite',osuId:'101',name:'Synthetic'}, {kind:'move',osuId:'999',slot:'2'}, {kind:'kick',osuId:'999'}, {kind:'team',osuId:'101',team:'green'}, {kind:'move',osuId:'101',slot:'17'}, {kind:'invite',osuId:'123\nQUIT',name:'X'}, {kind:'invite',osuId:'123',name:'X\nQUIT'}]) assert.throws(() => f.session.previewLobby({...f.target(),intent}))
+    const preview = f.session.previewLobby({...f.target(),intent:{kind:'kick',osuId:'101'}})
+    f.session.logout()
+    assert.throws(() => f.session.executeLobby({roomId:9,roomEpoch:1,token:preview.token,reviewed:true,playerName:'Synthetic'}))
+    assert.equal(f.sent.some(line=>/:!mp (invite|move|team|kick) /.test(line)), false)
+  } finally { await f.close() }
+})
+
+test('occupied destinations and non-team modes block player mutations', async () => {
+  for (const mode of ['occupied','solo']) {
+    const f = await fixture(mode)
+    try {
+      const intent = mode === 'occupied' ? {kind:'move',osuId:'101',slot:'2'} : {kind:'team',osuId:'101',team:'red'}
+      assert.throws(() => f.session.previewLobby({...f.target(),intent}))
+      assert.equal(f.sent.some(line=>/:!mp (move|team) /.test(line)), false)
+    } finally { await f.close() }
+  }
 })

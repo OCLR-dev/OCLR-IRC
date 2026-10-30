@@ -1,3 +1,4 @@
+import { PlayerControls } from './player-controls'
 import { LobbyControls } from './lobby-controls'
 import { MapProfileControls } from './map-profile'
 import { MP_ACTIONS, searchMpActions, commandSearchShortcut } from '../../shared/referee-tools'
@@ -82,6 +83,7 @@ export function MpControls({ state }: { state: Snapshot }) {
     {preview ? <div className="mp-confirm"><strong>{preview.channel}</strong><code>{preview.command}</code><WorkspaceCheckbox selected={reviewed} onChange={setReviewed}>我已核對目標房間、比賽狀態及操作影響{kind === 'start' && '，確認玩家、地圖、Mods 與直播已準備完成'}。</WorkspaceCheckbox><Button size="sm" variant="danger" isDisabled={busy || !reviewed || !available} onPress={() => void execute()}>確認送出</Button><Button size="sm" variant="ghost" onPress={() => { setPreview(null); setReviewed(false) }}>取消</Button></div> : <Button size="sm" variant="secondary" isDisabled={busy || !available} onPress={() => void prepare()}>預覽指令</Button>}
     <MapProfileControls state={state} />
     <LobbyControls state={state} />
+    <PlayerControls state={state} />
     {message && <p className="mp-result" role="status">{message}</p>}
   </details>
 }
