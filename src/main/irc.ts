@@ -1,3 +1,6 @@
+import { OperationPlan } from './operation-plan.ts'
+import { mapProfile, profileCommands } from '../shared/map-profile.ts'
+import type { MapProfile, MapPlanPreview } from '../shared/map-profile.ts'
 import { Operations } from './operations.ts'
 import type { OperationStore } from './operation-store.ts'
 import { countdownEvent } from '../shared/countdown.ts'
@@ -71,11 +74,14 @@ export class IrcSession extends EventEmitter {
   private creationJoins = new Set<string>()
   private creationTimer: ReturnType<typeof setTimeout> | null = null
 
+  private mapPlan: OperationPlan | null = null
+  private appliedProfile: MapProfile | null = null
+  private profilePreview: { token: string; profile: MapProfile; view: RoomView; fingerprint: string; deadline: number } | null = null
   private operations = new Operations(() => this.publish())
   private creationOperation: string | null = null
   setOperationStore(store: OperationStore) { this.operations.setStore(store) }
   clearWebsiteOperations() { this.operations.clearWebsite() }
-  reviewOperation(input: unknown) { this.operations.review(input) }
+  reviewOperation(input: unknown) { if ((input as { id?: string })?.id === this.mapPlan?.state.id) this.mapPlan?.cancel(); this.operations.review(input) }
   constructor(createSocket = () => net.createConnection({ host: 'irc.ppy.sh', port: 6667 }), timing: Partial<Timing> = {}, durationLookup: (id: number) => Promise<number | null> = async () => null) {
     super()
     this.durationLookup = durationLookup
@@ -85,6 +91,7 @@ export class IrcSession extends EventEmitter {
   get state(): Snapshot {
     const view = this.selected === null ? undefined : this.views.get(this.selected)
     return {
+      mapPlan: this.mapPlan?.state ?? null,
       operations: this.operations.snapshot,
       creation: { ...this.creation },
       retryAttempt: this.retryAttempt, retryAt: this.retryAt, connection: this.connection, username: this.username, leavingChannels: [...this.departing],
@@ -117,6 +124,7 @@ export class IrcSession extends EventEmitter {
   }
   get sessionGeneration() { return this.generation }
   private disconnect() {
+    this.mapPlan?.cancel(); this.profilePreview = null
     this.operations.interrupt()
     this.creationJoins.clear()
     this.mpPreview = null
@@ -142,6 +150,7 @@ export class IrcSession extends EventEmitter {
   logout(preserveRecovery = false) {
     this.disconnect()
     this.operations.logout(preserveRecovery)
+    this.mapPlan = null; this.appliedProfile = null
     this.views.clear(); this.selected = null
     if (this.auth) this.auth.password = ''
     this.auth = null; this.retryAttempt = 0
@@ -464,6 +473,10 @@ export class IrcSession extends EventEmitter {
     this.ready(view)
     const room = view.room
     if (room.kind !== 'match' || this.selected !== room.id || room.binding !== 'verified') throw new Error('請先選取並核對比賽房間。')
+    if (command.startsWith('!mp start') && this.mapPlan?.state.roomId === room.id && this.appliedProfile) {
+      const p = this.appliedProfile, desired = [...p.roomMods, ...(p.freemod ? ['Freemod'] : [])].map(normalize).sort().join(',')
+      if (this.mapPlan.state.state !== 'observed' || room.beatmap?.id !== Number(p.beatmapId) || room.mods === null || room.mods.map(normalize).sort().join(',') !== desired) throw new Error('選圖計畫尚未完成或地圖／Mods 已變更，請重新套用與核對。')
+    }
     const timingOnly = /^!mp (?:timer |aborttimer$)/.test(command)
     const replacingMap = command.startsWith('!mp map ')
     const replacingMods = command.startsWith('!mp mods ')
@@ -480,6 +493,63 @@ export class IrcSession extends EventEmitter {
   private mpFingerprint(room: Room) {
     const { timer: _timer, startCountdown, ...rest } = room
     return JSON.stringify({ ...rest, startCountdown: startCountdown?.status ?? null })
+  }
+  previewProfile(input: unknown): MapPlanPreview {
+    this.profilePreview = null
+    const view = this.target(input), profile = mapProfile((input as { profile?: unknown }).profile)
+    const command = profileCommands(profile)[0]
+    this.mpReady(view, command)
+    this.profileIdle(view)
+    if (this.mapPlan?.active) throw new Error('請先停止目前的選圖計畫。')
+    const token = randomUUID()
+    this.profilePreview = { token, profile, view, fingerprint: this.mpFingerprint(view.room), deadline: performance.now() + 10000 }
+    return { token, channel: view.room.channel, commands: profileCommands(profile), freemod: profile.freemod, expiresAt: new Date(Date.now() + 10000).toISOString() }
+  }
+  private profileIdle(view: RoomView) {
+    if (view.room.phase === 'playing' || view.room.slots.some(slot => /^playing$/i.test(slot.status)) || view.room.startCountdown && ['active', 'unknown'].includes(view.room.startCountdown.status)) throw new Error('比賽進行中或開賽倒數待核對。')
+  }
+  cancelProfile(input: unknown) {
+    if (!input || typeof input !== 'object' || (input as { id?: unknown }).id !== this.mapPlan?.state.id) throw new Error('計畫已變更。')
+    this.mapPlan?.cancel()
+  }
+  executeProfile(input: unknown) {
+    const preview = this.profilePreview; this.profilePreview = null
+    const view = this.target(input), value = input as Record<string, unknown>
+    if (!preview || value.token !== preview.token || value.reviewed !== true || preview.profile.freemod && value.individualReviewed !== true || preview.view !== view || performance.now() >= preview.deadline || preview.fingerprint !== this.mpFingerprint(view.room) || this.mapPlan?.active) throw new Error('選圖確認已失效，請重新預覽與核對。')
+    const commands = profileCommands(preview.profile), epoch = view.room.epoch, generation = this.generation
+    this.mpReady(view, commands[0]); this.profileIdle(view)
+    const id = this.operations.begin('manual', 'mapprofile', view.room.id, epoch, generation, '', (this.timing.queryMs * 2 + this.timing.floodMs * 4) * 2 + 1000)
+    this.appliedProfile = preview.profile
+    const priorQueries: (string | undefined)[] = []
+    const scope = () => this.connection === 'online' && this.generation === generation && this.views.get(view.room.id) === view && view.room.epoch === epoch && view.room.joined && this.selected === view.room.id
+    const desiredMods = [...preview.profile.roomMods, ...(preview.profile.freemod ? ['Freemod'] : [])].map(normalize).sort().join(',')
+    this.mapPlan = new OperationPlan({ id, roomId: view.room.id, roomEpoch: epoch, revision: preview.profile.revision, state: 'queued', steps: commands.map(command => ({ command, state: 'queued' })) }, {
+      ready: index => {
+        if (!scope()) return 'invalid'
+        try { this.profileIdle(view) } catch { return 'invalid' }
+        if (view.pending || this.work.length || this.workTimer || Date.now() - this.lastQueryAt < this.timing.floodMs) return 'wait'
+        try { this.mpReady(view, commands[index]); if (index && view.room.beatmap?.id !== Number(preview.profile.beatmapId)) return 'invalid'; return 'ready' } catch { return 'invalid' }
+      },
+      send: index => {
+        priorQueries[index] = this.settingsEvidence.get(view)?.beatmap.queryId
+        this.lastQueryAt = Date.now(); this.clearFresh(view); view.room.syncState = 'stale'
+        this.note(view, commands[index], 'self', this.username, 'unconfirmed')
+        this.send(`PRIVMSG ${view.room.channel} :${commands[index]}`)
+        this.enqueue(view, 'settings'); this.enqueue(view, 'listrefs')
+      },
+      observe: index => {
+        if (!scope()) return 'invalid'
+        try { this.profileIdle(view) } catch { return 'invalid' }
+        const evidence = this.settingsEvidence.get(view), map = evidence?.beatmap, mods = evidence?.mods
+        if (!map || map.queryId === priorQueries[index] || map.connectionGeneration !== generation || map.roomEpoch !== epoch || view.pending || this.work.length || this.workTimer) return 'wait'
+        if (map.knowledge !== 'known' || map.value?.id !== Number(preview.profile.beatmapId) || view.room.binding !== 'verified' || view.room.referee !== 'listed') return 'invalid'
+        if (index && (!mods || mods.knowledge !== 'known' || mods.queryId !== map.queryId || mods.value?.map(normalize).sort().join(',') !== desiredMods)) return 'invalid'
+        return 'match'
+      },
+      changed: () => this.publish(),
+      finished: state => { this.operations.finish(id, state.state === 'observed' ? 'observed' : 'unknown'); this.publish() }
+    }, this.timing.queryMs * 2 + this.timing.floodMs * 4)
+    this.mapPlan.start(); this.publish()
   }
   previewMp(input: unknown) {
     this.mpPreview = null
@@ -500,6 +570,7 @@ export class IrcSession extends EventEmitter {
     const value = input as Record<string, unknown>
     if (!preview || value.token !== preview.token || value.reviewed !== true || preview.view !== view || performance.now() >= preview.deadline || this.mpFingerprint(view.room) !== preview.fingerprint) throw new Error('確認已失效或房間狀態已變更，請重新預覽。')
     this.mpReady(view, preview.command)
+    if (/^!mp (?:abort|aborttimer)$/.test(preview.command)) this.mapPlan?.cancel()
     const operationId = this.operations.begin('manual', preview.command.split(' ')[1], view.room.id, view.room.epoch, this.generation, preview.command)
     this.clearFresh(view)
     view.room.syncState = 'stale'; view.room.referee = 'unknown'; this.refereeSeen.delete(view)
@@ -525,6 +596,7 @@ export class IrcSession extends EventEmitter {
     this.mpReady(view)
     if (/^!mp (?:map|mods|set|start)\b/.test(text) && view.room.startCountdown && ['active', 'unknown'].includes(view.room.startCountdown.status)) throw new Error('開賽倒數待取消或核對。')
     if (/^!mp (?:map|mods|set|start)\b/.test(text) && (view.room.phase === 'playing' || view.room.slots.some(slot => /^playing$/i.test(slot.status)))) throw new Error('比賽進行中，請先核對或中止比賽。')
+    if (/^!mp (?:abort|aborttimer)$/.test(text)) this.mapPlan?.cancel()
     const operationId = this.operations.begin('oclr', text.split(' ')[1], view.room.id, view.room.epoch, this.generation, text)
     this.lastQueryAt = Date.now()
     this.clearFresh(view); view.room.syncState = 'stale'

@@ -141,6 +141,12 @@ app.whenReady().then(() => {
   ipcMain.handle('irc:leave-room', (event, value: unknown) => action(event, () => irc.leaveRoom(value)))
   ipcMain.handle('irc:operation-review', (event, input: unknown) => action(event, () => irc.reviewOperation(input)))
   ipcMain.handle('irc:query', (event, value: unknown) => action(event, () => irc.query(value)))
+  ipcMain.handle('irc:profile-preview', (event, value: unknown) => {
+    trusted(event)
+    try { return { ok: true, preview: irc.previewProfile(value) } } catch (error) { return { ok: false, error: error instanceof Error ? error.message : '無法預覽選圖計畫。' } }
+  })
+  ipcMain.handle('irc:profile-execute', (event, value: unknown) => action(event, () => irc.executeProfile(value)))
+  ipcMain.handle('irc:profile-cancel', (event, value: unknown) => action(event, () => irc.cancelProfile(value)))
   ipcMain.handle('irc:mp-preview', (event, value: unknown) => {
     trusted(event)
     try { return { ok: true, preview: irc.previewMp(value) } }

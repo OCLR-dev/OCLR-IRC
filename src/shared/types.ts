@@ -1,3 +1,4 @@
+import type { MapProfile, MapPlanState, MapPlanPreview } from './map-profile.ts'
 import type { OperationRecord } from './operation.ts'
 import type { Countdown } from './countdown.ts'
 import type { MpIntent, MpPreview } from './mp-command.ts'
@@ -17,6 +18,7 @@ export interface RoomCreation {
   message: string | null
 }
 export interface Snapshot {
+  mapPlan?: MapPlanState | null
   operations?: { records: OperationRecord[]; failed: boolean }
   creation: RoomCreation
   credentialError?: string | null
@@ -35,6 +37,9 @@ export interface Snapshot {
 export interface JournalEntry { time: number; room: string; text: string }
 export interface JournalState { enabled: boolean; status: 'saving' | 'memory_only' | 'failed'; account: string | null }
 export interface DesktopAPI {
+  previewProfile(input: RoomTarget & { profile: MapProfile }): Promise<{ ok: boolean; preview?: MapPlanPreview; error?: string }>
+  executeProfile(input: RoomTarget & { token: string; reviewed: boolean; individualReviewed: boolean }): Promise<{ ok: boolean; error?: string }>
+  cancelProfile(input: { id: string }): Promise<{ ok: boolean; error?: string }>
   journal: {
     onInvalidate(listener: () => void): () => void
     status(): Promise<JournalState>
