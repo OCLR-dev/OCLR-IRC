@@ -141,6 +141,11 @@ app.whenReady().then(() => {
   ipcMain.handle('irc:leave-room', (event, value: unknown) => action(event, () => irc.leaveRoom(value)))
   ipcMain.handle('irc:operation-review', (event, input: unknown) => action(event, () => irc.reviewOperation(input)))
   ipcMain.handle('irc:query', (event, value: unknown) => action(event, () => irc.query(value)))
+  ipcMain.handle('irc:lobby-preview', (event, value: unknown) => {
+    trusted(event)
+    try { return { ok: true, preview: irc.previewLobby(value) } } catch (error) { return { ok: false, error: error instanceof Error ? error.message : '無法預覽房間設定。' } }
+  })
+  ipcMain.handle('irc:lobby-execute', (event, value: unknown) => action(event, () => irc.executeLobby(value)))
   ipcMain.handle('irc:profile-preview', (event, value: unknown) => {
     trusted(event)
     try { return { ok: true, preview: irc.previewProfile(value) } } catch (error) { return { ok: false, error: error instanceof Error ? error.message : '無法預覽選圖計畫。' } }

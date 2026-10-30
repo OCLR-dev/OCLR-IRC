@@ -63,6 +63,7 @@ export function matchName(input: unknown): string {
   return name
 }
 export function redact(text: string): string {
+  if (/\bpassword\b/i.test(text)) return '〔含敏感資訊，已隱藏〕'
   if (/(?:^|\s)(?:PASS\s|!mp\s+password(?:\s|$)|(?:access_token|refresh_token|code_verifier|password)\s*[:=])/i.test(text)) return '〔含敏感資訊，已隱藏〕'
   return text.replace(/[\x00-\x08\x0b-\x1f\x7f]/g, '').slice(0, 3000)
 }
