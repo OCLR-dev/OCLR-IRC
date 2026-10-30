@@ -144,14 +144,21 @@ test('message links must be safe HTTP(S) URLs still present in retained messages
   for (const value of ['file:///tmp/a', 'javascript:alert(1)', 'osu://mp/9', 'https://user:password@example.org', 'https://example.org/\n']) assert.throws(() => webURL(value))
 })
 
-test('chat fixes target epoch, shares query throttle and labels local send as unconfirmed', async () => {
+test('chat fixes target epoch, shares query throttle and labels local chat as sent without claiming receipt', async () => {
   const f = await fixture((line, socket) => { welcome(line, socket); if (line.startsWith('PART ')) socket.write(':Example!u@h PART #mp_900000001 :leaving\n'); if (line.startsWith('JOIN ')) socket.write(':server 366 Example #mp_900000001 :End\n') })
   try {
     f.session.login(login); await until(f.session, s => s.connection === 'online')
     f.session.join('900000001'); await until(f.session, s => Boolean(s.room?.joined)); await new Promise(resolve => setTimeout(resolve, 1050))
     const input = { roomId: 900000001, roomEpoch: f.session.state.room!.epoch, text: '測試聊天' }
+    const socket = (f.session as unknown as { socket: net.Socket }).socket
+    const write = socket.write
+    const count = f.session.state.messages.length
+    socket.write = (() => { throw new Error('Synthetic write failure') }) as typeof socket.write
+    assert.throws(() => f.session.chat(input), /Synthetic write failure/)
+    socket.write = write
+    assert.equal(f.session.state.messages.length, count, 'failed writes must not create a sent message')
     f.session.chat(input)
-    assert.equal(f.session.state.messages.at(-1)?.delivery, 'unconfirmed')
+    assert.equal(f.session.state.messages.at(-1)?.delivery, 'sent')
     assert.throws(() => query(f.session, 'settings'))
     assert.throws(() => f.session.chat(input))
     f.session.leaveRoom({ roomId: input.roomId, roomEpoch: input.roomEpoch })

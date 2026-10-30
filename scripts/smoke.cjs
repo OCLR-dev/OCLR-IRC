@@ -99,7 +99,7 @@ async function main() {
   await js('document.querySelector(".composer button[type=submit]").click()')
   await until(() => sent.some(line => line.endsWith(':中文輸入測試')))
   await until(() => js('document.querySelector("input[name=chat]").value === ""'))
-  await until(() => js('document.body.textContent.includes("未確認送達")'))
+  await until(() => js('document.body.textContent.includes("已送出（無送達回執）")'))
   await fill('input[name=chat]', '!mp start')
   assert.equal(await js('document.querySelector(".composer button[type=submit]").disabled'), true)
   const rejected = await js('window.oclr.chat({roomId:900000001,roomEpoch:0,text:"!mp start"})')
@@ -239,7 +239,7 @@ async function main() {
   assert.deepEqual(errors, [])
   const report = { evidence: 'synthetic-desktop-ui', platform: process.platform, arch: process.arch,
     electron: process.versions.electron, recordedAt: new Date().toISOString(),
-    passed: ['renderer and sandboxed preload loaded', 'form login to local fake IRC', 'LF-only settings binding', 'split-line referee membership', 'plain chat and unconfirmed delivery', 'synthetic IME Enter guard', 'blocked command and unsafe links', 'safe external link and escaped HTML', '1000 retained rows with under 100 DOM rows', 'history scroll and jump to latest', '900x640 composer visible', 'multiple room tabs and unread mention routing', 'renderer reload preserves connection and tabs', 'leave sends PART not mp close', 'socket reconnect renews epoch and settings/listrefs without chat replay', 'complete map/mods snapshot after recovery', 'powerMonitor suspend/resume restores reads', 'kick disables room actions', 'generic channel UI with NAMES Tab completion', 'private inbox preserves selection and sends fixed-target reply', 'create form requires explicit existing-room review', 'make confirmation joins actual MP and queries settings/listrefs', 'old create request cannot be submitted twice', 'created room composer visible at 900x640', 'logout and secret clearing', 'no renderer console errors'],
+    passed: ['renderer and sandboxed preload loaded', 'form login to local fake IRC', 'LF-only settings binding', 'split-line referee membership', 'plain chat sent label without delivery receipt', 'synthetic IME Enter guard', 'blocked command and unsafe links', 'safe external link and escaped HTML', '1000 retained rows with under 100 DOM rows', 'history scroll and jump to latest', '900x640 composer visible', 'multiple room tabs and unread mention routing', 'renderer reload preserves connection and tabs', 'leave sends PART not mp close', 'socket reconnect renews epoch and settings/listrefs without chat replay', 'complete map/mods snapshot after recovery', 'powerMonitor suspend/resume restores reads', 'kick disables room actions', 'generic channel UI with NAMES Tab completion', 'private inbox preserves selection and sends fixed-target reply', 'create form requires explicit existing-room review', 'make confirmation joins actual MP and queries settings/listrefs', 'old create request cannot be submitted twice', 'created room composer visible at 900x640', 'logout and secret clearing', 'no renderer console errors'],
     sent, limitation: 'Local fake server only; no live account credentials, no OCLR OAuth, no Windows/Linux verification; synthetic composition event is not a real IME test.' }
   fs.writeFileSync(path.join(output, 'ui-smoke-recovery.json'), JSON.stringify(report, null, 2) + '\n')
   fs.writeFileSync(path.join(output, 'ui-smoke-creation.json'), JSON.stringify(report, null, 2) + '\n')

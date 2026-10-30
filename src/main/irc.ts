@@ -86,7 +86,7 @@ export class IrcSession extends EventEmitter {
   }
   private clearLoginTimer() { if (this.loginTimer) clearTimeout(this.loginTimer); this.loginTimer = null }
   private clearTimer(view: RoomView) { if (view.timer) clearTimeout(view.timer); view.timer = null }
-  private note(view: RoomView, text: string, kind: Message['kind'] = 'system', sender = '系統', delivery?: 'unconfirmed') {
+  private note(view: RoomView, text: string, kind: Message['kind'] = 'system', sender = '系統', delivery?: Message['delivery']) {
     view.totalMessages++
     view.messages.push({ id: ++this.nextMessage, time: new Date().toISOString(), kind, sender: redact(sender), text: redact(text), ...(delivery ? { delivery } : {}) })
     this.emit('message', { roomId: view.room.id, roomEpoch: view.room.epoch, message: { ...view.messages.at(-1)! } })
@@ -476,7 +476,7 @@ export class IrcSession extends EventEmitter {
     const text = chatText(value, view.room.channel)
     this.ready(view)
     this.send(`PRIVMSG ${view.room.channel} :${text}`); this.lastQueryAt = Date.now()
-    this.note(view, text, 'self', this.username, 'unconfirmed'); view.error = null; this.publish()
+    this.note(view, text, 'self', this.username, 'sent'); view.error = null; this.publish()
   }
   private unavailable(view: RoomView, message: string) {
     this.clearFresh(view); this.clearTimer(view); view.restore = false; view.collector = null; view.refsHeader = false; view.pending = null
