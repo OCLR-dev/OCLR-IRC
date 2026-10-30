@@ -59,3 +59,11 @@ Bancho 不回傳客戶端 operation ID，因此無法保證與其他 IRC 客戶�
 v1 未記錄帳號，不能將舊房間推定給第一次登入者。交易式 migration 只保留舊 ID／時間作為 legacy unknown 標記，移除舊表的房號；任何尚無自身新記錄的帳號都會看到「無法確認帳號歸屬」並須人工核對。開始新的意圖只更新當前帳號，不替其他帳號解除舊未知狀態。遷移失敗回滾並禁止開房；資料缺失或清除仍沿用每次登入的人工核對要求，不自動 make。
 
 合成測試驗證 v1 created 轉為無房號 unknown、重開、跨帳號隔離、同帳號競爭寫入、錯帳號完成拒絕及失敗回滾。真實跨版本 app 升級與三平台 provider 尚待實機驗收；OCLR 歷史／場次恢復仍未開放。
+
+## 場次開房候選協調器（2026-10-30，#40）
+
+`src/main/fixture-creation.ts` 可在合成環境把已驗證 context 與既有 `IrcSession.createRoom` 接起來：預覽與確認派送前均重讀 context，以原計畫指紋、subject／fixture／IRC generation、一次性 token 和 Main 開房 request ID 核對。create 不要求尚不存在房間的 listrefs；仍必須人工核對既有／未知開房結果，且已有房號時阻擋再次建立。
+
+只有既有 IRC 解析器確認的相符 BanchoBot 回覆才建立來源關係。來源只留記憶體；先呼叫必要的房間隱私 hook，再於目標 JOIN 成功後排入 settings／listrefs。建立房間不代表初始化、房間權限或網站投影成功，也不自動開始 relay。未知／逾時不重送；取消、dispose、換場次或帳號發生於重讀等待期間時不得派送。來源清除後到達的舊房號仍可用最小 pending metadata 交給隱私 hook，不綁到新場次。
+
+此協調器尚未註冊生產 IPC 或 UI；正式接入必須供應已定版 context、目前授權／配對證據及 IRC 日誌排除 hook。不可用 PR409 panel、`operational` 或 renderer boolean 替代完整授權。`tests/fixture-creation.test.ts` 使用真實 IrcSession、本機模擬 IRC 與合成 context，涵蓋送前保存、雙擊、假 bot／錯房名、讀回、未知、儲存失敗、撤銷及晚到來源隔離；不代表真實 Bancho 開房已驗收。
