@@ -1,4 +1,4 @@
-export type MpIntent = { kind: 'map'; beatmapId: string } | { kind: 'mods'; mods: string[] } | { kind: 'start' } | { kind: 'abort' }
+export type MpIntent = { kind: 'map'; beatmapId: string } | { kind: 'mods'; mods: string[] } | { kind: 'start'; seconds?: string } | { kind: 'timer'; seconds: string } | { kind: 'aborttimer' } | { kind: 'abort' }
 export interface MpPreview { token: string; command: string; channel: string; expiresAt: string }
 export const MP_MODS = ['NF', 'EZ', 'HD', 'HR', 'DT', 'HT', 'NC', 'FL', 'SD', 'PF', 'Freemod'] as const
 
@@ -16,6 +16,11 @@ export function mpCommand(input: unknown): string {
     if ([['EZ', 'HR'], ['DT', 'HT', 'NC'], ['NF', 'SD', 'PF']].some(group => group.filter(mod => mods.includes(mod)).length > 1)) throw new Error('選擇的 Mods 互相衝突。')
     return `!mp mods ${MP_MODS.filter(mod => mods.includes(mod)).join(' ') || 'None'}`
   }
+  if (value.kind === 'timer' || value.kind === 'start' && value.seconds !== undefined) {
+    if (typeof value.seconds !== 'string' || !/^[1-9]\d{0,2}$/.test(value.seconds) || Number(value.seconds) > 600) throw new Error('請輸入 1–600 秒。')
+    return `!mp ${value.kind} ${value.seconds}`
+  }
+  if (value.kind === 'aborttimer') return '!mp aborttimer'
   if (value.kind === 'start') return '!mp start'
   if (value.kind === 'abort') return '!mp abort'
   throw new Error('不支援此房內操作。')

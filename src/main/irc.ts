@@ -1,3 +1,4 @@
+import { countdownEvent } from '../shared/countdown.ts'
 import { relayCommand } from '../shared/relay-command.ts'
 import { mpCommand } from '../shared/mp-command.ts'
 import net from 'node:net'
@@ -436,7 +437,7 @@ export class IrcSession extends EventEmitter {
     this.ready(view)
     this.send(`PRIVMSG ${view.room.channel} :!mp ${kind}`); this.lastQueryAt = Date.now()
     view.pending = kind; view.error = null; view.refsHeader = false
-    if (kind === 'settings') { this.settingsEvidence.delete(view); this.clearFresh(view); view.collector = new SettingsCollector(view.room.id, this.generation); Object.assign(view.room, blankObservation(), { syncState: 'loading', phase: view.room.phase, match: view.room.match, duration: view.room.duration }); view.room.binding = 'unknown'; view.room.name = null; view.room.mode = null; view.room.players = null }
+    if (kind === 'settings') { this.settingsEvidence.delete(view); this.clearFresh(view); view.collector = new SettingsCollector(view.room.id, this.generation); Object.assign(view.room, blankObservation(), { syncState: 'loading', phase: view.room.phase, match: view.room.match, duration: view.room.duration, timer: view.room.timer, startCountdown: view.room.startCountdown }); view.room.binding = 'unknown'; view.room.name = null; view.room.mode = null; view.room.players = null }
     else { view.room.referee = 'unknown'; this.refereeSeen.delete(view) }
     this.note(view, `!mp ${kind}`, 'self', this.username)
     this.timeout(view, '尚未收到完整回覆；請稍後重新查詢，不代表沒有權限。'); this.publish()
@@ -445,27 +446,33 @@ export class IrcSession extends EventEmitter {
     this.ready(view)
     const room = view.room
     if (room.kind !== 'match' || this.selected !== room.id || room.binding !== 'verified') throw new Error('請先選取並核對比賽房間。')
+    const timingOnly = /^!mp (?:timer |aborttimer$)/.test(command)
     const replacingMap = command.startsWith('!mp map ')
     const replacingMods = command.startsWith('!mp mods ')
-    const replacingSettings = replacingMap || replacingMods
+    const replacingSettings = replacingMap || replacingMods || timingOnly
     if ((room.syncState !== 'complete' && !(replacingSettings && room.syncState === 'partial')) || !room.observedAt || Date.now() - Date.parse(room.observedAt) >= 10000) throw new Error('請先重新讀取完整房間設定。')
     const evidence = this.settingsEvidence.get(view)
-    const required = evidence ? [evidence.name, evidence.mode, evidence.players, evidence.slots, ...(replacingMap ? [] : [evidence.beatmap]), ...(replacingSettings ? [] : [evidence.mods])] : []
+    const required = evidence ? [evidence.name, evidence.mode, evidence.players, evidence.slots, ...(replacingMap || timingOnly ? [] : [evidence.beatmap]), ...(replacingSettings ? [] : [evidence.mods])] : []
     if (!evidence || !required.every(field =>
       field.knowledge === 'known' && field.connectionGeneration === this.generation && field.roomEpoch === room.epoch &&
       Number.isFinite(Date.parse(field.observedAt)) && Date.now() >= Date.parse(field.observedAt) && Date.now() - Date.parse(field.observedAt) < 10000
     )) throw new Error('房間觀測已失效，請重新讀取設定。')
     if (room.referee !== 'listed' || performance.now() - (this.refereeSeen.get(view) ?? -Infinity) >= 60000) throw new Error('請先重新讀取裁判名單，確認你的裁判權限。')
   }
+  private mpFingerprint(room: Room) {
+    const { timer: _timer, startCountdown, ...rest } = room
+    return JSON.stringify({ ...rest, startCountdown: startCountdown?.status ?? null })
+  }
   previewMp(input: unknown) {
     this.mpPreview = null
     const view = this.target(input)
     const command = mpCommand((input as Record<string, unknown>).intent)
     this.mpReady(view, command)
-    if (command !== '!mp abort' && (view.room.phase === 'playing' || view.room.slots.some(slot => /^playing$/i.test(slot.status)))) throw new Error('比賽進行中，請先核對或中止比賽。')
-    if (command === '!mp start' && !view.room.slots.length) throw new Error('房內沒有玩家，不能開始比賽。')
+    if (!/^!mp (?:abort|aborttimer|timer)(?: |$)/.test(command) && view.room.startCountdown && ['active', 'unknown'].includes(view.room.startCountdown.status)) throw new Error('開賽倒數中，請先取消倒數並核對房間。')
+    if (!/^!mp (?:abort|aborttimer|timer)(?: |$)/.test(command) && (view.room.phase === 'playing' || view.room.slots.some(slot => /^playing$/i.test(slot.status)))) throw new Error('比賽進行中，請先核對或中止比賽。')
+    if (command.startsWith('!mp start') && !view.room.slots.length) throw new Error('房內沒有玩家，不能開始比賽。')
     const token = randomUUID()
-    this.mpPreview = { token, command, view, fingerprint: JSON.stringify(view.room), deadline: performance.now() + 10000 }
+    this.mpPreview = { token, command, view, fingerprint: this.mpFingerprint(view.room), deadline: performance.now() + 10000 }
     return { token, command, channel: view.room.channel, expiresAt: new Date(Date.now() + 10000).toISOString() }
   }
   executeMp(input: unknown) {
@@ -473,11 +480,14 @@ export class IrcSession extends EventEmitter {
     this.mpPreview = null // Consume before every attempt, including validation and transport failure.
     const view = this.target(input)
     const value = input as Record<string, unknown>
-    if (!preview || value.token !== preview.token || value.reviewed !== true || preview.view !== view || performance.now() >= preview.deadline || JSON.stringify(view.room) !== preview.fingerprint) throw new Error('確認已失效或房間狀態已變更，請重新預覽。')
+    if (!preview || value.token !== preview.token || value.reviewed !== true || preview.view !== view || performance.now() >= preview.deadline || this.mpFingerprint(view.room) !== preview.fingerprint) throw new Error('確認已失效或房間狀態已變更，請重新預覽。')
     this.mpReady(view, preview.command)
     this.clearFresh(view)
     view.room.syncState = 'stale'; view.room.referee = 'unknown'; this.refereeSeen.delete(view)
     this.lastQueryAt = Date.now()
+    if (preview.command === '!mp aborttimer') {
+      for (const key of ['timer', 'startCountdown'] as const) if (view.room[key]) view.room[key] = { ...view.room[key]!, status: 'unknown', deadline: null }
+    }
     this.note(view, preview.command, 'self', this.username, 'unconfirmed')
     this.note(view, '房內操作已嘗試送出，結果未確認；請核對 BanchoBot 回覆，再讀取設定與裁判名單。不會自動重送。')
     try { this.send(`PRIVMSG ${view.room.channel} :${preview.command}`) }
@@ -493,6 +503,7 @@ export class IrcSession extends EventEmitter {
     const view = this.target(input)
     const text = relayCommand(input.text)
     this.mpReady(view)
+    if (/^!mp (?:map|mods|set|start)\b/.test(text) && view.room.startCountdown && ['active', 'unknown'].includes(view.room.startCountdown.status)) throw new Error('開賽倒數待取消或核對。')
     if (/^!mp (?:map|mods|set|start)\b/.test(text) && (view.room.phase === 'playing' || view.room.slots.some(slot => /^playing$/i.test(slot.status)))) throw new Error('比賽進行中，請先核對或中止比賽。')
     this.lastQueryAt = Date.now()
     this.clearFresh(view); view.room.syncState = 'stale'
@@ -572,10 +583,17 @@ export class IrcSession extends EventEmitter {
     if (command !== 'PRIVMSG' || params.length !== 2) return
     const body = params[1]; const bot = normalize(sender) === 'banchobot'
     this.note(view, body, bot ? 'bot' : self ? 'self' : 'chat', sender)
+    const countdown = bot && room.kind === 'match' && room.joined ? countdownEvent(body) : null
+    if (countdown) {
+      if (countdown.kind === 'start' && room.startCountdown?.status !== countdown.value.status) this.mpPreview = null
+      room[countdown.kind === 'timer' ? 'timer' : 'startCountdown'] = countdown.value
+      this.publish(); return
+    }
     const started = bot && /^The match has started[!.]?$/.test(body)
     const ended = bot && /^(?:The match has finished|Aborted the match)[!.]?$/.test(body)
     if (room.kind === 'match' && room.joined && (started || ended)) {
       if (started && room.phase !== 'playing') room.match = { startedAt: new Date().toISOString(), beatmap: structuredClone(room.beatmap), mods: structuredClone(room.mods) }
+      room.startCountdown = null
       room.phase = started ? 'playing' : 'idle'
       if (ended) room.match = null
       // A lifecycle event invalidates an in-progress settings collection; query again
@@ -583,6 +601,9 @@ export class IrcSession extends EventEmitter {
       if (view.pending === 'settings') { view.collector = null; this.clearTimer(view); view.pending = null }
       this.settingsEvidence.delete(view); room.syncState = 'stale'
       this.enqueue(view, 'settings'); this.publish(); return
+    }
+    if (bot && view.pending !== 'settings' && room.startCountdown?.status === 'active' && /^(?:Beatmap changed|Changed (?:beatmap|match|team|win)|Active mods:|.+ (?:joined in slot|left the game|moved to slot|changed to))/.test(body)) {
+      room.startCountdown = { ...room.startCountdown, status: 'unknown', deadline: null }; this.mpPreview = null
     }
     const observing = bot && view.pending === 'settings'
     const readingRefs = bot && view.pending === 'listrefs'

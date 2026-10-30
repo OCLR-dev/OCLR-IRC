@@ -215,3 +215,77 @@ test('late duration response cannot attach to a different room epoch', async () 
     assert.equal(f.session.state.room!.duration, null)
   } finally { await f.close() }
 })
+
+test('timer controls work in a verified empty room without inventing map or mods', async () => {
+  const f = await fixture(true)
+  try {
+    for (const intent of [{ kind: 'timer', seconds: '30' }, { kind: 'aborttimer' }]) {
+      await f.refresh()
+      const preview = f.session.previewMp({ ...f.target(), intent })
+      f.session.executeMp({ ...f.target(), token: preview.token, reviewed: true })
+      await until(() => f.sent.includes(`PRIVMSG #mp_9 :${preview.command}`))
+      assert.throws(() => f.session.executeMp({ ...f.target(), token: preview.token, reviewed: true }))
+      assert.equal(f.session.state.room?.phase, 'unknown')
+    }
+    await f.refresh()
+    assert.throws(() => f.session.previewMp({ ...f.target(), intent: { kind: 'start', seconds: '10' } }))
+  } finally { await f.close() }
+})
+
+test('trusted countdowns, cancellation, external start and reconnect do not replay or infer success', async () => {
+  const f = await fixture()
+  try {
+    await f.refresh()
+    f.peer().write(':Other PRIVMSG #mp_9 :Match starts in 10 seconds\n:BanchoBot PRIVMSG #mp_10 :Countdown ends in 30 seconds\n')
+    await delay(30)
+    assert.equal(f.session.state.room?.startCountdown === null, true)
+    assert.equal(f.session.state.room?.timer === null, true)
+    const preview = f.session.previewMp({ ...f.target(), intent: { kind: 'start', seconds: '10' } })
+    f.session.executeMp({ ...f.target(), token: preview.token, reviewed: true })
+    await until(() => f.sent.includes('PRIVMSG #mp_9 :!mp start 10'))
+    assert.equal(f.session.state.room?.startCountdown === null, true, 'write is not acknowledgement')
+    f.peer().write(':BanchoBot PRIVMSG #mp_9 :Match starts in 10 seconds\n:BanchoBot PRIVMSG #mp_9 :Countdown ends in 30 seconds\n')
+    await until(() => f.session.state.room?.timer?.status === 'active')
+    assert.equal(f.session.state.room?.startCountdown?.status, 'active')
+    assert.notEqual(f.session.state.room?.phase, 'playing')
+    await f.refresh()
+    assert.throws(() => f.session.previewMp({ ...f.target(), intent: { kind: 'map', beatmapId: '456' } }))
+    const cancel = f.session.previewMp({ ...f.target(), intent: { kind: 'aborttimer' } })
+    f.peer().write(':BanchoBot PRIVMSG #mp_9 :Match starts in 5 seconds\n')
+    await delay(30)
+    f.session.executeMp({ ...f.target(), token: cancel.token, reviewed: true })
+    assert.equal(f.session.state.room?.startCountdown?.status, 'unknown')
+    assert.equal(f.session.state.room?.timer?.status, 'unknown')
+    await f.refresh()
+    assert.throws(() => f.session.previewMp({ ...f.target(), intent: { kind: 'map', beatmapId: '456' } }), /倒數/)
+    f.peer().write(':BanchoBot PRIVMSG #mp_9 :Aborted the match start timer\n')
+    await until(() => f.session.state.room?.startCountdown?.status === 'cancelled')
+    assert.equal(f.session.state.room?.timer?.status, 'unknown', 'one reply must not confirm both timers')
+    f.peer().write(':BanchoBot PRIVMSG #mp_9 :The match has started!\n')
+    await until(() => f.session.state.room?.phase === 'playing')
+    assert.equal(f.session.state.room?.startCountdown === null, true)
+    const writes = f.sent.filter(line => /:!mp (start|timer|aborttimer)/.test(line))
+    f.peer().destroy()
+    await until(() => f.session.state.connection !== 'online')
+    assert.equal(f.session.state.room?.timer === null, true)
+    await until(() => f.session.state.connection === 'online' && f.session.state.room?.joined === true)
+    assert.deepEqual(f.sent.filter(line => /:!mp (start|timer|aborttimer)/.test(line)), writes)
+  } finally { await f.close() }
+})
+
+ test('external map or lineup changes invalidate countdown observations and previews', async () => {
+  const f = await fixture()
+  try {
+    for (const change of ['Changed beatmap to https://osu.ppy.sh/b/456 Synthetic', 'Synthetic joined in slot 2']) {
+      await f.refresh()
+      f.peer().write(':BanchoBot PRIVMSG #mp_9 :Match starts in 30 seconds\n')
+      await until(() => f.session.state.room?.startCountdown?.status === 'active')
+      const cancel = f.session.previewMp({ ...f.target(), intent: { kind: 'aborttimer' } })
+      f.peer().write(`:BanchoBot PRIVMSG #mp_9 :${change}\n`)
+      await until(() => f.session.state.room?.startCountdown?.status === 'unknown')
+      assert.throws(() => f.session.executeMp({ ...f.target(), token: cancel.token, reviewed: true }))
+      await until(() => f.session.state.pending === null)
+    }
+    assert.equal(f.sent.some(line => line.includes(':!mp aborttimer')), false)
+  } finally { await f.close() }
+})
