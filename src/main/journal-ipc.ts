@@ -5,7 +5,7 @@ import type { OclrSession } from './oclr.ts'
 import type { IrcSession } from './irc.ts'
 
 /** IRC-only history. Never accepts renderer event bodies, account IDs or paths. */
-export function registerJournal(journal: EncryptedJournal | null, irc: IrcSession, trusted: (event: IpcMainInvokeEvent) => void, isQuitting: () => boolean, oclr: OclrSession) {
+export function registerJournal(journal: EncryptedJournal | null, irc: IrcSession, trusted: (event: IpcMainInvokeEvent) => void, isQuitting: () => boolean, oclr: OclrSession, invalidate: () => void) {
   let account: string | null = null
   let generation = 0
   const privateRooms = new Set<string>()
@@ -13,7 +13,7 @@ export function registerJournal(journal: EncryptedJournal | null, irc: IrcSessio
     if (value.relay.roomId && ['connecting', 'connected'].includes(value.relay.status)) {
       const room = `#mp_${value.relay.roomId}`
       if (!privateRooms.has(room)) {
-        privateRooms.add(room); generation++
+        privateRooms.add(room); generation++; invalidate()
         // Until per-fixture reauthorization exists, projected rooms are memory-only.
         void journal?.clear(room).catch(() => {})
       }
@@ -28,7 +28,7 @@ export function registerJournal(journal: EncryptedJournal | null, irc: IrcSessio
   })
   irc.on('state', value => {
     if (account && !value.username) {
-      generation++; account = null; privateRooms.clear()
+      generation++; account = null; privateRooms.clear(); invalidate()
       if (!isQuitting()) void journal?.logout().catch(() => {})
     }
   })
@@ -49,7 +49,7 @@ export function registerJournal(journal: EncryptedJournal | null, irc: IrcSessio
     try {
       if (typeof enabled !== 'boolean' || !journal) throw new Error('Unavailable')
       if (enabled) await journal.enable(account ?? undefined)
-      else await journal.disable()
+      else { invalidate(); await journal.disable() }
       return { ok: true }
     } catch { return { ok: false, error: '無法更新日誌保存設定。' } }
   })
@@ -60,7 +60,7 @@ export function registerJournal(journal: EncryptedJournal | null, irc: IrcSessio
       try {
         const room = scope(input)
         if (!account || !journal) throw new Error('Unavailable')
-        if (operation === 'clear') { await journal.clear(room); return { ok: true } }
+        if (operation === 'clear') { invalidate(); await journal.clear(room); return { ok: true } }
         let entries = (await journal.read(room)).filter(entry => !privateRooms.has(entry.room))
         if (expectedGeneration !== generation || journal.status !== 'saving') throw new Error('Unavailable')
         if (operation === 'read') return { ok: true, entries }

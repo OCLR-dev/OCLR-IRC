@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@heroui/react'
 import type { JournalEntry, JournalState } from '../../shared/types'
 import { WorkspaceCheckbox, WorkspaceSelect } from './controls'
@@ -10,15 +10,18 @@ export function JournalView() {
   const [busy, setBusy] = useState(false)
   const [confirm, setConfirm] = useState<'disable' | 'clear' | null>(null)
   const [error, setError] = useState('')
+  const generation = useRef(0)
   const api = window.oclr?.journal
+  useEffect(() => api?.onInvalidate(() => { generation.current++; setEntries([]); setConfirm(null); setRoom('account') }), [api])
   useEffect(() => { let active = true; void api?.status().then(value => { if (active) setState(value) }); return () => { active = false } }, [api])
   const selected = room === 'account' ? undefined : room
   async function run(action: () => Promise<{ ok: boolean; entries?: JournalEntry[]; error?: string }>) {
+    const expected = generation.current
     setBusy(true); setError(''); setConfirm(null)
     try {
       const result = await action()
       if (!result.ok) setError(result.error || '操作未完成。')
-      if (result.entries) setEntries(result.entries)
+      if (result.entries && expected === generation.current) setEntries(result.entries)
       if (api) setState(await api.status())
     } catch { setError('桌面服務無法回應。') }
     finally { setBusy(false) }
