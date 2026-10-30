@@ -323,3 +323,9 @@ Windows／Linux 新增與 macOS 共用的成品壓縮包 SHA256、內外 build i
 ### L02 開房恢復 migration（2026-10-30）
 
 開房 schema 2 已隔離 IRC 帳號雜湊；v1 未知歸屬記錄保留遮罩 unknown，不推定 UID、不把舊房號透露給另一登入帳號。交易回滾、重開、競爭寫入與帳號隔離已有合成測試。這補齊手動開房 migration；OCLR 歷史／場次重新驗權與真實 provider／升版仍待驗收。
+
+### L11 Windows 成品回歸（2026-10-30）
+
+成品啟動測試發現 Windows 壓縮包在短路徑 `RUNNER~1` 下能載入畫面，但 IPC URL 字串比對拒絕自身頁面。改為比對實際檔案路徑，保留同一 webContents／主 frame 及精確頁面限制；拒絕其他檔案、遠端 file host、query／fragment。Electron 的 ASAR-aware realpath 會同時解析 archive 的實體路徑與內部頁面，參考 [官方實作](https://github.com/electron/electron/blob/main/lib/node/asar-fs-wrapper.ts)。隔離成品測試失敗時記錄空白測試 profile 的畫面與診斷。
+
+另將同一突發批次的加密聊天日誌合併為最多 256 則的交易，避免每則訊息各自 fsync 拖慢 Main；讀取、清除、登出與身分變更仍是順序邊界，最小防重送 metadata 的送前同步保存未改。新增 1,200 則 burst／加密／讀刪順序測試。結果以對應 PR 的實際三平台 CI 為準。

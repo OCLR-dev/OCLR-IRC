@@ -1,3 +1,4 @@
+import { sameLocalPage } from './trusted-page.ts'
 import { SqliteOperationStore } from './operation-store.ts'
 import { EncryptedJournal } from './encrypted-journal.ts'
 import { registerJournal } from './journal-ipc.ts'
@@ -38,7 +39,7 @@ const devURL = process.env.ELECTRON_RENDERER_URL
 function trusted(event: Electron.IpcMainInvokeEvent) {
   if (!window || event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame) throw new Error('Untrusted IPC sender')
   const url = event.senderFrame.url
-  if (devURL ? new URL(url).origin !== new URL(devURL).origin : url !== productionURL) throw new Error('Untrusted IPC origin')
+  if (devURL ? new URL(url).origin !== new URL(devURL).origin : !sameLocalPage(url, productionURL)) throw new Error('Untrusted IPC origin')
 }
 function action(event: Electron.IpcMainInvokeEvent, fn: () => void) {
   trusted(event)
@@ -171,7 +172,7 @@ app.whenReady().then(() => {
       backgroundColor: '#111116', title: 'OCLR IRC', autoHideMenuBar: true,
       webPreferences: { preload: join(__dirname, '../preload/index.js'), nodeIntegration: false, contextIsolation: true, sandbox: true } })
     window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
-    window.webContents.on('will-navigate', (event, url) => { if (url !== (devURL || productionURL)) event.preventDefault() })
+    window.webContents.on('will-navigate', (event, url) => { if (devURL ? url !== devURL : !sameLocalPage(url, productionURL)) event.preventDefault() })
     window.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false))
     window.on('focus', () => oclr.setForeground(true))
     window.on('blur', () => oclr.setForeground(false))

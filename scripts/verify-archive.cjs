@@ -65,19 +65,35 @@ async function main() {
       pending.set(request, msg => { clearTimeout(timer); msg.error ? reject(new Error(msg.error.message)) : resolve(msg.result) })
       ws.send(JSON.stringify({ id: request, method, params, ...(sessionId ? { sessionId } : {}) }))
     })
-    let passed = false
+    let passed = false, lastTargets = [], lastInspection = null
+    const diagnostics = []
+    ws.addEventListener('message', event => { const msg = JSON.parse(event.data); if (msg.method === 'Runtime.exceptionThrown') diagnostics.push(msg.params.exceptionDetails.text) })
     for (let i = 0; i < 50 && !passed; i++) {
       const targets = await send('Target.getTargets')
+      lastTargets = targets.targetInfos.map(({ type, url }) => ({ type, url }))
       const target = targets.targetInfos.find(t => t.type === 'page' && t.url.startsWith('file:') && t.url.includes('/renderer/index.html'))
       if (target) {
         const { sessionId } = await send('Target.attachToTarget', { targetId: target.targetId, flatten: true })
+        await send('Runtime.enable', {}, sessionId)
         const result = await send('Runtime.evaluate', { expression: '(async () => Boolean(document.querySelector("input[name=username]")) && typeof window.require === "undefined" && Boolean(window.oclr) && (await window.oclr.snapshot()).connection === "offline")()', awaitPromise: true, returnByValue: true }, sessionId)
         passed = result.result?.value === true
+        if (!passed) {
+          lastInspection = await send('Runtime.evaluate', { expression: `(async () => ({ title: document.title, ready: document.readyState, login: Boolean(document.querySelector('input[name=username]')), node: typeof window.require, bridge: typeof window.oclr, body: document.body?.textContent?.slice(0, 1200), snapshot: await window.oclr?.snapshot().then(s => ({ connection: s.connection })).catch(e => ({ error: String(e) })) }))()`, awaitPromise: true, returnByValue: true }, sessionId)
+          if (i === 49) {
+            fs.mkdirSync('artifacts', { recursive: true })
+            try { const shot = await send('Page.captureScreenshot', { format: 'png' }, sessionId); fs.writeFileSync(`artifacts/${metadata.platform}-packaged-failure.png`, Buffer.from(shot.data, 'base64')) } catch {}
+          }
+        }
         await send('Target.detachFromTarget', { sessionId })
       }
       if (!passed) await delay(200)
     }
-    if (!passed) throw new Error('Packaged app did not reach a usable offline login screen')
+    if (!passed) {
+      fs.mkdirSync('artifacts', { recursive: true })
+      fs.writeFileSync(`artifacts/${metadata.platform}-packaged-failure.json`, JSON.stringify({ lastTargets, lastInspection, diagnostics, stderr }, null, 2))
+      console.error(JSON.stringify({ lastTargets, lastInspection, diagnostics }))
+      throw new Error('Packaged app did not reach a usable offline login screen')
+    }
     fs.mkdirSync('artifacts', { recursive: true })
     fs.writeFileSync(`artifacts/${metadata.platform}-archive-verification.json`, JSON.stringify({ archive: filename, commit: metadata.commit, platform: process.platform, arch: process.arch, recordedAt: new Date().toISOString(), passed: ['archive SHA256 and build identity', ...(process.platform === 'darwin' ? ['extracted archive strict deep code signature'] : []), 'actual packaged executable launched', 'sandboxed login screen and preload IPC usable', 'offline; no IRC credentials or operations'], signing: metadata.codeSigning, notarized: metadata.notarized, limitation: process.platform !== 'darwin' ? 'CI offline startup only; no real OS IME, provider, sleep, upgrade or user download acceptance.' : metadata.notarized ? 'CI assessment includes stapled ticket and quarantined-copy Gatekeeper checks; user download/first-launch acceptance still required.' : 'Does not establish Gatekeeper approval for a browser-quarantined download or Developer ID identity.' }, null, 2) + '\n')
     console.log(`Extracted ${metadata.platform} archive: identity, checksum and packaged login passed.`)
