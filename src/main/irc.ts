@@ -115,6 +115,7 @@ export class IrcSession extends EventEmitter {
     if (this.socket.writableLength > 65536) throw new Error('連線傳送緩衝已滿，請稍後再試。')
     this.socket.write(line + '\r\n')
   }
+  get sessionGeneration() { return this.generation }
   private disconnect() {
     this.operations.interrupt()
     this.creationJoins.clear()

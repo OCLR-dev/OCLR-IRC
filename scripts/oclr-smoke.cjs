@@ -94,6 +94,23 @@ async function main() {
   const response = await nativeFetch(authRequest.redirect_uri + '?state=' + authRequest.state + '&code=' + 'C'.repeat(43))
   assert.equal(response.status, 200)
   await until(() => js('document.querySelectorAll(".oclr-fixture").length === 2'))
+  await until(() => js('document.querySelector(".account-pairing")?.textContent.includes("暱稱不符")'))
+  assert.equal((await js('window.oclr.website.confirmPairing({token:"forged",reviewed:true})')).ok, false)
+  assert.equal((await js('window.oclr.website.startRelay()')).ok, false)
+  await js('window.oclr.logout()')
+  await js('window.oclr.login({username:"Synthetic_Referee",password:"SYNTHETIC_ONLY"})')
+  await until(() => js('(async () => (await window.oclr.snapshot()).connection === "online")()'))
+  await until(() => js('document.querySelector(".account-pairing")?.textContent.includes("待人工核對")'))
+  await js('document.querySelector(".account-pairing input[type=checkbox]").click()')
+  await until(() => js('(async () => (await window.oclr.website.snapshot()).pairing.reviewed)()'))
+  const oldPairing = (await js('window.oclr.website.snapshot()')).pairing.token
+  await js('window.oclr.logout()')
+  await until(() => js('document.querySelector(".account-pairing")?.textContent.includes("尚未配對")'))
+  await js('window.oclr.login({username:"Synthetic_Referee",password:"SYNTHETIC_ONLY"})')
+  await until(() => js('document.querySelector(".account-pairing")?.textContent.includes("待人工核對")'))
+  assert.equal((await js(`window.oclr.website.confirmPairing({token:${JSON.stringify(oldPairing)},reviewed:true})`)).ok, false)
+  await js('document.querySelector(".account-pairing input[type=checkbox]").click()')
+  await until(() => js('(async () => (await window.oclr.website.snapshot()).pairing.reviewed)()'))
   await js('document.querySelector(".oclr-fixture").click()')
   await until(() => js('Boolean(document.querySelector(".oclr-settings"))'))
   await until(() => js(`!document.querySelector('button[aria-label="複製 make"]').disabled`))
@@ -150,7 +167,7 @@ async function main() {
   assert.ok(!sent.some(line => line.includes('!mp')))
   assert.deepEqual(errors, [])
   const report = { evidence: 'synthetic-oclr-desktop-integration', source: 'OCLR-website PR409@1abbab1ddd981025249af727d748e70e23b9096b', platform: process.platform, arch: process.arch, electron: process.versions.electron, recordedAt: new Date().toISOString(),
-    passed: ['undeployed HTML endpoint fails closed without opening browser', 'browser authorization comparison code', 'real one-shot 127.0.0.1 callback and S256 exchange', 'assigned fixtures and native preparation panel', 'Main-only constrained clipboard copy', 'pool preview uses shared website Mods builder', 'remote metadata renders as escaped text', '900x640 has no horizontal overflow', 'review URL opens fixed OCLR origin', 'renderer reload preserves Main session', 'no tokens/state/unexpected response fields in renderer snapshot', 'close-to-background preserves OCLR session and restore', 'stale panel disables copying', 'logout clears OCLR data while IRC remains connected', 'no referee business writes or IRC commands sent', 'no renderer console errors'],
+    passed: ['nickname mismatch blocks relay, explicit checkbox confirms matching nickname, relogin rejects stale review', 'undeployed HTML endpoint fails closed without opening browser', 'browser authorization comparison code', 'real one-shot 127.0.0.1 callback and S256 exchange', 'assigned fixtures and native preparation panel', 'Main-only constrained clipboard copy', 'pool preview uses shared website Mods builder', 'remote metadata renders as escaped text', '900x640 has no horizontal overflow', 'review URL opens fixed OCLR origin', 'renderer reload preserves Main session', 'no tokens/state/unexpected response fields in renderer snapshot', 'close-to-background preserves OCLR session and restore', 'stale panel disables copying', 'logout clears OCLR data while IRC remains connected', 'no referee business writes or IRC commands sent', 'no renderer console errors'],
     limitation: 'OCLR HTTPS API, browser approval, identities and IRC are synthetic. No real website authorization/deployment, production data, live IRC command or true IME acceptance.', requests }
   fs.writeFileSync(path.join(output, 'oclr-smoke.json'), JSON.stringify(report, null, 2) + '\n')
   console.log(JSON.stringify(report, null, 2)); app.exit(0)

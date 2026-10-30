@@ -309,3 +309,9 @@ IRC-only 日誌已接入 Main，預設開啟、偏好持久化、最近 1,000 �
 現有六種手動操作共享標籤／關鍵字／風險 registry，搜尋只選取表單操作，不新增 raw IRC bridge，送出仍由既有 mpCommand schema、預覽與 Main gate 處理。Cmd／Ctrl＋K 只開啟搜尋並聚焦，忽略輸入區、contenteditable、IME composition／229、repeat 及額外修飾鍵。常用訊息只有固定模板與受限房間 placeholder，追加至草稿後人工送出；超過 wire 長度不改寫草稿。操作記錄沿用 L03 的 awaiting／observed／unknown 與人工核對。
 
 純函式與 Electron 合成測試驗證搜尋／模板不送出、IME／輸入焦點 guard、兩平台修飾鍵及注入拒絕。Windows／Linux 與 macOS 真實 IME、螢幕閱讀器操作尚待實機驗收，#12 不由合成證據宣稱完整完成。
+
+### L09 人工帳號配對（2026-10-30）
+
+新增 Main 管理的 unknown／nickname_matched／mismatch 與一次身分範圍核對 token。比較沿用 IRC 空格／底線正規化，綁定原始暱稱、IRC 連線世代、OCLR subject ID／名稱及授權世代；即使同名重新登入，也需重新人工確認。配對失效會停止 relay；bind／sync 晚到回覆及送線前均重新檢查，不重送命令。網站唯讀查閱仍由原授權檢查決定。
+
+核心涵蓋暱稱差異、改名、同名不同 UID、重連、舊確認、晚到 sync；Electron 合成測試操作實際核對 checkbox 及重新登入。這不是 UID 證明；正式 endpoint／contractVersion、有效本人指派測試環境、撤權與期限真實驗收尚缺，L09 保持 partial。

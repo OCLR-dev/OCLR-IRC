@@ -3,7 +3,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { authRequestSchema, fixturePageSchema, OCLR_SCOPES, panelSchema, tokenSchema, uuid } from '../shared/oclr-contracts.ts'
 import { emptyOclrState } from '../shared/oclr-state.ts'
-import type { FixtureSummary, OclrCommand, OclrSnapshot, OclrRelayState } from '../shared/oclr-contracts.ts'
+import type { AccountPairingState, FixtureSummary, OclrCommand, OclrSnapshot, OclrRelayState } from '../shared/oclr-contracts.ts'
 import { refereeCommands } from '../shared/oclr-website/referee-commands.ts'
 import { OclrError, OclrHttp, publicOclrError } from './oclr-http.ts'
 import type { HttpReply } from './oclr-http.ts'
@@ -60,6 +60,7 @@ export class OclrSession extends EventEmitter {
     super(); this.options = options; this.now = options.now ?? (() => performance.now())
     this.http = new OclrHttp(options.fetcher, this.now, options.origin)
   }
+  get sessionGeneration() { return this.generation }
   get state(): OclrSnapshot {
     // Timer callbacks can be delayed; monotonic deadlines also gate every IPC snapshot.
     if (this.pair && this.now() >= Math.min(this.pair.refreshUntil, this.pair.sessionUntil)) { this.reset(); this.value.status = 'error'; this.value.error = publicOclrError(new OclrError('SESSION_EXPIRED')) }
@@ -105,6 +106,7 @@ export class OclrSession extends EventEmitter {
     if (!parsed.success) throw new OclrError('INVALID_RESPONSE')
     return parsed.data
   }
+  updatePairing(value: AccountPairingState) { this.value.pairing = value; this.publish() }
   updateRelay(value: OclrRelayState) { this.value.relay = value; this.publish() }
   async relayRequest(fixtureId: string, body: unknown) {
     this.available()
