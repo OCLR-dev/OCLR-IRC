@@ -1,0 +1,148 @@
+{
+  "data": {
+    "contextRevision": "ctx_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "capturedAt": "2026-10-27T04:00:00Z",
+    "freshUntil": "2026-10-27T04:00:30Z",
+    "sourceVersions": {
+      "fixture": "fixture:7",
+      "assignment": "assignment:2",
+      "rules": "rules:3",
+      "rosters": "rosters:5",
+      "pool": "pool:4",
+      "streaming": "streaming:2",
+      "lobby": "lobby:1"
+    },
+    "viewer": { "osuId": 900000001, "username": "Example Referee" },
+    "edition": {
+      "slug": "dev-synthetic",
+      "name": "Synthetic OCLR",
+      "abbreviation": "OCLR TEST",
+      "status": "active",
+      "archive": false,
+      "operational": true
+    },
+    "round": {
+      "id": "00000000-0000-4000-8000-000000000102",
+      "name": "Example round",
+      "stage": "knockout"
+    },
+    "fixture": {
+      "id": "00000000-0000-4000-8000-000000000101",
+      "label": "Example A vs Example B",
+      "scheduledAt": "2026-10-28T12:00:00Z",
+      "timeZone": "Asia/Taipei",
+      "status": "scheduled",
+      "resultReviewState": null
+    },
+    "rules": {
+      "revision": "rules:3",
+      "ruleset": "osu",
+      "teamMode": "team_vs",
+      "scoringMode": "score_v2",
+      "playersPerTeam": 2,
+      "roomSize": 4,
+      "series": { "kind": "first_to", "target": 1, "mapCount": null },
+      "noFailPolicy": "required",
+      "substitutionPolicy": "roster_only_between_games",
+      "startPolicy": { "streamingRequirement": "optional" }
+    },
+    "teams": [
+      {
+        "slot": "home",
+        "resolution": "resolved",
+        "team": {
+          "id": "00000000-0000-4000-8000-000000000201",
+          "name": "Example A",
+          "rosterRevision": "roster-a:3",
+          "roster": [
+            { "osuId": 900000011, "username": "Example A1", "role": "captain", "eligible": true },
+            { "osuId": 900000012, "username": "Example A2", "role": "player", "eligible": true }
+          ]
+        },
+        "sourceLabel": null
+      },
+      {
+        "slot": "away",
+        "resolution": "resolved",
+        "team": {
+          "id": "00000000-0000-4000-8000-000000000202",
+          "name": "Example B",
+          "rosterRevision": "roster-b:2",
+          "roster": [
+            { "osuId": 900000021, "username": "Example B1", "role": "captain", "eligible": true },
+            { "osuId": 900000022, "username": "Example B2", "role": "player", "eligible": true }
+          ]
+        },
+        "sourceLabel": null
+      }
+    ],
+    "lobby": {
+      "roomName": "OCLR TEST: (Example A) vs (Example B)",
+      "nameTemplateId": "oclr-standard:1",
+      "teamColourAssignments": [
+        { "teamId": "00000000-0000-4000-8000-000000000201", "colour": "red" },
+        { "teamId": "00000000-0000-4000-8000-000000000202", "colour": "blue" }
+      ],
+      "binding": null
+    },
+    "pool": {
+      "id": "00000000-0000-4000-8000-000000000301",
+      "revision": "pool:4",
+      "name": "Example pool",
+      "entries": [
+        {
+          "id": "00000000-0000-4000-8000-000000000302",
+          "slot": "HD1",
+          "category": "HD",
+          "position": 1,
+          "beatmapId": 900000101,
+          "ruleset": "osu",
+          "metadata": { "artist": "Example artist", "title": "Example song", "difficulty": "Example difficulty", "lengthSeconds": 180, "stars": 5.2 },
+          "commandProfile": {
+            "roomMods": ["NF", "HD"],
+            "freeMod": false,
+            "individualModsCheck": "not_required",
+            "policyText": null
+          },
+          "availability": "selectable",
+          "blockingCodes": []
+        }
+      ]
+    },
+    "officials": {
+      "referees": [{ "osuId": 900000001, "username": "Example Referee" }],
+      "streaming": {
+        "state": "confirmed",
+        "streamer": { "osuId": 900000031, "username": "Example Streamer" },
+        "confirmedFor": { "scheduledAt": "2026-10-28T12:00:00Z", "timeZone": "Asia/Taipei" }
+      }
+    },
+    "allowedIntents": [
+      "create_lobby", "configure_lobby", "invite_players", "place_players",
+      "select_map", "start_game", "manage_timer", "abort_game", "close_lobby"
+    ],
+    "requiredLocalChecks": {
+      "create_lobby": ["identity_match", "no_local_lobby_reference"],
+      "configure_lobby": ["identity_match", "room_binding", "room_permission", "room_snapshot"],
+      "invite_players": ["identity_match", "room_binding", "room_permission"],
+      "place_players": ["identity_match", "room_binding", "room_permission", "room_snapshot", "lineup_selected", "team_colours_verified"],
+      "select_map": ["identity_match", "room_binding", "room_permission", "room_snapshot"],
+      "start_game": ["identity_match", "room_binding", "room_permission", "room_snapshot", "lineup_selected", "team_colours_verified", "map_and_mods_verified"],
+      "manage_timer": ["identity_match", "room_binding", "room_permission"],
+      "abort_game": ["identity_match", "room_binding", "room_permission", "room_snapshot"],
+      "close_lobby": ["identity_match", "room_binding", "room_permission", "room_snapshot"]
+    },
+    "issues": [],
+    "links": {
+      "fixtureUrl": "https://oclr.org/tournaments/dev-synthetic/schedule",
+      "reviewUrl": "https://oclr.org/admin/tournaments/dev-synthetic/matches/00000000-0000-4000-8000-000000000101"
+    }
+  },
+  "meta": {
+    "apiVersion": "1",
+    "contractVersion": "1.0.0",
+    "requestId": "00000000-0000-4000-8000-000000000902",
+    "serverTime": "2026-10-27T04:00:00Z",
+    "pollAfterSeconds": 15
+  }
+}

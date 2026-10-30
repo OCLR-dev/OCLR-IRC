@@ -434,3 +434,15 @@ freshUntil 不是 server-side reservation，也不保證讀取與 IRC 操作原�
 - [OCLR 直播任務](https://github.com/OCLR-dev/OCLR-website/blob/d34378ef7b9a300a2baf1aaf61ff92c77a0b11e3/docs/streaming.md)
 - [OCLR 正式賽果流程](https://github.com/OCLR-dev/OCLR-website/blob/d34378ef7b9a300a2baf1aaf61ff92c77a0b11e3/docs/competition-operations.md)
 - [MVP 任務](../mvp-plan.md)
+
+## 2026-10-30 桌面候選驗證實作
+
+`src/shared/oclr-context.ts` 提供與 PR409 panel 分離的有界 schema；`src/main/context-reader.ts` 提供注入式唯讀 reader，`src/main/context-gate.ts` 提供 Main 純檢查器。這些模組尚未註冊生產 IPC／HTTP 路徑，也不會送 IRC 或網站寫入；不能將候選合成通過視為雙端契約已定版。
+
+- 保留 sourceVersions、contextRevision、allowedIntents、requiredLocalChecks 與 issues；驗證 viewer、場次、正式 UID、顏色、直播排程及固定連結。不完整但可展示的規則留給逐意圖檢查，單一無效 FM profile 不使其他地圖失效。
+- 本地最低檢查與後端要求取聯集，未知要求與受影響未知 issue 阻擋。create 不要求未建立房間的權限；Start 核對目前圖、完整 Mods、有效完整 lineup、隊伍顏色、Ready／idle 狀態及明確政策。H2H 1v1 不附加隊色要求。
+- 人工個人 Mods／換人政策確認須帶本次計畫指紋；context、房間 epoch、地圖、lineup 或政策變更即不再符合。呼叫端仍須在派送時重驗完整 gate 及原預覽指紋，不可把 renderer 的 boolean 當作證據。
+- reader 以 subject／fixture／generation 隔離，合併在途讀取、create／Start 重讀、429 跨選取保留、撤權清除及五分鐘硬清除。伺服器時間用單調時鐘錨點前進，重複舊 serverTime 不得延長新鮮度。
+- `npm run contracts:oclr` 另輸出 [候選 JSON Schema](oclr-context-candidate.schema.json)，標記 `candidate-not-deployed`。跨欄位語意仍須由執行期 schema／gate 驗證。完整草案樣本固定於 `tests/fixtures/oclr-context.json`，測試不使用真實資料。
+
+剩餘整合：網站定版與提供正式 context；OCLR session／refresh／撤權事件接入 reader；本機 fixture↔room 綁定與計畫控制器、實際預覽 UI、派送前指紋重驗；#40 場次開房與真實驗收。現有 panel 的複製／relay 邊界未擴大。
