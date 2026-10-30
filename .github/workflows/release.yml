@@ -68,7 +68,7 @@ jobs:
       - name: Download this run's platform archives
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh run download "$GITHUB_RUN_ID" --pattern 'OCLR-ref-tools-*' --dir release-input
+        run: gh run download "$GITHUB_RUN_ID" --pattern 'OCLR-IRC-*' --dir release-input
       - name: Verify all archives and prepare release assets
         env:
           REQUIRE_SIGNED_MAC: ${{ github.event_name == 'push' || inputs.sign_macos }}
@@ -112,7 +112,7 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           gh release create "$RELEASE_TAG" --verify-tag --draft --prerelease \
-            --title "OCLR-ref-tools $RELEASE_TAG (test build)" \
+            --title "OCLR IRC $RELEASE_TAG (test build)" \
             --notes-file release-assets/RELEASE_NOTES.md \
             release-assets/*.zip release-assets/*.tar.gz \
             release-assets/SHA256SUMS.txt release-assets/build-info.json

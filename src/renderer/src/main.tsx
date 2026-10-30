@@ -87,7 +87,7 @@ function App() {
   }
   return <div className="app-shell">
     <aside className="sidebar">
-      <div className="brand"><span className="brand-symbol">O</span><div><strong>OCLR</strong><span>ref tools</span></div></div>
+      <div className="brand"><span className="brand-symbol">O</span><div><strong>OCLR</strong><span>IRC</span></div></div>
       <div className="workspace-label">裁判工作台 <span>01</span></div>
       <nav aria-label="主要導覽">
         <button className={page === 'account' ? 'nav-item selected' : 'nav-item'} onClick={() => setPage('account')}><Icon name="connect" />帳號連線<span className={`tiny-dot ${online ? 'active' : ''}`} /></button>

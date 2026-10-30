@@ -12,7 +12,7 @@ ipcMain.handle = (name, fn) => { handlers.set(name, fn); handle(name, fn) }
 const buildMenu = Menu.buildFromTemplate.bind(Menu)
 Menu.buildFromTemplate = template => {
   const menu = buildMenu(template)
-  if (template.some(item => item.label === '開啟 OCLR ref tools')) trayMenu = menu
+  if (template.some(item => item.label === '開啟 OCLR IRC')) trayMenu = menu
   return menu
 }
 const server = net.createServer(socket => {

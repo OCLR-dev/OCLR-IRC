@@ -26,9 +26,9 @@ export class DesktopBackground {
     this.getWindow = getWindow; this.foreground = foreground
     try {
       this.tray = new Tray(trayIcon())
-      this.tray.setToolTip('OCLR ref tools')
+      this.tray.setToolTip('OCLR IRC')
       this.tray.setContextMenu(Menu.buildFromTemplate([
-        { label: '開啟 OCLR ref tools', click: () => this.show() },
+        { label: '開啟 OCLR IRC', click: () => this.show() },
         { type: 'separator' },
         { label: '退出程式', click: quit }
       ]))

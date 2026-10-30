@@ -9,10 +9,10 @@ async function main() {
   if (!/^[0-9]+\.[0-9]+\.[0-9]+(?:-[a-zA-Z0-9.-]+)?$/.test(version) || !/^[a-f0-9]{40}$/.test(sha || '')) throw new Error('Invalid build identity')
   if (!(process.platform === 'darwin' && process.arch === 'arm64') && !(['win32', 'linux'].includes(process.platform) && process.arch === 'x64')) throw new Error('Unsupported test build platform/architecture')
   const platform = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'macos' : 'linux'
-  const folder = `OCLR-ref-tools-${process.platform}-${process.arch}`
+  const folder = `OCLR IRC-${process.platform}-${process.arch}`
   const source = path.resolve('release', folder)
   if (!fs.statSync(source).isDirectory()) throw new Error('Packaged app is missing')
-  const name = `OCLR-ref-tools-${version}-${platform}-${process.arch}-${sha.slice(0, 7)}`
+  const name = `OCLR-IRC-${version}-${platform}-${process.arch}-${sha.slice(0, 7)}`
   const downloads = path.resolve('release/downloads')
   fs.mkdirSync(downloads, { recursive: true })
   const signing = platform === 'macos' ? JSON.parse(fs.readFileSync(path.join(source, 'mac-signing.json'), 'utf8')) : { signed: false, codeSigning: 'unsigned', notarized: false }
@@ -20,7 +20,7 @@ async function main() {
     builtAt: new Date().toISOString(), run: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`, ...signing, milestoneAccepted: false }
   fs.writeFileSync(path.join(source, 'build-info.json'), JSON.stringify(metadata, null, 2) + '\n')
   const signingNote = signing.notarized ? 'macOS is Developer ID signed and Apple notarized; the ticket is stapled.' : 'No public identity signing/notarization; macOS uses an ad-hoc integrity signature.'
-  fs.writeFileSync(path.join(source, 'README-TESTING.txt'), `OCLR-ref-tools ${version} — internal test build\nCommit: ${sha}\n\nExtract the entire directory before launching. This is a portable test build, not an installer. ${signingNote}\nAcceptance guide: https://github.com/OCLR-dev/OCLR-ref-tools/blob/${sha}/docs/m1/platform-acceptance.md\nLinux credential persistence is disabled pending provider verification.\nCI tests use synthetic IRC; real IME, OS sleep and Bancho acceptance are still required.\n`)
+  fs.writeFileSync(path.join(source, 'README-TESTING.txt'), `OCLR IRC ${version} — internal test build\nCommit: ${sha}\n\nExtract the entire directory before launching. This is a portable test build, not an installer. ${signingNote}\nAcceptance guide: https://github.com/OCLR-dev/OCLR-IRC/blob/${sha}/docs/m1/platform-acceptance.md\nLinux credential persistence is disabled pending provider verification.\nCI tests use synthetic IRC; real IME, OS sleep and Bancho acceptance are still required.\n`)
   const archive = path.join(downloads, name + (platform === 'linux' ? '.tar.gz' : '.zip'))
   const result = platform === 'windows'
     ? spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', 'Compress-Archive -LiteralPath $env:OCLR_ARCHIVE_SOURCE -DestinationPath $env:OCLR_ARCHIVE_TARGET -CompressionLevel Optimal'], { stdio: 'inherit', env: { ...process.env, OCLR_ARCHIVE_SOURCE: source, OCLR_ARCHIVE_TARGET: archive } })

@@ -10,7 +10,7 @@ async function main() {
   if (signed && (!/^[a-f0-9]{40}$/i.test(process.env.MAC_SIGNING_IDENTITY || '') || !/^[A-Z0-9]{10}$/.test(process.env.MAC_TEAM_ID || '') || !process.env.MAC_KEYCHAIN_PATH || !process.env.MAC_NOTARY_PROFILE)) throw new Error('Developer ID signing setup is incomplete; refusing ad-hoc fallback')
   const { packager } = await import('@electron/packager')
   const outputs = await packager({
-    dir: '.', name: 'OCLR-ref-tools', platform: 'darwin', arch: 'arm64',
+    dir: '.', name: 'OCLR IRC', platform: 'darwin', arch: 'arm64',
     appBundleId: 'org.oclr.ref-tools',
     out: 'release', overwrite: true,
     ignore: [/^\/(?:release(?:-input|-assets)?|spikes|docs|tests|src|scripts|artifacts|\.github)(?:\/|$)/],
@@ -23,7 +23,7 @@ async function main() {
     osxNotarize: signed ? { keychainProfile: process.env.MAC_NOTARY_PROFILE, keychain: process.env.MAC_KEYCHAIN_PATH } : undefined
   })
   for (const output of outputs) {
-    const app = path.join(output, 'OCLR-ref-tools.app')
+    const app = path.join(output, 'OCLR IRC.app')
     execFileSync('codesign', ['--verify', '--deep', '--strict', '--verbose=2', app], { stdio: 'inherit' })
     if (signed) {
       const info = require('node:child_process').spawnSync('codesign', ['-d', '--verbose=4', app], { encoding: 'utf8' })

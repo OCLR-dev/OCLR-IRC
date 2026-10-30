@@ -31,7 +31,7 @@ export async function openLoopback(state: string): Promise<Loopback> {
     const received = params.get('state') ?? ''
     if (url.pathname !== '/oclr/callback' || url.hash || entries.length !== 2 || new Set(entries.map(([key]) => key)).size !== 2 || !/^[A-Za-z0-9_-]{43}$/.test(received) || !timingSafeEqual(Buffer.from(received), Buffer.from(state))) { respond(400, '無效的授權回呼。'); return }
     if (params.has('code') && callbackCodeSchema.safeParse(params.get('code')).success) {
-      respond(200, '授權回呼已收到，請返回 OCLR ref tools 查看登入結果。')
+      respond(200, '授權回呼已收到，請返回 OCLR IRC 查看登入結果。')
       finish({ code: params.get('code')! })
     } else if (params.get('error') === 'access_denied') {
       respond(200, '已拒絕授權，可以關閉此頁。'); finish({ error: 'ACCESS_DENIED' })

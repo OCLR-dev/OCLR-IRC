@@ -16,7 +16,7 @@ async function assemble(input, output, version, sha, requireSignedMac = false) {
   if (entries.length !== platforms.length) throw new Error('Expected exactly three platform artifacts')
   const checked = []
   for (const [platform, arch, extension] of platforms) {
-    const name = `OCLR-ref-tools-${version}-${platform}-${arch}-${sha.slice(0, 7)}`
+    const name = `OCLR-IRC-${version}-${platform}-${arch}-${sha.slice(0, 7)}`
     if (!entries.includes(name)) throw new Error(`Missing platform artifact: ${platform}`)
     const dir = path.join(input, name), filename = name + extension
     const metadata = JSON.parse(fs.readFileSync(path.join(dir, 'build-info.json'), 'utf8'))
@@ -36,7 +36,7 @@ async function assemble(input, output, version, sha, requireSignedMac = false) {
   fs.writeFileSync(path.join(output, 'build-info.json'), JSON.stringify(checked.map(item => item.metadata), null, 2) + '\n')
   const signedMac = checked.some(item => item.metadata.platform === 'macos' && item.metadata.signed)
   const signingNote = signedMac ? 'macOS is Developer ID signed, Apple notarized and stapled. Windows/Linux are unsigned test builds.' : 'These builds have no public signing identity/notarization; macOS uses ad-hoc integrity signing.'
-  fs.writeFileSync(path.join(output, 'RELEASE_NOTES.md'), `OCLR-ref-tools ${version}\n\nSource commit: ${sha}\n\nWindows x64, Linux x64 and macOS Apple Silicon arm64 portable test builds. Extract the entire archive before launching. Verify downloads using SHA256SUMS.txt.\n\n${signingNote} Published as a pre-release, not Latest. Linux credential persistence remains disabled. CI checks do not replace real IME, OS sleep, keychain or Bancho acceptance. This release does not declare M1 complete.\n\n[Acceptance guide](https://github.com/OCLR-dev/OCLR-ref-tools/blob/${sha}/docs/m1/platform-acceptance.md)\n`)
+  fs.writeFileSync(path.join(output, 'RELEASE_NOTES.md'), `OCLR IRC ${version}\n\nSource commit: ${sha}\n\nWindows x64, Linux x64 and macOS Apple Silicon arm64 portable test builds. Extract the entire archive before launching. Verify downloads using SHA256SUMS.txt.\n\n${signingNote} Published as a pre-release, not Latest. Linux credential persistence remains disabled. CI checks do not replace real IME, OS sleep, keychain or Bancho acceptance. This release does not declare M1 complete.\n\n[Acceptance guide](https://github.com/OCLR-dev/OCLR-IRC/blob/${sha}/docs/m1/platform-acceptance.md)\n`)
 }
 module.exports = { validate, assemble }
 if (require.main === module) {

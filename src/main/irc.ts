@@ -180,7 +180,7 @@ export class IrcSession extends EventEmitter {
       if (!current() || !this.auth) return
       try {
         this.send('PASS ' + this.auth.password)
-        this.send('NICK ' + this.username); this.send(`USER ${this.username} 0 * :OCLR-ref-tools`)
+        this.send('NICK ' + this.username); this.send(`USER ${this.username} 0 * :OCLR IRC`)
       } catch { if (current()) this.lost('登入連線失敗，正在重試。') }
     })
     socket.on('data', chunk => {
