@@ -30,7 +30,17 @@ export interface Snapshot {
   messageStartIndex: number
   messages: Message[]
 }
+export interface JournalEntry { time: number; room: string; text: string }
+export interface JournalState { enabled: boolean; status: 'saving' | 'memory_only' | 'failed'; account: string | null }
 export interface DesktopAPI {
+  journal: {
+    status(): Promise<JournalState>
+    setEnabled(enabled: boolean): Promise<{ ok: boolean; error?: string }>
+    read(room?: string): Promise<{ ok: boolean; entries?: JournalEntry[]; error?: string }>
+    clear(room?: string): Promise<{ ok: boolean; error?: string }>
+    export(room?: string): Promise<{ ok: boolean; cancelled?: boolean; error?: string }>
+  }
+
   runInBackground(): Promise<{ ok: boolean; error?: string }>
   quit(): Promise<{ ok: boolean; error?: string }>
   website: {

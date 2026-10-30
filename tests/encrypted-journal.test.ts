@@ -70,3 +70,35 @@ test('sensitive markers are removed before encryption and corrupt ciphertext fai
     assert.equal(f.journal.status, 'failed')
   } finally { await f.close() }
 })
+
+test('disabled preference survives reopen; scoped clear leaves other conversations', async () => {
+  const f = fixture()
+  try {
+    await f.journal.authenticate('Alice')
+    await f.journal.append({ time: f.now(), room: '#one', text: 'first' })
+    await f.journal.append({ time: f.now(), room: '#two', text: 'second' })
+    assert.deepEqual((await f.journal.read('#one')).map(e => e.text), ['first'])
+    await f.journal.clear('#one')
+    assert.deepEqual((await f.journal.read()).map(e => e.text), ['second'])
+    await f.journal.disable()
+    const reopened = new EncryptedJournal(f.file, f.encryption, f.now)
+    assert.equal(reopened.isEnabled, false)
+    await reopened.authenticate('Alice'); assert.equal(reopened.status, 'memory_only')
+    await reopened.enable('Alice'); assert.equal(reopened.status, 'saving')
+    assert.deepEqual(await reopened.read(), [])
+    await reopened.close()
+  } finally { await f.close() }
+})
+
+test('queued reads cannot return another account after a synchronous account switch', async () => {
+  const f = fixture()
+  try {
+    await f.journal.authenticate('Bob')
+    await f.journal.append({ time: f.now(), room: '#two', text: 'Bob private' })
+    await f.journal.authenticate('Alice')
+    const beforeSwitch = f.journal.read()
+    await f.journal.authenticate('Bob')
+    assert.deepEqual(await beforeSwitch, [])
+    assert.equal((await f.journal.read())[0].text, 'Bob private')
+  } finally { await f.close() }
+})

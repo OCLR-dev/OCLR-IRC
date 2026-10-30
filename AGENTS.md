@@ -57,7 +57,7 @@
 - PR409 panel 是唯讀投影與命令預覽／複製，不能替代完整 context、allowedIntents、帳號配對、圖池及出賽政策。手動 IRC 快捷操作不代表 OCLR 衍生執行已開放。
 - `src/shared/oclr-website/` 為固定來源的共享程式；更新時核對來源版本、相容性與授權，不引入網站 DB／cookie／伺服器依賴。契約變更同步相關 fixtures、測試及 schema 匯出。
 - PASS、IRC 密碼、OAuth code／verifier／token、Apple 憑證或私鑰不得進入日誌、截圖、提交或 CI 產物。不要重用聊天歷史中的秘密。
-- 現況是聊天與 OCLR 私人資料留在記憶體，另有可選加密 IRC 憑證與最小開房記錄。預設開啟加密本機日誌是已確認的設計方向，但完整 LOG-01 尚未完成；不得假裝已實作或直接改存明文。
+- IRC 日誌預設開啟，安全 provider 可用時加密保存七天；Linux 仍僅記憶體。OCLR context 與本登入曾投影的房間不寫入 IRC-only 日誌，逐場歷史重新驗權未完成前不得放行。另有可選加密 IRC 憑證與最小開房記錄；完整 LOG-01（OCLR 歷史／恢復 migration／實機 provider）仍未完成，不得回退明文。
 
 ## 視窗與平台行為
 

@@ -1,3 +1,5 @@
+import { EncryptedJournal } from './encrypted-journal.ts'
+import { registerJournal } from './journal-ipc.ts'
 import { fetchBeatmapDuration } from './beatmap-duration.ts'
 import { app, BrowserWindow, ipcMain, shell, powerMonitor, safeStorage, clipboard } from 'electron'
 import { join } from 'node:path'
@@ -50,6 +52,15 @@ app.whenReady().then(() => {
     encrypt: value => safeStorage.encryptStringAsync(value),
     decrypt: value => safeStorage.decryptStringAsync(value)
   })
+  let journal: EncryptedJournal | null = null
+  try {
+    journal = new EncryptedJournal(join(app.getPath('userData'), 'irc-journal.sqlite'), {
+      available: () => process.platform === 'linux' ? Promise.resolve(false) : safeStorage.isAsyncEncryptionAvailable(),
+      encrypt: value => safeStorage.encryptStringAsync(value), decrypt: value => safeStorage.decryptStringAsync(value)
+    })
+  } catch { /* Storage failure is reported without blocking IRC or falling back to plaintext. */ }
+  registerJournal(journal, irc, trusted, () => quitting, oclr)
+  app.on('will-quit', () => { void journal?.close().catch(() => {}) })
   function changed() { if (window && !window.isDestroyed()) window.webContents.send('irc:state', snapshot()) }
   oclr.on('state', state => { if (window && !window.isDestroyed()) window.webContents.send('oclr:state', state) })
   async function websiteAction(event: Electron.IpcMainInvokeEvent, fn: () => unknown) {
