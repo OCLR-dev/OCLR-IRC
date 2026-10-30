@@ -353,3 +353,8 @@ main { min-height: 0; overflow: auto; }
   .match-status { padding-block: 8px; }
   .message-area { min-height: 30px; }
 }
+
+.account-pairing > div,
+.oclr-session[aria-label="網站 IRC 投影"] > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.account-pairing { gap: 16px; flex-wrap: wrap; }
+.account-pairing [role="status"] { color: var(--muted); font-size: 13px; }
