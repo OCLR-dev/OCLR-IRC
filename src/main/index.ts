@@ -12,6 +12,10 @@ import { OclrSession } from './oclr.ts'
 import { publicOclrError } from './oclr-http.ts'
 import { DesktopBackground } from './background.ts'
 
+// Preserve the existing profile (and test overrides) when changing the display name.
+app.setPath('userData', app.getPath('userData'))
+app.setName('OCLR IRC')
+
 const irc = new IrcSession(undefined, {}, fetchBeatmapDuration)
 const oclr = new OclrSession({ origin: process.env.OCLR_SERVER_ORIGIN, version: app.getVersion(), platform: process.platform, openExternal: url => shell.openExternal(url), writeClipboard: text => clipboard.writeText(text) })
 const relay = new OclrRelay(oclr, irc)
@@ -143,7 +147,7 @@ app.whenReady().then(() => {
   })
   function create() {
     window = new BrowserWindow({ width: 1180, height: 780, minWidth: 900, minHeight: 640,
-      backgroundColor: '#111116', title: 'OCLR ref tools', autoHideMenuBar: true,
+      backgroundColor: '#111116', title: 'OCLR IRC', autoHideMenuBar: true,
       webPreferences: { preload: join(__dirname, '../preload/index.js'), nodeIntegration: false, contextIsolation: true, sandbox: true } })
     window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
     window.webContents.on('will-navigate', (event, url) => { if (url !== (devURL || productionURL)) event.preventDefault() })

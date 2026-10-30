@@ -12,8 +12,8 @@ async function main() {
   let child, ws
   try {
     execFileSync('ditto', ['-x', '-k', path.resolve('release/downloads', files[0]), temp])
-    const metadata = JSON.parse(fs.readFileSync(path.join(temp, 'OCLR-ref-tools-darwin-arm64/build-info.json'), 'utf8'))
-    const app = path.join(temp, 'OCLR-ref-tools-darwin-arm64/OCLR-ref-tools.app')
+    const metadata = JSON.parse(fs.readFileSync(path.join(temp, 'OCLR IRC-darwin-arm64/build-info.json'), 'utf8'))
+    const app = path.join(temp, 'OCLR IRC-darwin-arm64/OCLR IRC.app')
     execFileSync('codesign', ['--verify', '--deep', '--strict', '--verbose=2', app], { stdio: 'inherit' })
     if (metadata.signed) {
       execFileSync('xcrun', ['stapler', 'validate', app], { stdio: 'inherit' })
@@ -23,7 +23,7 @@ async function main() {
       execFileSync('spctl', ['--assess', '--type', 'execute', '--verbose=4', app], { stdio: 'inherit' })
     }
     let endpoint, stderr = '', launchError
-    child = spawn(path.join(app, 'Contents/MacOS/OCLR-ref-tools'), ['--remote-debugging-port=0', `--user-data-dir=${path.join(temp, 'profile')}`], { stdio: ['ignore', 'ignore', 'pipe'] })
+    child = spawn(path.join(app, 'Contents/MacOS/OCLR IRC'), ['--remote-debugging-port=0', `--user-data-dir=${path.join(temp, 'profile')}`], { stdio: ['ignore', 'ignore', 'pipe'] })
     child.on('error', error => { launchError = error.message })
     child.stderr.on('data', chunk => { stderr = (stderr + chunk.toString()).slice(-16384); endpoint = /DevTools listening on (ws:\/\/127\.0\.0\.1:\d+\/[^\s]+)/.exec(stderr)?.[1] })
     for (let i = 0; i < 100 && !endpoint && !launchError && child.exitCode === null; i++) await delay(100)

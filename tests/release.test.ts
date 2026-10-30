@@ -25,7 +25,7 @@ test('release assembly requires all three identities and hashes before producing
   let archive = '', metadataFile = ''
   try {
     for (const [platform, arch, ext] of [['windows', 'x64', '.zip'], ['linux', 'x64', '.tar.gz'], ['macos', 'arm64', '.zip']]) {
-      const name = `OCLR-ref-tools-${version}-${platform}-${arch}-${sha.slice(0, 7)}`, dir = join(input, name), filename = name + ext
+      const name = `OCLR-IRC-${version}-${platform}-${arch}-${sha.slice(0, 7)}`, dir = join(input, name), filename = name + ext
       mkdirSync(dir); archive = join(dir, filename); writeFileSync(archive, 'synthetic archive')
       writeFileSync(join(dir, 'SHA256SUMS.txt'), `${createHash('sha256').update('synthetic archive').digest('hex')}  ${filename}\n`)
       metadataFile = join(dir, 'build-info.json')

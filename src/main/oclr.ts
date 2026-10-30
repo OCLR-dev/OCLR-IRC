@@ -129,7 +129,7 @@ export class OclrSession extends EventEmitter {
       if (generation !== this.generation) { listener.cancel(); return }
       this.loopback = listener
       const response = await this.http.request('/api/desktop/v1/auth/requests', { method: 'POST', signal: this.controller.signal,
-        body: { client_id: 'oclr-ref-tools', client_version: this.options.version, platform: this.options.platform, device_name: 'OCLR ref tools', redirect_uri: listener.redirectUri, scope: [...OCLR_SCOPES], state, code_challenge: challenge, code_challenge_method: 'S256' } })
+        body: { client_id: 'oclr-ref-tools', client_version: this.options.version, platform: this.options.platform, device_name: 'OCLR IRC', redirect_uri: listener.redirectUri, scope: [...OCLR_SCOPES], state, code_challenge: challenge, code_challenge_method: 'S256' } })
       if (generation !== this.generation) return
       const { data, meta } = this.validate(authRequestSchema, response)
       const url = new URL(data.authorization_url)

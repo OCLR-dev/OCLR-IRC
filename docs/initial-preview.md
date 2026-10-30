@@ -16,7 +16,7 @@ npm run build
 npm start
 ```
 
-開發模式：`npm run dev`。為維持 `script-src 'self'`，React HMR 暫停用；修改 renderer 後可重新載入視窗。macOS arm64 測試 App 以 `npm run package:mac` 產生於 `release/OCLR-ref-tools-darwin-arm64/OCLR-ref-tools.app`。目前沒有 Developer ID／公證或自動更新，不能作為已簽公開發行版。
+開發模式：`npm run dev`。為維持 `script-src 'self'`，React HMR 暫停用；修改 renderer 後可重新載入視窗。macOS arm64 測試 App 以 `npm run package:mac` 產生於 `release/OCLR IRC-darwin-arm64/OCLR IRC.app`。目前沒有 Developer ID／公證或自動更新，不能作為已簽公開發行版。
 
 1. 填入 osu! 使用者名稱與 **IRC 專用密碼**；空格轉底線。密碼送出後清空欄位，不保存。
 2. 只有收到屬於目前帳號的 IRC `001` 才顯示連線成功。等待時可以取消；錯密碼／網路錯誤顯示原因，不自動重試登入。

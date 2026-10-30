@@ -4,7 +4,7 @@ osu! Chinese League Rookie（OCLR）賽事的裁判用 IRC 桌面客戶端，以
 
 目前為開發預覽版。IRC 工作區已可使用；OCLR 桌面授權及本機 IRC → 網站投影／命令轉送已接入，正式 OAuth 與 Bancho 房間仍需本人聯調。完整 MVP 與三平台實機驗收尚未完成。
 
-套件與下載產物目前仍沿用 `oclr-ref-tools`／`OCLR-ref-tools` 名稱。
+正式應用名稱為 **OCLR IRC**，下載產物以 `OCLR-IRC-*` 命名。內部套件識別、既有本機資料目錄與 OAuth client ID 保持相容。
 
 ## 已有功能
 
@@ -31,7 +31,7 @@ IRC 密碼與連線由本機管理。啟用投影會把綁定房間的訊息及�
 
 ## 下載測試版
 
-前往 [Desktop test builds](https://github.com/OCLR-dev/OCLR-IRC/actions/workflows/test-builds.yml)，選擇所需提交且已成功的執行紀錄，登入 GitHub 後從 **Artifacts** 下載對應平台的 `OCLR-ref-tools-*` 檔案。Artifacts 保留 30 天，過期後需重新打包。
+前往 [Desktop test builds](https://github.com/OCLR-dev/OCLR-IRC/actions/workflows/test-builds.yml)，選擇所需提交且已成功的執行紀錄，登入 GitHub 後從 **Artifacts** 下載對應平台的 `OCLR-IRC-*` 檔案。Artifacts 保留 30 天，過期後需重新打包。
 
 | 平台 | CI 打包架構 |
 | --- | --- |
