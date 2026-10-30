@@ -703,7 +703,7 @@ export class IrcSession extends EventEmitter {
     catch (error) { this.operations.finish(operationId, 'unknown'); throw error }
     finally { this.publish() }
   }
-  relayReady(input: RoomTarget) { try { this.mpReady(this.target(input)); return true } catch { return false } }
+  relayReady(input: RoomTarget, text?: string) { try { this.mpReady(this.target(input), text === undefined ? '' : relayCommand(text)); return true } catch { return false } }
   relayRefresh(input: RoomTarget) {
     const view = this.target(input)
     if (this.connection !== 'online' || !view.room.joined || view.room.kind !== 'match' || this.selected !== view.room.id) throw new Error('請先加入並選取比賽房間。')
@@ -712,7 +712,7 @@ export class IrcSession extends EventEmitter {
   relaySend(input: RoomTarget & { text: string }) {
     const view = this.target(input)
     const text = relayCommand(input.text)
-    this.mpReady(view)
+    this.mpReady(view, text)
     if (/^!mp (?:map|mods|set|start)\b/.test(text) && view.room.startCountdown && ['active', 'unknown'].includes(view.room.startCountdown.status)) throw new Error('開賽倒數待取消或核對。')
     if (/^!mp (?:map|mods|set|start)\b/.test(text) && (view.room.phase === 'playing' || view.room.slots.some(slot => /^playing$/i.test(slot.status)))) throw new Error('比賽進行中，請先核對或中止比賽。')
     if (/^!mp (?:abort|aborttimer)$/.test(text)) { this.mapPlan?.cancel(); this.roomPlan?.cancel() }

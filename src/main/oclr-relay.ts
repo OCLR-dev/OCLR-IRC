@@ -104,12 +104,12 @@ export class OclrRelay {
           try {
             const text = relayCommand(command.text)
             const target = {roomId: binding.roomId, roomEpoch: binding.roomEpoch}
-            if (!this.irc.relayReady(target)) {
+            if (!this.irc.relayReady(target, text)) {
               this.irc.relayRefresh(target)
               const deadline = performance.now() + 8000
-              while (!this.irc.relayReady(target) && performance.now() < deadline && generation === this.generation && this.sameRoom(this.irc.state)) await new Promise(resolve => setTimeout(resolve, 50))
+              while (!this.irc.relayReady(target, text) && performance.now() < deadline && generation === this.generation && this.sameRoom(this.irc.state)) await new Promise(resolve => setTimeout(resolve, 50))
             }
-            if (!this.pairingReady() || generation !== this.generation || !this.sameRoom(this.irc.state) || !this.irc.relayReady(target)) throw new Error('Local room checks failed')
+            if (!this.pairingReady() || generation !== this.generation || !this.sameRoom(this.irc.state) || !this.irc.relayReady(target, text)) throw new Error('Local room checks failed')
             this.pending = {id: command.id, text, after: this.irc.state.messages.at(-1)?.id ?? 0, deadline: performance.now() + 15000}
             this.irc.relaySend({roomId: binding.roomId, roomEpoch: binding.roomEpoch, text})
             this.receipts.push({commandId: command.id, status: 'sent'})

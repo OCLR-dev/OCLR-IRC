@@ -291,3 +291,37 @@ test('trusted countdowns, cancellation, external start and reconnect do not repl
     assert.equal(f.sent.some(line => line.includes(':!mp aborttimer')), false)
   } finally { await f.close() }
 })
+
+
+test('website relay uses intent-specific empty-room evidence without bypassing send checks', async () => {
+  for (const text of ['!mp map 75', '!mp timer 30', '!mp aborttimer']) {
+    const f = await fixture(true)
+    try {
+      await f.refresh()
+      assert.equal(f.session.relayReady(f.target(), text), true)
+      assert.equal(f.session.relayReady(f.target(), '!mp start 5'), false)
+      assert.equal(f.session.relayReady(f.target(), '!mp mods HD'), false)
+      assert.equal(f.session.relayReady(f.target(), 'PASS invalid'), false)
+      assert.throws(() => f.session.relaySend({ ...f.target(), text: '!mp start 5' }))
+      f.session.relaySend({ ...f.target(), text })
+      await until(() => f.sent.includes(`PRIVMSG #mp_9 :${text}`))
+      assert.equal(f.sent.filter(line => line === `PRIVMSG #mp_9 :${text}`).length, 1)
+      assert.equal(f.session.state.room!.beatmap, null)
+      assert.equal(f.session.state.room!.mods, null)
+    } finally { await f.close() }
+  }
+})
+
+test('website explicit Mods replacement tolerates omitted old Mods, but start remains blocked', async () => {
+  const f = await fixture('no-mods')
+  try {
+    await f.refresh()
+    assert.equal(f.session.relayReady(f.target(), '!mp mods HD'), true)
+    assert.equal(f.session.relayReady(f.target(), '!mp start 5'), false)
+    assert.throws(() => f.session.relaySend({ ...f.target(), text: '!mp start 5' }))
+    f.session.relaySend({ ...f.target(), text: '!mp mods HD' })
+    await until(() => f.sent.includes('PRIVMSG #mp_9 :!mp mods HD'))
+    assert.equal(f.sent.filter(line => line === 'PRIVMSG #mp_9 :!mp mods HD').length, 1)
+    assert.equal(f.session.state.room!.mods, null)
+  } finally { await f.close() }
+})
