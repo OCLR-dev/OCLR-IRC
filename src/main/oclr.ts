@@ -362,7 +362,7 @@ export class OclrSession extends EventEmitter {
     const staleDependencies = w.session && w.session.dependencyFingerprint !== w.dependencyFingerprint
     return commands.map(command => {
       const supported = w.rules?.mode === 'osu' && w.rules.scoringType === 'scorev2' && (w.rules.teamType !== 'head-to-head' || w.rules.playersPerTeam === 1)
-      const reason = !this.fresh() ? '資料已過期或連線尚未就緒，請重新整理。' : staleDependencies ? '網站場次依賴已變更，請先在網站重新核對。' : !this.selectedFixture?.operational || w.fixture.status === 'cancelled' || this.selectedFixture.resultReviewState === 'approved' ? '此場次僅供查閱，不能準備操作指令。' : !supported ? '此規則超出桌面首期支援範圍。' : command.text && (Buffer.byteLength(`PRIVMSG ${command.kind === 'make' ? 'BanchoBot' : '#mp_9007199254740991'} :${command.text}`) > 510 || /[\p{Cc}\p{Cf}\u2028\u2029]/u.test(command.text)) ? '指令超過 IRC 長度或包含控制字元。' : command.reason
+      const reason = !this.fresh() ? '資料已過期或連線尚未就緒，請重新整理。' : staleDependencies ? '網站場次依賴已變更，請先在網站重新核對。' : w.fixture.status === 'cancelled' ? '此場次已取消，不能準備操作指令。' : this.selectedFixture?.resultReviewState === 'approved' ? '賽果已核准，不能準備新的房間操作。' : !this.selectedFixture?.operational ? '此場次未開放裁判操作，請在網站核對本人指派與賽事狀態。' : !w.rules ? '尚未設定本場遊戲規則，請在網站補齊設定。' : !supported ? '此規則超出桌面首期支援範圍。' : command.text && (Buffer.byteLength(`PRIVMSG ${command.kind === 'make' ? 'BanchoBot' : '#mp_9007199254740991'} :${command.text}`) > 510 || /[\p{Cc}\p{Cf}\u2028\u2029]/u.test(command.text)) ? '指令超過 IRC 長度或包含控制字元。' : command.reason
       return { ...command, text: reason ? null : command.text, reason }
     })
   }
