@@ -55,6 +55,7 @@ async function main() {
     await until(() => js('Boolean(document.querySelector(".journal-view"))'))
     await js('Array.from(document.querySelectorAll(".journal-view button")).find(b => b.textContent === "讀取歷史").click()')
     await until(() => js('document.querySelector(".journal-entries").textContent.includes("SYNTHETIC_PRIVATE_HISTORY")'))
+    await delay(250)
     fs.writeFileSync(path.resolve('artifacts/journal-synthetic.png'), (await window.webContents.capturePage()).toPNG())
     assert.equal((await js('window.oclr.journal.read({account:"Other"})')).ok, false)
     const exported = js('window.oclr.journal.export("#test")')
