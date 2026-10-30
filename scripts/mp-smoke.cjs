@@ -46,8 +46,8 @@ app.on('web-contents-created', (_event, contents) => {
   contents.on('preload-error', () => errors.push('preload failed'))
 })
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
-async function until(fn) {
-  for (let i = 0; i < 60; i++) { if (await fn()) return; await delay(100) }
+async function until(fn, attempts = 60) {
+  for (let i = 0; i < attempts; i++) { if (await fn()) return; await delay(100) }
   throw new Error('UI condition timed out')
 }
 async function main() {
@@ -90,7 +90,7 @@ async function main() {
   async function refresh() {
     for (const kind of ['settings', 'listrefs']) {
       await delay(1100)
-      assert.equal((await js(`(async () => { const s = await window.oclr.snapshot(); return window.oclr.query({roomId:s.room.id,roomEpoch:s.room.epoch,kind:${JSON.stringify(kind)}}) })()`)).ok, true)
+      await until(async () => (await js(`(async () => { const s = await window.oclr.snapshot(); return window.oclr.query({roomId:s.room.id,roomEpoch:s.room.epoch,kind:${JSON.stringify(kind)}}) })()`)).ok)
       await until(() => js('(async () => !(await window.oclr.snapshot()).pending)()'))
     }
     await delay(1100)
@@ -125,7 +125,7 @@ async function main() {
     await choose(kind)
     if (kind === 'map') await js(`(() => {const e=document.querySelector('input[name=beatmapId]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'456');e.dispatchEvent(new Event('input',{bubbles:true}))})()`)
     if (command === '!mp start 30') await js('document.querySelector(".mp-controls fieldset input[type=checkbox]").click()')
-    if (kind === 'mods') await js(`Array.from(document.querySelectorAll('.mp-mods label')).filter(e => ['HD','HR'].includes(e.textContent)).forEach(e => e.querySelector('input').click())`)
+    if (kind === 'mods') await js(`Array.from(document.querySelectorAll('.mp-controls > fieldset .mp-mods label')).filter(e => ['HD','HR'].includes(e.textContent)).forEach(e => e.querySelector('input').click())`)
     await button('預覽指令')
     await until(() => js('Boolean(document.querySelector(".mp-confirm"))'))
     assert.equal(await js('document.querySelector(".mp-confirm code").textContent'), command)
@@ -192,8 +192,22 @@ async function main() {
   playing = false
   peer.write(':BanchoBot PRIVMSG #mp_900000001 :Aborted the match\n')
   await until(() => js('document.querySelector(".match-status").textContent.includes("比賽未進行")'))
+  await refresh()
+  await js('document.querySelector(".map-profile").open = true')
+  await js(`(() => {const e=document.querySelector('input[name=profileMap]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'123');e.dispatchEvent(new Event('input',{bubbles:true}))})()`)
+  await button('預覽選圖計畫')
+  await until(() => js('Boolean(document.querySelector(".profile-confirm"))'))
+  const profileBefore = sent.filter(line => /:!mp (map|mods) /.test(line)).length
+  assert.equal(await js('Array.from(document.querySelectorAll(".profile-confirm button")).find(b => b.textContent === "開始套用").disabled'), true)
+  await js('document.querySelector(".profile-confirm input[type=checkbox]").click()')
+  await button('開始套用')
+  await until(() => js('(async () => (await window.oclr.snapshot()).mapPlan?.state === "observed")()'), 120)
+  assert.equal(sent.filter(line => /:!mp (map|mods) /.test(line)).length, profileBefore + 2)
+  await until(() => js('document.querySelector(".profile-progress").textContent.includes("已核對設定")'))
+  assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
+  fs.writeFileSync(path.join(output, 'map-profile-synthetic.png'), (await capture()).toPNG())
   assert.deepEqual(errors, [])
-  const report = { evidence: 'synthetic-manual-mp-ui', platform: process.platform, arch: process.arch, recordedAt: new Date().toISOString(), passed: ['disabled before room/permission sync', 'map/mods/start/abort/timer/aborttimer and delayed start preview exact target and wire text', 'separate countdowns expire to waiting, not playing', 'explicit confirmation checkbox', 'single send and stale permission after execution', '900x640 composer remains visible', 'cancel sends nothing', 'forged IPC rejected', 'no close/password commands or renderer errors'], sent, limitation: 'Local synthetic IRC only; no real Bancho mutation or server acknowledgement validation.' }
+  const report = { evidence: 'synthetic-manual-mp-ui', platform: process.platform, arch: process.arch, recordedAt: new Date().toISOString(), passed: ['manual map profile previews and confirms two observed steps through UI', 'disabled before room/permission sync', 'map/mods/start/abort/timer/aborttimer and delayed start preview exact target and wire text', 'separate countdowns expire to waiting, not playing', 'explicit confirmation checkbox', 'single send and stale permission after execution', '900x640 composer remains visible', 'cancel sends nothing', 'forged IPC rejected', 'no close/password commands or renderer errors'], sent, limitation: 'Local synthetic IRC only; no real Bancho mutation or server acknowledgement validation.' }
   fs.writeFileSync(path.join(output,'mp-smoke.json'), JSON.stringify(report,null,2)+'\n')
   console.log(JSON.stringify(report,null,2)); app.exit(0)
 }

@@ -29,7 +29,7 @@ export class Operations {
     try { this.store?.save(this.account, record) }
     catch { this.failed = true; throw new Error('操作恢復記錄保存失敗，請先檢查本機儲存。') }
   }
-  begin(source: OperationRecord['source'], kind: string, roomId: number | null, roomEpoch: number, generation: number, command: string) {
+  begin(source: OperationRecord['source'], kind: string, roomId: number | null, roomEpoch: number, generation: number, command: string, deadlineMs = this.deadlineMs) {
     if (!this.account) throw new Error('請先登入。')
     const emergency = kind === 'abort' || kind === 'aborttimer'
     if (emergency && roomId !== null) this.interrupt(roomId)
@@ -39,7 +39,7 @@ export class Operations {
     this.save(record) // Must succeed before socket write.
     this.records.push(record)
     if (this.records.length > 100) this.records = this.records.filter((r, index) => index >= this.records.length - 100 || r.state === 'awaiting' || r.state === 'unknown' && !r.reviewed)
-    const timer = setTimeout(() => this.finish(record.id, 'unknown'), this.deadlineMs)
+    const timer = setTimeout(() => this.finish(record.id, 'unknown'), Math.min(60000, Math.max(1, deadlineMs)))
     timer.unref()
     this.active.set(record.id, { command, generation, timer })
     return record.id

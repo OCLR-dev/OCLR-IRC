@@ -329,3 +329,11 @@ Windows／Linux 新增與 macOS 共用的成品壓縮包 SHA256、內外 build i
 成品啟動測試發現 Windows 壓縮包在短路徑 `RUNNER~1` 下能載入畫面，但 IPC URL 字串比對拒絕自身頁面。改為比對實際檔案路徑，保留同一 webContents／主 frame 及精確頁面限制；拒絕其他檔案、遠端 file host、query／fragment。Electron 的 ASAR-aware realpath 會同時解析 archive 的實體路徑與內部頁面，參考 [官方實作](https://github.com/electron/electron/blob/main/lib/node/asar-fs-wrapper.ts)。隔離成品測試失敗時記錄空白測試 profile 的畫面與診斷。
 
 另將同一突發批次的加密聊天日誌合併為最多 256 則的交易，避免每則訊息各自 fsync 拖慢 Main；讀取、清除、登出與身分變更仍是順序邊界，最小防重送 metadata 的送前同步保存未改。新增 1,200 則 burst／加密／讀刪順序測試。結果以對應 PR 的實際三平台 CI 為準。
+
+### L03／L06 手動多步選圖（2026-10-30）
+
+依使用者追加授權，真實驗收不阻擋合成開發。新增 Main OperationPlan 與 typed MapProfile，兩步 map→mods 共用最小操作恢復記錄、全連線限流及每房間在途鎖。每步發出後重新查詢 settings／listrefs，限定新的 queryId、連線 generation／room epoch、可信設定及裁判資格；第二步同時核對 map 與完整 Mods。標示 observed 設定，不宣稱因果 exactly-once。
+
+未發出取消為 cancelled；在途取消／斷線／回覆缺失為 unknown，後續不送；保留已 observed 步驟，不假回滾。人工核對操作記錄或緊急 abort／aborttimer 同步停止計畫。送前持久化失敗仍禁止寫線，重啟只恢復 unknown，沒有自動續跑。UI 提供預覽、完整設定確認、FM 個人規則確認與停止後續步驟。未完成或地圖／Mods 已偏離的選圖計畫不能滿足 Start 檢查。
+
+Profile 區分 roomMods、freemod、individualModsPolicy、revision、ruleset；NF 可選，未知 FM policy 拒絕。此版 ruleset 明確為 current，未提供無可靠觀測的模式切換；正式 OCLR entry／圖池契約、個人 Mods 真實觀測與完整房間初始化仍為後續。合成案例不代表真實 Bancho／FM 驗收。

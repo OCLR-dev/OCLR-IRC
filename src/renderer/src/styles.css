@@ -358,3 +358,7 @@ main { min-height: 0; overflow: auto; }
 .oclr-session[aria-label="網站 IRC 投影"] > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
 .account-pairing { gap: 16px; flex-wrap: wrap; }
 .account-pairing [role="status"] { color: var(--muted); font-size: 13px; }
+.map-profile { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--field-border); }
+.map-profile summary { cursor: pointer; margin-bottom: 12px; color: var(--accent); }
+.map-profile > * + * { margin-top: 10px; }
+.profile-progress { font-size: 12px; overflow-wrap: anywhere; }
