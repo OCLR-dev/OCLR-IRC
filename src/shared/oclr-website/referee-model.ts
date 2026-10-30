@@ -1,4 +1,3 @@
-// Vendored from OCLR-website PR #409, commit 1abbab1ddd981025249af727d748e70e23b9096b (MIT).
 import { z } from "zod";
 import type { ScoringRules } from "./competition-model.ts";
 import {
@@ -31,6 +30,16 @@ export const refereePolicySchema = z
     steps: z.array(refereeStepSchema).min(1).max(200),
     commands: refereeCommandPolicySchema.nullable(),
     maxReplaysPerMap: z.number().int().min(0).max(20).optional(),
+    banCategoryRules: z
+      .object({
+        allowRepeats: z.boolean(),
+        repeatExceptions: z
+          .array(z.enum(["NM", "HD", "HR", "DT", "FM"]))
+          .max(5)
+          .refine((values) => new Set(values).size === values.length),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .superRefine((p, ctx) => {
@@ -374,6 +383,24 @@ export function validateRefereeAction(
     if (!map) fail("Choose an entry from the current round pool.");
     if (state.activeSelections.some((s) => s.entryId === map!.id))
       fail("This map has already been banned or picked.");
+    if (step!.kind === "ban" && map!.category === "TB")
+      fail("Tiebreaker maps cannot be banned.");
+    const banRules = input.policy?.banCategoryRules;
+    if (
+      step!.kind === "ban" &&
+      banRules &&
+      !banRules.allowRepeats &&
+      !banRules.repeatExceptions.some(
+        (category) => category === map!.category,
+      ) &&
+      state.activeSelections.some(
+        (selection) =>
+          selection.kind === "ban" &&
+          selection.teamId === step!.teamId &&
+          selection.category === map!.category,
+      )
+    )
+      fail("This team has already banned this restricted category.");
     const reserved = input.policy?.steps
       .filter((s) => s.kind === "tb")
       .some(
