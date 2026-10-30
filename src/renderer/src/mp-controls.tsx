@@ -20,7 +20,7 @@ export function MpControls({ state }: { state: Snapshot }) {
     const timer = setTimeout(() => { setPreview(null); setReviewed(false); setMessage('預覽已過期，請重新讀取設定及預覽。') }, Math.max(0, Date.parse(preview.expiresAt) - Date.now()))
     return () => clearTimeout(timer)
   }, [preview])
-  const available = state.connection === 'online' && room.joined && room.binding === 'verified' && room.referee === 'listed' && (room.syncState === 'complete' || (kind === 'map' && room.syncState === 'partial')) && !state.pending
+  const available = state.connection === 'online' && room.joined && room.binding === 'verified' && room.referee === 'listed' && (room.syncState === 'complete' || ((kind === 'map' || (kind === 'mods' && room.beatmap !== null)) && room.syncState === 'partial')) && !state.pending
   async function prepare() {
     if (!window.oclr) return
     setBusy(true); setMessage(''); setReviewed(false); setPreview(null)
