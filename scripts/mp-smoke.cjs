@@ -165,9 +165,12 @@ async function main() {
   }
   await refresh(); await button('預覽指令')
   await until(() => js('Boolean(document.querySelector(".mp-confirm"))'))
-  const beforeCancel = sent.length
+  const withoutHeartbeats = () => sent.filter(line => !/^(?:PING|PONG) /.test(line))
+  const beforeCancel = withoutHeartbeats()
+  peer.write('PING :cancel-preview-proof\n')
   await button('取消'); await delay(100)
-  assert.equal(sent.length, beforeCancel)
+  await until(() => sent.some(line => line === 'PONG :cancel-preview-proof'))
+  assert.deepEqual(withoutHeartbeats(), beforeCancel)
   assert.equal((await js('window.oclr.executeMp({roomId:900000001,roomEpoch:0,token:"forged",reviewed:true})')).ok,false)
   assert.ok(!sent.some(line => /!mp (close|password)/.test(line)))
   peer.write(':BanchoBot PRIVMSG #mp_900000001 :Countdown ends in 1 second\n:BanchoBot PRIVMSG #mp_900000001 :Match starts in 1 second\n')
