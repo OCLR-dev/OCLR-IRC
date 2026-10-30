@@ -315,3 +315,10 @@ main { min-height: 0; overflow: auto; }
 .mods-chip .chip__label { white-space: normal; overflow-wrap: anywhere; }
 .workspace-checkbox .label { font-size: 12px; font-weight: 400; line-height: 1.65; color: inherit; }
 .mp-controls .text-field > .label { font-size: 12px; font-weight: 500; }
+
+.saved-actions .button { min-height: 40px; padding-inline: 14px; border-radius: 7px; font-size: 12px; font-weight: 600; transition: background .15s, border-color .15s; }
+.saved-login-button { background: #b4a0ff; color: #20172f; border: 1px solid #b4a0ff; }
+.saved-login-button:hover:not(:disabled) { background: #c4b3ff; border-color: #c4b3ff; }
+.forget-login-button { background: #302027; color: #f0b8c3; border: 1px solid #754553; }
+.forget-login-button:hover:not(:disabled) { background: #432a33; border-color: #ad6a7c; }
+.saved-actions .button:disabled { opacity: .4; }
