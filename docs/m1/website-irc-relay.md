@@ -36,3 +36,7 @@
 合成 loopback TCP 與假 HTTP 測試覆蓋授權、scope、同房間確認、錯目標、重複命令、斷線、不重送、長度及注入拒絕；它們不是正式 OAuth 或 Bancho 實測。尚需使用者本人完成真實授權和 IRC 房間驗收。
 
 已核對的 Bancho 回覆格式參考 [bancho.js 的 Multiplayer parser](https://github.com/ThePooN/bancho.js/blob/master/lib/Multiplayer/BanchoLobbyRegexes.js)；此來源核對不替代本次真實房間驗收。
+
+### 真實換圖回覆相容性（2026-10-30）
+
+授權測試房的 BanchoBot 回覆為 `Changed beatmap to https://osu.ppy.sh/b/75 Kenji Ninuma - DISCO PRINCE`，後續 settings 確認相同譜面。relay 現同時接受此格式與既有 `Beatmap changed to:` 格式，仍需命令目標 beatmap ID 相符，且通過既有綁定房間、epoch、Bot 來源及訊息時序檢查。測試覆蓋相近錯誤 ID、普通訊息及跨房間隔離；這是解析器及合成整合證據，不是正式網站 BP 寫入驗收。

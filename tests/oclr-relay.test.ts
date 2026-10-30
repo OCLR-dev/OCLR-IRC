@@ -26,6 +26,9 @@ test('only exact supported Bancho reply confirms, never an unrelated map or sock
   assert.equal(relayReply('!mp map 42 0', 'Beatmap changed to: Song (https://osu.ppy.sh/b/42)'), 'confirmed')
   assert.equal(relayReply('!mp map 42 0', 'Beatmap changed to: Song (https://osu.ppy.sh/b/420)'), null)
   assert.equal(relayReply('!mp map 42 0', 'Song https://osu.ppy.sh/b/42'), null)
+  assert.equal(relayReply('!mp map 75', 'Changed beatmap to https://osu.ppy.sh/b/75 Kenji Ninuma - DISCO PRINCE'), 'confirmed')
+  assert.equal(relayReply('!mp map 75', 'Changed beatmap to https://osu.ppy.sh/b/750 Synthetic'), null)
+  assert.equal(relayReply('!mp map 75', 'Player says Changed beatmap to https://osu.ppy.sh/b/75'), null)
   assert.equal(relayReply('!mp start 5', 'Started the match'), null)
 })
 test('relay binds explicitly, sends once, projects only bound room and correlates bot evidence', async () => {
@@ -34,7 +37,7 @@ test('relay binds explicitly, sends once, projects only bound room and correlate
     await until(() => f.writes.length === 1)
     f.irc.emit('message', {roomId: 999, roomEpoch: 1, message: {id: 1, kind: 'bot', sender: 'BanchoBot', text: 'Beatmap changed to: Song https://osu.ppy.sh/b/42'}})
     f.irc.emit('message', {roomId: 123, roomEpoch: 1, message: {id: 2, kind: 'chat', sender: 'BanchoBot', text: 'Beatmap changed to: Song https://osu.ppy.sh/b/42'}})
-    f.irc.emit('message', {roomId: 123, roomEpoch: 1, message: {id: 3, kind: 'bot', sender: 'BanchoBot', text: 'Beatmap changed to: Song https://osu.ppy.sh/b/42'}})
+    f.irc.emit('message', {roomId: 123, roomEpoch: 1, message: {id: 3, kind: 'bot', sender: 'BanchoBot', text: 'Changed beatmap to https://osu.ppy.sh/b/42 Song'}})
     await until(() => f.requests.some(r => r.receipts?.some((receipt: any) => receipt.status === 'confirmed')))
     assert.equal(f.writes.length, 1)
     assert.deepEqual(f.requests.filter(r => r.sequence).map(r => r.sequence), [1, 2])

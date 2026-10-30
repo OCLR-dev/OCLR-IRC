@@ -10,7 +10,7 @@ export function relayCommand(value: unknown): string {
 export function relayReply(command: string, text: string): 'confirmed' | 'failed' | null {
   if (/^(?:You (?:are not|must be)|Invalid |Failed to |User not found|No user found|Beatmap not found|The beatmap could not be found)/i.test(text)) return 'failed'
   const map = /^!mp map (\d+)/.exec(command)
-  if (map && /^Beatmap changed to:/i.test(text)) return new RegExp(`https://osu\\.ppy\\.sh/(?:b/|beatmaps/)${map[1]}(?:[^0-9]|$)`).test(text) ? 'confirmed' : null
+  if (map && /^(?:Beatmap changed to:|Changed beatmap to)\s/i.test(text)) return new RegExp(`https://osu\\.ppy\\.sh/(?:b/|beatmaps/)${map[1]}(?:[^0-9]|$)`).test(text) ? 'confirmed' : null
   if (command === '!mp abort' && /^Aborted the match\.?$/i.test(text)) return 'confirmed'
   if (command === '!mp aborttimer' && /^(?:Countdown aborted|Aborted the match start timer)\.?$/i.test(text)) return 'confirmed'
   // Other response wordings are deliberately left unconfirmed until an exact
