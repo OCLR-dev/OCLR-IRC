@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { Button, Description, Input, Label, Spinner, TextField } from '@heroui/react'
+import { Button, Input, Label, Spinner, TextField } from '@heroui/react'
 import type { Snapshot } from '../../shared/types'
-
 export function CreateRoom({ state, onClose }: { state: Snapshot; onClose: () => void }) {
   const [name, setName] = useState('')
   const [reviewed, setReviewed] = useState(false)
@@ -29,9 +28,7 @@ export function CreateRoom({ state, onClose }: { state: Snapshot; onClose: () =>
     <div className="create-room-heading"><h2>新建比賽房間</h2><Button type="button" size="sm" variant="ghost" onPress={onClose}>{waiting ? '隱藏' : '取消'}</Button></div>
     <TextField name="matchName" value={name} onChange={setName} isRequired isDisabled={disabled} className="field">
       <Label>比賽房間名稱</Label><Input autoFocus placeholder="例如 OCLR: (Team A) vs (Team B)" />
-      <Description>最多 50 字。建立後自動加入房間，讀取設定與裁判名單。</Description>
     </TextField>
-    <p className="create-room-help">將由 {state.username} 建立公開比賽記錄的 tournament 房間。離開分頁不會關房。</p>
     {state.creation.roomId && <p className="create-room-help">最近建立的房間：{state.creation.roomId}</p>}
     {state.creation.message && <p className={blocked ? 'error-message' : 'create-room-help'} role="status">{state.creation.message}</p>}
     {stale && !submitted && <p className="error-message" role="alert">連線或開房狀態已更新，請關閉並重新開啟此表單。</p>}

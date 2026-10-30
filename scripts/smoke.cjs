@@ -100,7 +100,7 @@ async function main() {
   await js('document.querySelector(".composer button[type=submit]").click()')
   await until(() => sent.some(line => line.endsWith(':中文輸入測試')))
   await until(() => js('document.querySelector("input[name=chat]").value === ""'))
-  await until(() => js('document.body.textContent.includes("已送出（無送達回執）")'))
+  await until(() => js('document.body.textContent.includes("已送出")'))
   await fill('input[name=chat]', '!mp start')
   assert.equal(await js('document.querySelector(".composer button[type=submit]").disabled'), true)
   const rejected = await js('window.oclr.chat({roomId:900000001,roomEpoch:0,text:"!mp start"})')

@@ -3,7 +3,6 @@ import { Button, Input, TextField } from '@heroui/react'
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
 import Linkify from 'linkify-react'
 import type { Snapshot } from '../../shared/types'
-
 export function MessageList({ state, onError }: { state: Snapshot; onError: (message: string) => void }) {
   const list = useRef<VirtuosoHandle>(null)
   const [atBottom, setAtBottom] = useState(true)
@@ -14,7 +13,7 @@ export function MessageList({ state, onError }: { state: Snapshot; onError: (mes
       if (!result?.ok) onError(result?.error || '無法開啟此連結。')
     } catch { onError('無法開啟此連結。') }
   }
-  if (!state.messages.length) return <div className="message-area empty-state"><h2>連接你的比賽房間</h2><p>貼上 MP 連結，讀取設定、裁判名單並聊天。<br />房內指令請使用右側快捷操作。</p></div>
+  if (!state.messages.length) return <div className="message-area empty-state"><h2>連接你的比賽房間</h2></div>
   return <div className="message-area" role="region" aria-label="IRC 訊息">
     <Virtuoso ref={list} className="message-list" data={state.messages}
       firstItemIndex={state.messageStartIndex}
@@ -25,14 +24,13 @@ export function MessageList({ state, onError }: { state: Snapshot; onError: (mes
         <time dateTime={message.time}>{new Date(message.time).toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time>
         <span className="message-sender" title={message.sender}>{message.sender}</span>
         <span className="message-text"><Linkify options={{ validate: { email: false, url: (value: string) => !/^(?!https?:)[a-z][a-z\d+.-]*:/i.test(value) }, attributes: { onClick: openLink, onAuxClick: (event: React.MouseEvent) => event.preventDefault() } }}>{message.text}</Linkify>
-          {message.delivery === 'sent' && <span className="delivery-note" title="已交給本機連線；不代表伺服器或收件者已確認收到。沒有送達回執時不會再更新此狀態。">已送出（無送達回執）</span>}
-          {message.delivery === 'unconfirmed' && <span className="delivery-note" title="已嘗試傳送 MP 指令；請核對 BanchoBot 回覆與房間設定。這個本機標記不會自動更新，也不代表執行失敗。">執行結果待核對</span>}
+          {message.delivery === 'sent' && <span className="delivery-note">已送出</span>}
+          {message.delivery === 'unconfirmed' && <span className="delivery-note">執行結果待核對</span>}
         </span>
       </div>} />
     {!atBottom && <button type="button" className="jump-latest" onClick={() => list.current?.scrollToIndex({ index: 'LAST', align: 'end', behavior: 'auto' })}>回到最新訊息 ↓</button>}
   </div>
 }
-
 export function Composer({ state, onError }: { state: Snapshot; onError: (message: string | null) => void }) {
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
@@ -67,6 +65,6 @@ export function Composer({ state, onError }: { state: Snapshot; onError: (messag
           }
           if (event.key === 'Enter' && (event.nativeEvent.isComposing || composing.current || event.keyCode === 229)) event.preventDefault() }} />
     </TextField><Button type="submit" className="primary-button" isDisabled={!available || sending || Boolean(state.pending) || !draft.trim() || prohibited || bytes > 510}>{sending ? '傳送中…' : '傳送'}</Button></div>
-    <div className="composer-help"><span>{prohibited ? '僅支援一般聊天，不接受指令或換行。' : 'Enter 傳送 · Tab 補完名稱 · 指令請用快捷操作'}</span><span className={bytes > 510 ? 'over-limit' : ''}>{bytes} / 510 bytes</span></div>
+    <div className="composer-help"><span>{prohibited ? '不支援指令或換行' : ''}</span><span className={bytes > 510 ? 'over-limit' : ''}>{bytes} / 510 bytes</span></div>
   </form>
 }
