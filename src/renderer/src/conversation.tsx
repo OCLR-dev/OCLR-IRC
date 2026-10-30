@@ -25,7 +25,8 @@ export function MessageList({ state, onError }: { state: Snapshot; onError: (mes
         <time dateTime={message.time}>{new Date(message.time).toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time>
         <span className="message-sender" title={message.sender}>{message.sender}</span>
         <span className="message-text"><Linkify options={{ validate: { email: false, url: (value: string) => !/^(?!https?:)[a-z][a-z\d+.-]*:/i.test(value) }, attributes: { onClick: openLink, onAuxClick: (event: React.MouseEvent) => event.preventDefault() } }}>{message.text}</Linkify>
-          {message.delivery === 'unconfirmed' && <span className="delivery-note" title="已交給本機連線，伺服器尚未確認送達">未確認送達</span>}
+          {message.delivery === 'sent' && <span className="delivery-note" title="已交給本機連線；不代表伺服器或收件者已確認收到。沒有送達回執時不會再更新此狀態。">已送出（無送達回執）</span>}
+          {message.delivery === 'unconfirmed' && <span className="delivery-note" title="已嘗試傳送 MP 指令；請核對 BanchoBot 回覆與房間設定。這個本機標記不會自動更新，也不代表執行失敗。">執行結果待核對</span>}
         </span>
       </div>} />
     {!atBottom && <button type="button" className="jump-latest" onClick={() => list.current?.scrollToIndex({ index: 'LAST', align: 'end', behavior: 'auto' })}>回到最新訊息 ↓</button>}

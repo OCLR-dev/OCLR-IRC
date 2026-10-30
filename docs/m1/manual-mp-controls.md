@@ -38,3 +38,7 @@ Electron 測試透過真實 Main／sandboxed preload／renderer 和本機模擬 
 尚需真實 Bancho mutation 樣本、操作結果對應與 Windows／Linux／macOS 實機驗收。未使用真實帳號或對真實房間送出變更，本增量不代表 M1／M2 完成。
 
 本機驗證結果：`npm run typecheck`、53 項核心測試，以及包含聊天／憑證／OCLR／背景執行／MP 操作的完整 `npm run test:ui` 均通過。已檢視 900×640 確認畫面（`artifacts/mp-confirm-synthetic.png`）。合成介面證據見 [mp-smoke.json](evidence/mp-smoke.json)。初次測試發現觀測瞬間 stale 狀態及 renderer 更新時序的等待不穩定，測試改為可持續觀測的失效事件及等待明確按鈕狀態後，完整回歸通過。
+
+### 聊天與操作狀態（2026-10-30）
+
+一般聊天的「已送出（無送達回執）」表示本機連線接受寫入，不代表伺服器或收件者已確認；同步寫入失敗不產生此標記。它不會因缺少回執而變成傳送失敗。MP 指令另顯示「執行結果待核對」，須依 BanchoBot 回覆與後續設定核對，不能以聊天送出狀態宣告指令完成。本機歷史標記目前不會因回覆自動更新；網站 relay 的相關回執為另一條流程。
