@@ -109,6 +109,15 @@ async function main() {
   await until(() => js('document.querySelector(".command-results button")?.textContent === "開始比賽"'))
   await js('document.querySelector(".command-results button").click()')
   assert.equal(sent.length, beforeTools)
+  for (const [query,label,selector] of [['圖池','手動圖池與連續換圖','.profile-controls'],['password','房間設定','.lobby-controls'],['初始化','連續設定房名與規則','.room-initialization'],['invite','手動玩家操作','.player-controls'],['lineup','手動陣容核對','.manual-lineup']]) {
+    await js(`(() => {const e=document.querySelector('.command-search input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,${JSON.stringify(query)});e.dispatchEvent(new Event('input',{bubbles:true}))})()`)
+    await until(()=>js(`Array.from(document.querySelectorAll('.command-results button')).some(b=>b.textContent===${JSON.stringify(label)})`))
+    await js(`Array.from(document.querySelectorAll('.command-results button')).find(b=>b.textContent===${JSON.stringify(label)}).click()`)
+    await until(()=>js(`document.querySelector(${JSON.stringify(selector)}).open && document.querySelector(${JSON.stringify(selector)}).contains(document.activeElement)`))
+    assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'),true)
+    await js(`document.querySelector(${JSON.stringify(selector)}).open = false`)
+  }
+  assert.equal(sent.length,beforeTools,'panel navigation sends nothing')
   await js('document.querySelector(".composer-templates").open = true')
   await js('Array.from(document.querySelectorAll(".composer-templates button")).find(b => b.textContent === "插入草稿").click()')
   await until(() => js('document.querySelector("input[name=chat]").value.includes("Ready")'))
