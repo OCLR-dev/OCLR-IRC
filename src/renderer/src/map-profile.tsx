@@ -46,7 +46,7 @@ export function MapProfileControls({ state }: { state: Snapshot }) {
     if (!window.oclr || !plan) return
     try { const result = await window.oclr.cancelProfile({ id: plan.id }); if (!result.ok) setError(result.error ?? '停止失敗。') } catch { setError('桌面服務無法回應。') }
   }
-  return <details className="map-profile"><summary>連續換圖與 Mods</summary>
+  return <details className="map-profile profile-controls"><summary>連續換圖與 Mods</summary>
     <WorkspaceSelect label="手動圖池槽位" value={entryId ? `pool:${entryId}` : 'manual'} disabled={busy || Boolean(active) || Boolean(preview)} onChange={id => { setEntryId(id === 'manual' ? '' : id.slice(5)); if (id === 'manual') setLabel('') }} options={[{value:'manual',label:'手動設定'}, ...(pool?.entries ?? []).map(item => ({value:`pool:${item.id}`,label:`${item.label}${item.error ? ' · 設定無效' : ''}`}))]} />
     <TextField name="poolLabel" value={label} onChange={setLabel} isDisabled={busy || Boolean(active) || Boolean(preview)}><Label>圖池槽位名稱</Label><Input /></TextField>
     <TextField name="profileMap" value={map} onChange={setMap} isDisabled={busy || Boolean(active) || Boolean(preview)}><Label>Beatmap ID</Label><Input inputMode="numeric" /></TextField>

@@ -11,6 +11,18 @@ export function searchMpActions(query: string) {
   const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
   return MP_ACTIONS.filter(action => terms.every(term => `${action.label} ${action.keywords}`.toLowerCase().includes(term)))
 }
+export const PANEL_ACTIONS = [
+  { value: 'profile', label: '手動圖池與連續換圖', keywords: 'pool profile freemod 圖池 槽位 連續 mods', target: '.profile-controls' },
+  { value: 'lobby', label: '房間設定', keywords: 'name rename configure size password lock unlock host close 房名 規則 容量 密碼 鎖定 房主 關房', target: '.lobby-controls' },
+  { value: 'initialization', label: '連續設定房名與規則', keywords: '初始化 initialization 計畫 房名 規則', target: '.room-initialization' },
+  { value: 'player', label: '手動玩家操作', keywords: 'invite move team kick 邀請 移位 分隊 移出 玩家', target: '.player-controls' },
+  { value: 'lineup', label: '手動陣容核對', keywords: 'lineup roster 陣容 名單 出賽 替補', target: '.manual-lineup' }
+] as const
+export type WorkspaceAction = typeof MP_ACTIONS[number] | typeof PANEL_ACTIONS[number]
+export function searchWorkspaceActions(query: string): WorkspaceAction[] {
+  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  return [...MP_ACTIONS, ...PANEL_ACTIONS].filter(action => terms.every(term => `${action.label} ${action.keywords}`.toLowerCase().includes(term)))
+}
 export const MESSAGE_TEMPLATES = [
   { value: 'ready', label: '確認準備', text: '請確認地圖與 Mods，準備完成後請按 Ready。' },
   { value: 'wait', label: '稍候開賽', text: '請稍候，確認完成後會通知開賽。' },

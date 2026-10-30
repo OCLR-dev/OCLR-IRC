@@ -152,3 +152,7 @@ CI 內測壓縮包會在上傳前核對 SHA256／build identity 並解壓啟動�
 ### Context 候選合成驗證（2026-10-30，#14）
 
 已新增獨立 context schema、Main 純檢查器與注入式唯讀 reader：身分／場次隔離、逐意圖最低檢查、Start 圖／Mods／lineup／政策、人工確認指紋、single-flight、429、過期與撤權清除均有合成測試。尚未接入生產 IPC／HTTP 或衍生執行；正式契約、綁定控制器、#40 場次開房及真實聯調仍待完成。詳見 context 契約末節及 candidate JSON Schema。
+
+### 指令導航補齊（2026-10-30，#12）
+
+有限搜尋 registry 已涵蓋圖池、房間設定、初始化、玩家及陣容表單。搜尋只展開並聚焦既有表單，不呼叫變更 IPC；Cmd／Ctrl+K 與 Escape 保留 composition 保護。新增合成驗證確認全部面板定位、不送指令及小視窗聊天輸入區可見，真實 IME／螢幕閱讀器仍另驗。

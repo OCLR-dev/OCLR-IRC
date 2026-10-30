@@ -2,11 +2,12 @@ import { RoomPlanControls, RoomPlanProgress } from './room-plan'
 import { PlayerControls } from './player-controls'
 import { LobbyControls } from './lobby-controls'
 import { MapProfileControls } from './map-profile'
-import { MP_ACTIONS, searchMpActions, commandSearchShortcut } from '../../shared/referee-tools'
+import { MP_ACTIONS, searchWorkspaceActions, commandSearchShortcut } from '../../shared/referee-tools'
 import { WorkspaceSelect, WorkspaceCheckbox } from './controls'
 import { useEffect, useRef, useState } from 'react'
 import { Button, Input, Label, TextField } from '@heroui/react'
 import { MP_MODS } from '../../shared/mp-command'
+import type { WorkspaceAction } from '../../shared/referee-tools'
 import type { MpIntent, MpPreview } from '../../shared/mp-command'
 import type { Snapshot } from '../../shared/types'
 export function MpControls({ state }: { state: Snapshot }) {
@@ -70,10 +71,26 @@ export function MpControls({ state }: { state: Snapshot }) {
     } catch { setMessage('結果不明，請核對 BanchoBot 回覆；不會自動重送。') }
     finally { setBusy(false) }
   }
+  function navigate(action: WorkspaceAction) {
+    if (composing.current) return
+    setSearch(''); setMessage('')
+    if (!('target' in action)) {
+      setKind(action.value)
+      requestAnimationFrame(() => details.current?.querySelector<HTMLElement>('fieldset input:not([type=hidden]), fieldset button[aria-haspopup]')?.focus())
+      return
+    }
+    const target = details.current?.closest('.room-inspector')?.querySelector<HTMLDetailsElement>(action.target)
+    if (!target) return
+    target.open = true
+    requestAnimationFrame(() => {
+      target.scrollIntoView({ block: 'nearest' })
+      target.querySelector<HTMLElement>('input:not([type=checkbox]):not([type=hidden]), button[aria-haspopup]')?.focus({ preventScroll: true })
+    })
+  }
   return <details ref={details} className="mp-controls"><summary>房內快捷操作</summary>
     {!available && <p className="slots-caption">設定或裁判名單待更新</p>}
-    <TextField aria-label="搜尋房內指令" value={search} onChange={setSearch} isDisabled={busy || Boolean(preview)} className="command-search"><Input ref={searchInput} placeholder="搜尋指令" maxLength={80} /></TextField>
-    {search.trim() && <div className="command-results" aria-label="指令搜尋結果">{searchMpActions(search).map(action => <Button key={action.value} size="sm" variant="secondary" isDisabled={busy || Boolean(preview)} onPress={() => { setKind(action.value); setSearch(''); setMessage('') }}>{action.label}</Button>)}{!searchMpActions(search).length && <span role="status">沒有符合的指令</span>}</div>}
+    <TextField aria-label="搜尋房內指令" value={search} onChange={setSearch} isDisabled={busy || Boolean(preview)} className="command-search"><Input ref={searchInput} onKeyDown={event => { if (event.key === 'Escape' && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229 && !composing.current) { setSearch(''); event.stopPropagation() } }} placeholder="搜尋指令" maxLength={80} /></TextField>
+    {search.trim() && <div className="command-results" aria-label="指令搜尋結果">{searchWorkspaceActions(search).map(action => <Button key={action.value} size="sm" variant="secondary" isDisabled={busy || Boolean(preview)} onPress={() => navigate(action)}>{action.label}</Button>)}{!searchWorkspaceActions(search).length && <span role="status">沒有符合的指令</span>}</div>}
     <fieldset disabled={busy || Boolean(preview)}>
       <WorkspaceSelect label="房內操作" value={kind} disabled={busy || Boolean(preview)} onChange={value => { setKind(value as MpIntent['kind']); setMessage('') }} options={MP_ACTIONS} />
       {kind === 'map' && <TextField name="beatmapId" value={beatmapId} onChange={setBeatmapId}><Label>Beatmap ID</Label><Input placeholder="例如 123456" inputMode="numeric" /></TextField>}
