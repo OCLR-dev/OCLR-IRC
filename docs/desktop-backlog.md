@@ -319,3 +319,7 @@ IRC-only 日誌已接入 Main，預設開啟、偏好持久化、最近 1,000 �
 ### L11 成品啟動驗證（2026-10-30）
 
 Windows／Linux 新增與 macOS 共用的成品壓縮包 SHA256、內外 build identity 及隔離離線啟動驗證，成功才發布 CI artifact。真實 OS／IME／休眠／升級／復原仍另待驗收，L11 保持 partial；詳見 [平台驗收](m1/platform-acceptance.md)。
+
+### L02 開房恢復 migration（2026-10-30）
+
+開房 schema 2 已隔離 IRC 帳號雜湊；v1 未知歸屬記錄保留遮罩 unknown，不推定 UID、不把舊房號透露給另一登入帳號。交易回滾、重開、競爭寫入與帳號隔離已有合成測試。這補齊手動開房 migration；OCLR 歷史／場次重新驗權與真實 provider／升版仍待驗收。

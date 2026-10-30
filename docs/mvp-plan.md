@@ -216,3 +216,5 @@ D01–D08 已確認並統一記錄於 [設計決策](design-review.md)。D06 改
 2026-10-30：PAIR-01 新增綁定雙方登入世代及 subject 的人工核對；IRC 名稱相符不當作 UID 證明，失效即停止 relay，唯讀場次仍可用。INT-01／02 正式服務與跨平台實機仍待驗收，保持 partial。
 
 2026-10-30：L11／DESK-01 的 CI 成品驗證擴展至 Windows／Linux，核對壓縮包與 build identity，解壓後隔離離線啟動。跨版本及真實桌面使用驗收保持 partial。
+
+2026-10-30：LOG-01 手動開房 schema 2 遷移已實作，按 IRC 暱稱雜湊分帳號；舊版無歸屬記錄只保留未知結果、不顯示房號。合成 migration／隔離／失敗回滾不代替實機升版；OCLR 場次歷史與完整 LOG-01 仍 partial。

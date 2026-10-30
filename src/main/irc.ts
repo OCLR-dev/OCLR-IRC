@@ -330,10 +330,10 @@ export class IrcSession extends EventEmitter {
     this.creationName = null
     try {
       if (!this.creationStore) throw new Error('No recovery store')
-      const record = this.creationStore.latest()
+      const record = this.creationStore.latest(this.username)
       this.previousCreationId = record?.id ?? null
       this.creation = { status: 'unreviewed', requestId: randomUUID(), roomId: record?.roomId ?? null,
-        message: record?.status === 'pending' ? '上次開房結果不明。請先核對 BanchoBot 訊息及既有房間，避免重複建立。' : null }
+        message: record?.legacy ? '舊版開房記錄無法確認帳號歸屬，請先核對既有房間；不會自動重送。' : record?.status === 'pending' ? '上次開房結果不明。請先核對 BanchoBot 訊息及既有房間，避免重複建立。' : null }
     } catch {
       this.creation = { status: 'blocked', requestId: '', roomId: null, message: '無法讀取開房防重送記錄。請檢查本機儲存後重新登入；目前禁止開房。' }
     }
@@ -358,7 +358,7 @@ export class IrcSession extends EventEmitter {
     if (Date.now() - this.lastQueryAt < this.timing.floodMs || this.work.length || this.workTimer) throw new Error('請等待目前房間請求完成，再建立房間。')
     try {
       if (!this.creationStore) throw new Error('No recovery store')
-      this.creationStore.begin(this.creation.requestId, this.previousCreationId)
+      this.creationStore.begin(this.username, this.creation.requestId, this.previousCreationId)
     } catch {
       this.creation = { ...this.creation, status: 'blocked', message: '無法保存開房記錄，或其他視窗已開房。本次指令未送出，請重新登入後核對。' }
       this.publish(); throw new Error(this.creation.message!)
@@ -388,7 +388,7 @@ export class IrcSession extends EventEmitter {
     this.creationTimer = null; this.creationName = null
     const operationId = this.creation.requestId
     this.creation = { status: 'created', requestId: randomUUID(), roomId: id, message: `已建立比賽房間 ${id}。` }
-    try { this.creationStore!.complete(operationId, id); this.previousCreationId = operationId }
+    try { this.creationStore!.complete(this.username, operationId, id); this.previousCreationId = operationId }
     catch { this.creation = { ...this.creation, status: 'blocked', message: `房間 ${id} 已建立，但防重送記錄更新失敗；禁止再次開房，請核對後重新登入。` } }
     if (this.creationOperation) this.operations.finish(this.creationOperation, 'observed', id)
     this.creationOperation = null
