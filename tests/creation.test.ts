@@ -1,3 +1,4 @@
+import { DatabaseSync } from 'node:sqlite'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import net from 'node:net'
@@ -53,24 +54,24 @@ test('room names reject commands via line injection and bound Unicode titles', (
   for (const name of ['', ' ', 'x'.repeat(51), 'test\r\nPRIVMSG BanchoBot :!mp close', 'test\0', 'x\u2028y', 123]) assert.throws(() => matchName(name))
 })
 
-test('SQLite intent survives restart, compares competing writes and stores no command/name/account', () => {
+test('SQLite intent survives restart, compares competing writes and stores no command/name/plaintext account', () => {
   const dir = mkdtempSync(join(tmpdir(), 'oclr-journal-test-')), file = join(dir, 'creation.sqlite')
   let store = new SqliteCreationStore(file)
   try {
-    assert.equal(store.latest(), null)
-    store.begin('synthetic-operation-a', null); store.close()
+    assert.equal(store.latest('Example'), null)
+    store.begin('Example', 'synthetic-operation-a', null); store.close()
     store = new SqliteCreationStore(file)
-    assert.equal(store.latest()?.status, 'pending')
-    assert.throws(() => store.begin('synthetic-operation-b', null))
-    store.complete('synthetic-operation-a', 9)
-    assert.equal(store.latest()?.roomId, 9)
-    assert.throws(() => store.complete('stale-operation', 10))
-    store.begin('synthetic-operation-b', 'synthetic-operation-a')
-    assert.equal(store.latest()?.status, 'pending')
+    assert.equal(store.latest('Example')?.status, 'pending')
+    assert.throws(() => store.begin('Example', 'synthetic-operation-b', null))
+    store.complete('Example', 'synthetic-operation-a', 9)
+    assert.equal(store.latest('Example')?.roomId, 9)
+    assert.throws(() => store.complete('Example', 'stale-operation', 10))
+    store.begin('Example', 'synthetic-operation-b', 'synthetic-operation-a')
+    assert.equal(store.latest('Example')?.status, 'pending')
     const bytes = readFileSync(file)
     for (const forbidden of ['!mp make', 'SYNTHETIC_ONLY', 'Example', '測試']) assert.equal(bytes.includes(forbidden), false)
     store.close(); writeFileSync(file, 'corrupt')
-    store = new SqliteCreationStore(file); assert.throws(() => store.latest())
+    store = new SqliteCreationStore(file); assert.throws(() => store.latest('Example'))
   } finally { store.close(); rmSync(dir, { recursive: true, force: true }) }
 })
 
@@ -82,7 +83,7 @@ test('make persists before write, trusts only scoped bot PM with matching title,
     assert.throws(() => f.session.createRoom({ ...input(f.session), requestId: 'stale' }))
     const intent = input(f.session)
     f.session.createRoom(intent)
-    assert.equal(f.store.latest()?.status, 'pending')
+    assert.equal(f.store.latest('Example')?.status, 'pending')
     assert.throws(() => f.session.createRoom(intent))
     await until(() => f.sent.includes('PRIVMSG BanchoBot :!mp make 測試'))
     f.peer().write(':Player PRIVMSG Example :Created the tournament match https://osu.ppy.sh/mp/9 測試\n:BanchoBot PRIVMSG #osu :Created the tournament match https://osu.ppy.sh/mp/9 測試\n')
@@ -95,7 +96,7 @@ test('make persists before write, trusts only scoped bot PM with matching title,
     assert.equal(f.session.state.creation.status, 'created')
     assert.equal(f.session.state.creation.roomId, 9)
     assert.equal(f.session.state.room?.binding, 'verified')
-    assert.equal(f.store.latest()?.status, 'created')
+    assert.equal(f.store.latest('Example')?.status, 'created')
     assert.throws(() => f.session.createRoom(intent))
     confirmed(f.peer()); await delay(30)
     assert.equal(f.sent.filter(l => l === 'PRIVMSG BanchoBot :!mp make 測試').length, 1)
@@ -154,14 +155,14 @@ test('recovery storage failures prevent make; completion failure keeps actual ro
     f.session.setCreationStore({ ...unavailable, latest: () => null }); await login(f.session)
     assert.throws(() => f.session.createRoom(input(f.session)))
     assert.equal(f.sent.some(l => l.includes('!mp make')), false)
-    f.session.setCreationStore({ latest: () => f.store.latest(), begin: (...args) => f.store.begin(...args), complete() { throw new Error('disk full') } })
+    f.session.setCreationStore({ latest: () => f.store.latest('Example'), begin: (...args) => f.store.begin(...args), complete() { throw new Error('disk full') } })
     await login(f.session); f.session.createRoom(input(f.session))
     await until(() => f.sent.some(l => l.includes('!mp make')))
     confirmed(f.peer()); await until(() => f.session.state.room?.id === 9 && f.session.state.room.joined)
     assert.equal(f.session.state.creation.status, 'blocked')
     assert.equal(f.session.state.creation.roomId, 9)
     assert.throws(() => f.session.createRoom(input(f.session)))
-    assert.equal(f.store.latest()?.status, 'pending')
+    assert.equal(f.store.latest('Example')?.status, 'pending')
   } finally { await f.close() }
 })
 
@@ -240,4 +241,61 @@ test('late own JOIN recovers timeout but cannot resurrect kicked or closed rooms
     f.peer().write(':Example JOIN :#mp_9\n')
     await delay(20); assert.equal(f.session.state.room, null)
   } finally { await f.close() }
+})
+
+test('legacy creation migration never assigns ownership or discloses the old room; repeat opens remain safe', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'oclr-legacy-test-')), file = join(dir, 'creation.sqlite')
+  let store: SqliteCreationStore | null = null
+  try {
+    const db = new DatabaseSync(file)
+    db.exec("CREATE TABLE room_creation(slot INTEGER PRIMARY KEY, id TEXT, status TEXT, room_id INTEGER, created_at TEXT); PRAGMA user_version=1;")
+    db.prepare('INSERT INTO room_creation VALUES(1,?,?,?,?)').run('legacy-intent', 'created', 987654321, new Date().toISOString())
+    db.close()
+    store = new SqliteCreationStore(file)
+    for (const name of ['Example', 'Other']) {
+      assert.deepEqual({ ...store.latest(name), createdAt: '' }, { id: 'legacy-intent', status: 'pending', roomId: null, createdAt: '', legacy: true })
+      assert.throws(() => store!.complete(name, 'legacy-intent', 12))
+    }
+    assert.throws(() => store!.begin('Example', 'next-intent', null))
+    store.begin('Example', 'next-intent', 'legacy-intent'); store.complete('Example', 'next-intent', 12)
+    store.close(); store = new SqliteCreationStore(file)
+    assert.equal(store.latest('example')?.roomId, 12)
+    assert.equal(store.latest('Other')?.roomId, null)
+    assert.equal(store.latest('Other')?.legacy, true)
+    const check = new DatabaseSync(file)
+    assert.equal(check.prepare('PRAGMA user_version').get()?.user_version, 2)
+    assert.equal(check.prepare("SELECT name FROM sqlite_master WHERE name='room_creation'").get(), undefined)
+    check.close()
+  } finally { store?.close(); rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('creation compare-and-set and completion stay within normalized account scope', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'oclr-scope-test-')), file = join(dir, 'creation.sqlite')
+  const first = new SqliteCreationStore(file), second = new SqliteCreationStore(file)
+  try {
+    first.begin('Ref Name', 'first', null)
+    assert.equal(second.latest('ref_name')?.id, 'first')
+    assert.equal(second.latest('Other'), null)
+    assert.throws(() => second.begin('Ref_Name', 'race', null))
+    assert.throws(() => second.complete('Other', 'first', 42))
+    second.begin('Other', 'second', null); second.complete('Other', 'second', 43)
+    first.complete('Ref Name', 'first', 42)
+    assert.equal(first.latest('Ref_Name')?.roomId, 42)
+    assert.equal(first.latest('Other')?.roomId, 43)
+  } finally { first.close(); second.close(); rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('invalid legacy migration rolls back rather than discarding the recovery guard', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'oclr-bad-legacy-')), file = join(dir, 'creation.sqlite')
+  const db = new DatabaseSync(file)
+  db.exec("CREATE TABLE room_creation(slot INTEGER PRIMARY KEY, id TEXT, status TEXT, room_id INTEGER, created_at TEXT); INSERT INTO room_creation VALUES(1,'legacy','invalid',9,'invalid'); PRAGMA user_version=1;")
+  db.close()
+  const store = new SqliteCreationStore(file)
+  try {
+    assert.throws(() => store.latest('Example'))
+    const check = new DatabaseSync(file)
+    assert.equal(check.prepare('PRAGMA user_version').get()?.user_version, 1)
+    assert.equal(check.prepare('SELECT id FROM room_creation').get()?.id, 'legacy')
+    check.close()
+  } finally { store.close(); rmSync(dir, { recursive: true, force: true }) }
 })
