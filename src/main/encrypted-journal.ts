@@ -37,12 +37,14 @@ export class EncryptedJournal {
     try {
       this.db.exec('PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; PRAGMA secure_delete=ON;')
       const version = this.db.prepare('PRAGMA user_version').get()!.user_version
-      if (version !== 0 && version !== 1) throw new Error('Unsupported journal schema')
+      if (version !== 0 && version !== 1 && version !== 2) throw new Error('Unsupported journal schema')
       this.db.exec(`BEGIN IMMEDIATE;
         CREATE TABLE IF NOT EXISTS journal_keys (account TEXT PRIMARY KEY, wrapped BLOB NOT NULL);
         CREATE TABLE IF NOT EXISTS journal_events (id INTEGER PRIMARY KEY, account TEXT NOT NULL, time INTEGER NOT NULL, payload BLOB NOT NULL);
         CREATE INDEX IF NOT EXISTS journal_expiry ON journal_events(time);
-        PRAGMA user_version=1; COMMIT;`)
+        CREATE TABLE IF NOT EXISTS journal_preferences (slot INTEGER PRIMARY KEY CHECK(slot=1), enabled INTEGER NOT NULL CHECK(enabled IN (0,1)));
+        PRAGMA user_version=2; COMMIT;`)
+      this.enabled = this.db.prepare('SELECT enabled FROM journal_preferences WHERE slot=1').get()?.enabled !== 0
       this.cleanup()
       this.timer = setInterval(() => { try { this.cleanup() } catch { this.clearKey(); this.status = 'failed' } }, 3600000)
       this.timer.unref()
@@ -100,18 +102,57 @@ export class EncryptedJournal {
       } catch { this.clearKey(); this.status = 'failed' }
     })
   }
-  read() { return this.run(async (): Promise<JournalEvent[]> => {
-    this.cleanup()
-    if (!this.key || !this.account || !this.enabled) return []
-    try {
-      return this.db.prepare('SELECT time,payload FROM journal_events WHERE account=? ORDER BY id DESC LIMIT 1000').all(this.account).map(row => {
-        const data = Buffer.from(row.payload as Uint8Array)
-        const decipher = createDecipheriv('aes-256-gcm', this.key!, data.subarray(0, 12))
-        decipher.setAuthTag(data.subarray(12, 28)); decipher.setAAD(Buffer.from(JSON.stringify([1, this.account, row.time])))
-        return JSON.parse(Buffer.concat([decipher.update(data.subarray(28)), decipher.final()]).toString('utf8')) as JournalEvent
-      }).reverse()
-    } catch { this.clearKey(); this.status = 'failed'; return [] }
-  }) }
+  get isEnabled() { return this.enabled }
+  private decode(row: Record<string, unknown>): JournalEvent {
+    const data = Buffer.from(row.payload as Uint8Array)
+    const decipher = createDecipheriv('aes-256-gcm', this.key!, data.subarray(0, 12))
+    decipher.setAuthTag(data.subarray(12, 28)); decipher.setAAD(Buffer.from(JSON.stringify([1, this.account, row.time])))
+    const value = JSON.parse(Buffer.concat([decipher.update(data.subarray(28)), decipher.final()]).toString('utf8'))
+    if (!value || value.time !== row.time || typeof value.room !== 'string' || typeof value.text !== 'string') throw new Error('Invalid event')
+    return { time: value.time, room: clean(value.room), text: clean(value.text) }
+  }
+  read(room?: string) {
+    const generation = this.generation
+    return this.run(async (): Promise<JournalEvent[]> => {
+      if (generation !== this.generation) return []
+      try {
+        this.cleanup()
+        if (!this.key || !this.account || !this.enabled) return []
+        const events: JournalEvent[] = []
+        for (const row of this.db.prepare('SELECT time,payload FROM journal_events WHERE account=? ORDER BY id DESC').iterate(this.account)) {
+          const event = this.decode(row)
+          if (!room || event.room === room) events.push(event)
+          if (events.length === 1000) break
+        }
+        return events.reverse()
+      } catch { this.clearKey(); this.status = 'failed'; return [] }
+    })
+  }
+  clear(room?: string) {
+    const generation = this.generation
+    return this.run(async () => {
+      if (generation !== this.generation || !this.account) return
+      if (!room) { this.db.prepare('DELETE FROM journal_events WHERE account=?').run(this.account); return }
+      if (!this.key) throw new Error('Journal unavailable')
+      const ids: number[] = []
+      for (const row of this.db.prepare('SELECT id,time,payload FROM journal_events WHERE account=?').iterate(this.account)) {
+        if (this.decode(row).room === room) ids.push(Number(row.id))
+      }
+      this.db.exec('BEGIN IMMEDIATE')
+      try {
+        for (const id of ids) this.db.prepare('DELETE FROM journal_events WHERE id=? AND account=?').run(id, this.account)
+        this.db.exec('COMMIT')
+      } catch (error) { this.db.exec('ROLLBACK'); throw error }
+    })
+  }
+  async enable(username?: string) {
+    const generation = this.generation
+    await this.run(async () => {
+      this.db.prepare('INSERT OR REPLACE INTO journal_preferences VALUES(1,1)').run()
+      this.enabled = true
+    })
+    if (username && generation === this.generation) await this.authenticate(username)
+  }
   cleanup() { this.db.prepare('DELETE FROM journal_events WHERE time<=?').run(this.clock() - RETENTION) }
   logout() {
     const account = this.account; ++this.generation; this.clearKey(); this.account = null
@@ -124,7 +165,7 @@ export class EncryptedJournal {
   }
   disable() {
     ++this.generation; this.enabled = false; this.clearKey()
-    return this.run(async () => { this.db.exec('DELETE FROM journal_events; DELETE FROM journal_keys;') })
+    return this.run(async () => { this.db.exec('BEGIN IMMEDIATE; INSERT OR REPLACE INTO journal_preferences VALUES(1,0); DELETE FROM journal_events; DELETE FROM journal_keys; COMMIT;') })
   }
   async close() { if (this.timer) clearInterval(this.timer); this.timer = null; ++this.generation; this.clearKey(); await this.tail; this.db.close() }
 }
