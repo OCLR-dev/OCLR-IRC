@@ -44,6 +44,13 @@ export class Operations {
     this.active.set(record.id, { command, generation, timer })
     return record.id
   }
+  extend(id: string, deadlineMs: number) {
+    const record = this.records.find(r => r.id === id), active = this.active.get(id)
+    if (!record || record.state !== 'awaiting' || !active || this.failed) return false
+    clearTimeout(active.timer)
+    active.timer = setTimeout(() => this.finish(id, 'unknown'), Math.min(60000, Math.max(1, deadlineMs)))
+    active.timer.unref(); return true
+  }
   finish(id: string, state: 'observed' | 'unknown', roomId?: number) {
     const record = this.records.find(r => r.id === id)
     if (!record || record.state !== 'awaiting') return

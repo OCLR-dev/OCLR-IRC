@@ -1,3 +1,4 @@
+import { PlanControl } from './room-plan'
 import { useEffect, useState } from 'react'
 import { Button, Input, Label, TextField } from '@heroui/react'
 import { WorkspaceCheckbox, WorkspaceSelect } from './controls'
@@ -24,6 +25,7 @@ export function ManualLineup({ room }: { room: Room }) {
         <Button size="sm" variant="ghost" onPress={() => { setRoster(items => items.filter(item => item.osuId !== player.osuId)); setSelection(items => items.filter(item => item.osuId !== player.osuId)) }}>移除</Button>
       </div>
     })}
+    <PlanControl room={room} plan={{kind: 'lineup', players: selection}} />
     <div className="lineup-differences" role="status">{differences.length ? differences.map((issue, index) => <p key={index}>{issue.osuId ? `${roster.find(p => p.osuId === issue.osuId)?.name ?? `#${issue.osuId}`} · ` : ''}{labels[issue.kind]}</p>) : <p>符合手動陣容</p>}</div>
   </details>
 }

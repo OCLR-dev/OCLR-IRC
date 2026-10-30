@@ -1,3 +1,5 @@
+import { roomPlan, roomPlanMatches } from '../shared/room-plan.ts'
+import type { RoomPlanDefinition, RoomPlanPreview } from '../shared/room-plan.ts'
 import { lobbyIntent, lobbyCommand } from '../shared/lobby-command.ts'
 import type { LobbyIntent, LobbyPreview } from '../shared/lobby-command.ts'
 import { OperationPlan } from './operation-plan.ts'
@@ -77,6 +79,8 @@ export class IrcSession extends EventEmitter {
   private creationTimer: ReturnType<typeof setTimeout> | null = null
 
   private lobbyPreview: { playerName?: string; token: string; intent: LobbyIntent; view: RoomView; fingerprint: string; deadline: number } | null = null
+  private roomPlan: OperationPlan | null = null
+  private roomPlanPreview: { definition: RoomPlanDefinition; view: RoomView; token: string; fingerprint: string; deadline: number } | null = null
   private mapPlan: OperationPlan | null = null
   private appliedProfile: MapProfile | null = null
   private profilePreview: { token: string; profile: MapProfile; view: RoomView; fingerprint: string; deadline: number } | null = null
@@ -84,7 +88,7 @@ export class IrcSession extends EventEmitter {
   private creationOperation: string | null = null
   setOperationStore(store: OperationStore) { this.operations.setStore(store) }
   clearWebsiteOperations() { this.operations.clearWebsite() }
-  reviewOperation(input: unknown) { if ((input as { id?: string })?.id === this.mapPlan?.state.id) this.mapPlan?.cancel(); this.operations.review(input) }
+  reviewOperation(input: unknown) { if ((input as { id?: string })?.id === this.mapPlan?.state.id) this.mapPlan?.cancel(); if ((input as { id?: string })?.id === this.roomPlan?.state.id) this.roomPlan?.cancel(); this.operations.review(input) }
   constructor(createSocket = () => net.createConnection({ host: 'irc.ppy.sh', port: 6667 }), timing: Partial<Timing> = {}, durationLookup: (id: number) => Promise<number | null> = async () => null) {
     super()
     this.durationLookup = durationLookup
@@ -94,6 +98,7 @@ export class IrcSession extends EventEmitter {
   get state(): Snapshot {
     const view = this.selected === null ? undefined : this.views.get(this.selected)
     return {
+      roomPlan: this.roomPlan?.state ?? null,
       mapPlan: this.mapPlan?.state ?? null,
       operations: this.operations.snapshot,
       creation: { ...this.creation },
@@ -127,7 +132,7 @@ export class IrcSession extends EventEmitter {
   }
   get sessionGeneration() { return this.generation }
   private disconnect() {
-    this.mapPlan?.cancel(); this.profilePreview = null; this.lobbyPreview = null
+    this.roomPlan?.cancel(); this.roomPlanPreview = null; this.mapPlan?.cancel(); this.profilePreview = null; this.lobbyPreview = null
     this.operations.interrupt()
     this.creationJoins.clear()
     this.mpPreview = null
@@ -153,7 +158,7 @@ export class IrcSession extends EventEmitter {
   logout(preserveRecovery = false) {
     this.disconnect()
     this.operations.logout(preserveRecovery)
-    this.mapPlan = null; this.appliedProfile = null
+    this.roomPlan = null; this.mapPlan = null; this.appliedProfile = null
     this.views.clear(); this.selected = null
     if (this.auth) this.auth.password = ''
     this.auth = null; this.retryAttempt = 0
@@ -501,7 +506,7 @@ export class IrcSession extends EventEmitter {
     this.lobbyPreview = null
     const view = this.target(input), intent = lobbyIntent((input as { intent?: unknown }).intent)
     this.mpReady(view, '', true); this.profileIdle(view)
-    if (this.mapPlan?.active) throw new Error('請先停止目前的選圖計畫。')
+    if (this.mapPlan?.active || this.roomPlan?.active) throw new Error('請先停止目前的選圖計畫。')
     if (intent.kind === 'host' && !view.room.slots.some(slot => slot.osuId === Number(intent.osuId))) throw new Error('玩家不在目前已核對的槽位內。')
     let playerName: string | undefined
     if (['invite', 'move', 'team', 'kick'].includes(intent.kind) && 'osuId' in intent) {
@@ -523,7 +528,7 @@ export class IrcSession extends EventEmitter {
   executeLobby(input: unknown) {
     const preview = this.lobbyPreview; this.lobbyPreview = null
     const view = this.target(input), value = input as Record<string, unknown>
-    if (!preview || preview.view !== view || preview.token !== value.token || value.reviewed !== true || performance.now() >= preview.deadline || preview.fingerprint !== this.mpFingerprint(view.room) || this.mapPlan?.active) throw new Error('房間設定確認已失效。')
+    if (!preview || preview.view !== view || preview.token !== value.token || value.reviewed !== true || performance.now() >= preview.deadline || preview.fingerprint !== this.mpFingerprint(view.room) || this.mapPlan?.active || this.roomPlan?.active) throw new Error('房間設定確認已失效。')
     this.mpReady(view, '', true); this.profileIdle(view)
     if (preview.playerName !== undefined && value.playerName !== preview.playerName) throw new Error('請輸入預覽中的玩家名稱以確認身份。')
     if (preview.intent.kind === 'close' && value.closeRoom !== view.room.channel) throw new Error('請輸入完整頻道名稱以確認關房。')
@@ -536,13 +541,66 @@ export class IrcSession extends EventEmitter {
     try { this.send(`PRIVMSG ${view.room.channel} :${command}`) } catch (error) { this.operations.finish(id, 'unknown'); throw error }
     finally { this.publish() }
   }
+  previewRoomPlan(input: unknown): RoomPlanPreview {
+    this.roomPlanPreview = null
+    const view = this.target(input)
+    this.mpReady(view, '', true); this.profileIdle(view)
+    if (this.mapPlan?.active || this.roomPlan?.active) throw new Error('請先停止目前的計畫。')
+    const definition = roomPlan((input as { plan?: unknown }).plan, view.room), token = randomUUID()
+    this.roomPlanPreview = { definition, view, token, fingerprint: this.mpFingerprint(view.room), deadline: performance.now() + 10000 }
+    return { token, channel: view.room.channel, kind: definition.kind, commands: definition.steps.map(s => s.command), names: definition.names, expiresAt: new Date(Date.now() + 10000).toISOString() }
+  }
+  cancelRoomPlan(input: unknown) {
+    if (!input || typeof input !== 'object' || (input as { id?: unknown }).id !== this.roomPlan?.state.id) throw new Error('計畫已變更。')
+    this.roomPlan?.cancel()
+  }
+  executeRoomPlan(input: unknown) {
+    const preview = this.roomPlanPreview; this.roomPlanPreview = null
+    const view = this.target(input), value = input as Record<string, unknown>
+    if (!preview || preview.view !== view || preview.token !== value.token || value.reviewed !== true || performance.now() >= preview.deadline || preview.fingerprint !== this.mpFingerprint(view.room) || this.mapPlan?.active || this.roomPlan?.active) throw new Error('計畫確認已失效。')
+    const definition = preview.definition
+    if (definition.kind === 'lineup' && (value.policyReviewed !== true || JSON.stringify(value.names) !== JSON.stringify(definition.names))) throw new Error('請核對所有玩家名稱與本次換人政策。')
+    this.mpReady(view, '', true); this.profileIdle(view)
+    const generation = this.generation, epoch = view.room.epoch, stepMs = this.timing.queryMs * 2 + this.timing.floodMs * 4
+    const id = this.operations.begin('manual', definition.kind === 'room' ? 'roomplan' : 'lineupplan', view.room.id, epoch, generation, '', stepMs + 1000)
+    const queries: (string | undefined)[] = []
+    const valid = () => this.connection === 'online' && this.generation === generation && this.views.get(view.room.id) === view && view.room.epoch === epoch && view.room.joined && this.selected === view.room.id && this.operations.snapshot.records.some(r => r.id === id && r.state === 'awaiting')
+    this.roomPlan = new OperationPlan({id, roomId:view.room.id, roomEpoch:epoch, revision:randomUUID(), state:'queued', steps:definition.steps.map(s=>({command:s.command,state:'queued'}))}, {
+      ready: index => {
+        if (!valid()) return 'invalid'
+        try { this.profileIdle(view) } catch { return 'invalid' }
+        if (view.pending || this.work.length || this.workTimer || Date.now() - this.lastQueryAt < this.timing.floodMs) return 'wait'
+        try { this.mpReady(view, '', true); return roomPlanMatches(definition, view.room, index) ? 'ready' : 'invalid' } catch { return 'invalid' }
+      },
+      send: index => {
+        if (!this.operations.extend(id, stepMs + 1000)) throw new Error('操作已失效。')
+        queries[index] = this.settingsEvidence.get(view)?.name.queryId
+        this.lastQueryAt = Date.now(); this.clearFresh(view); view.room.syncState = 'stale'
+        const command = definition.steps[index].command
+        this.note(view, command, 'self', this.username, 'unconfirmed'); this.send(`PRIVMSG ${view.room.channel} :${command}`)
+        this.enqueue(view, 'settings'); this.enqueue(view, 'listrefs')
+      },
+      observe: index => {
+        if (!valid()) return 'invalid'
+        try { this.profileIdle(view) } catch { return 'invalid' }
+        const evidence = this.settingsEvidence.get(view)?.name
+        if (!evidence || evidence.queryId === queries[index] || view.pending || this.work.length || this.workTimer || Date.now() - this.lastQueryAt < this.timing.floodMs) return 'wait'
+        if (evidence.connectionGeneration !== generation || evidence.roomEpoch !== epoch) return 'invalid'
+        try { this.mpReady(view, '', true) } catch { return 'invalid' }
+        return roomPlanMatches(definition, view.room, index + 1) ? 'match' : 'invalid'
+      },
+      changed: () => this.publish(),
+      finished: state => { this.operations.finish(id, state.state === 'observed' ? 'observed' : 'unknown'); this.publish() }
+    }, stepMs)
+    this.roomPlan.start(); this.publish()
+  }
   previewProfile(input: unknown): MapPlanPreview {
     this.profilePreview = null
     const view = this.target(input), profile = mapProfile((input as { profile?: unknown }).profile)
     const command = profileCommands(profile)[0]
     this.mpReady(view, command)
     this.profileIdle(view)
-    if (this.mapPlan?.active) throw new Error('請先停止目前的選圖計畫。')
+    if (this.mapPlan?.active || this.roomPlan?.active) throw new Error('請先停止目前的選圖計畫。')
     const token = randomUUID()
     this.profilePreview = { token, profile, view, fingerprint: this.mpFingerprint(view.room), deadline: performance.now() + 10000 }
     return { token, channel: view.room.channel, commands: profileCommands(profile), freemod: profile.freemod, expiresAt: new Date(Date.now() + 10000).toISOString() }
@@ -557,7 +615,7 @@ export class IrcSession extends EventEmitter {
   executeProfile(input: unknown) {
     const preview = this.profilePreview; this.profilePreview = null
     const view = this.target(input), value = input as Record<string, unknown>
-    if (!preview || value.token !== preview.token || value.reviewed !== true || preview.profile.freemod && value.individualReviewed !== true || preview.view !== view || performance.now() >= preview.deadline || preview.fingerprint !== this.mpFingerprint(view.room) || this.mapPlan?.active) throw new Error('選圖確認已失效，請重新預覽與核對。')
+    if (!preview || value.token !== preview.token || value.reviewed !== true || preview.profile.freemod && value.individualReviewed !== true || preview.view !== view || performance.now() >= preview.deadline || preview.fingerprint !== this.mpFingerprint(view.room) || this.mapPlan?.active || this.roomPlan?.active) throw new Error('選圖確認已失效，請重新預覽與核對。')
     const commands = profileCommands(preview.profile), epoch = view.room.epoch, generation = this.generation
     this.mpReady(view, commands[0]); this.profileIdle(view)
     const id = this.operations.begin('manual', 'mapprofile', view.room.id, epoch, generation, '', (this.timing.queryMs * 2 + this.timing.floodMs * 4) * 2 + 1000)
@@ -612,7 +670,7 @@ export class IrcSession extends EventEmitter {
     const value = input as Record<string, unknown>
     if (!preview || value.token !== preview.token || value.reviewed !== true || preview.view !== view || performance.now() >= preview.deadline || this.mpFingerprint(view.room) !== preview.fingerprint) throw new Error('確認已失效或房間狀態已變更，請重新預覽。')
     this.mpReady(view, preview.command)
-    if (/^!mp (?:abort|aborttimer)$/.test(preview.command)) this.mapPlan?.cancel()
+    if (/^!mp (?:abort|aborttimer)$/.test(preview.command)) { this.mapPlan?.cancel(); this.roomPlan?.cancel() }
     const operationId = this.operations.begin('manual', preview.command.split(' ')[1], view.room.id, view.room.epoch, this.generation, preview.command)
     this.clearFresh(view)
     view.room.syncState = 'stale'; view.room.referee = 'unknown'; this.refereeSeen.delete(view)
@@ -638,7 +696,7 @@ export class IrcSession extends EventEmitter {
     this.mpReady(view)
     if (/^!mp (?:map|mods|set|start)\b/.test(text) && view.room.startCountdown && ['active', 'unknown'].includes(view.room.startCountdown.status)) throw new Error('開賽倒數待取消或核對。')
     if (/^!mp (?:map|mods|set|start)\b/.test(text) && (view.room.phase === 'playing' || view.room.slots.some(slot => /^playing$/i.test(slot.status)))) throw new Error('比賽進行中，請先核對或中止比賽。')
-    if (/^!mp (?:abort|aborttimer)$/.test(text)) this.mapPlan?.cancel()
+    if (/^!mp (?:abort|aborttimer)$/.test(text)) { this.mapPlan?.cancel(); this.roomPlan?.cancel() }
     const operationId = this.operations.begin('oclr', text.split(' ')[1], view.room.id, view.room.epoch, this.generation, text)
     this.lastQueryAt = Date.now()
     this.clearFresh(view); view.room.syncState = 'stale'

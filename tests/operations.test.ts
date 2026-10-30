@@ -66,3 +66,12 @@ test('recovery stores no command/private name, scopes accounts, fails before sen
     assert.equal(broken.snapshot.records.length, 0)
   } finally { store.close(); rmSync(dir, { recursive: true, force: true }) }
 })
+
+test('step deadlines can extend only active plans and never revive interrupted results', async () => {
+  const ops = new Operations(()=>{},undefined,10);ops.authenticate('Alice')
+  const id=ops.begin('manual','roomplan',1,1,1,'')
+  assert.equal(ops.extend(id,100),true)
+  await new Promise(resolve=>setTimeout(resolve,25));assert.equal(ops.snapshot.records[0].state,'awaiting')
+  ops.interrupt();assert.equal(ops.extend(id,100),false)
+  assert.equal(ops.snapshot.records[0].state,'unknown');ops.logout()
+})
