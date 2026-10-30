@@ -1,3 +1,4 @@
+import { SqliteOperationStore } from './operation-store.ts'
 import { EncryptedJournal } from './encrypted-journal.ts'
 import { registerJournal } from './journal-ipc.ts'
 import { fetchBeatmapDuration } from './beatmap-duration.ts'
@@ -24,7 +25,7 @@ const relay = new OclrRelay(oclr, irc)
 let loginGeneration = 0
 let pendingSave: { username: string; password: string } | null = null
 let credentialError: string | null = null
-function logout() { loginGeneration++; pendingSave = null; irc.logout() }
+function logout() { loginGeneration++; pendingSave = null; irc.logout(quitting) }
 function snapshot() { return { ...irc.state, credentialError } }
 let window: BrowserWindow | null = null
 let background: DesktopBackground | null = null
@@ -45,6 +46,8 @@ function action(event: Electron.IpcMainInvokeEvent, fn: () => void) {
 }
 app.whenReady().then(() => {
   if (!primaryInstance) return
+  try { const operationStore = new SqliteOperationStore(join(app.getPath('userData'), 'operation-recovery.sqlite')); irc.setOperationStore(operationStore); app.on('will-quit', () => operationStore.close()) }
+  catch { irc.setOperationStore({ load() { throw new Error('Unavailable') }, save() { throw new Error('Unavailable') }, clear() {} }) }
   irc.setCreationStore(new SqliteCreationStore(join(app.getPath('userData'), 'room-creation.sqlite')))
   const store = new CredentialStore(join(app.getPath('userData'), 'irc-credentials.enc'), {
     // Linux async provider/fallback assurance is still unverified: fail closed.
@@ -59,9 +62,14 @@ app.whenReady().then(() => {
       encrypt: value => safeStorage.encryptStringAsync(value), decrypt: value => safeStorage.decryptStringAsync(value)
     })
   } catch { /* Storage failure is reported without blocking IRC or falling back to plaintext. */ }
-  registerJournal(journal, irc, trusted, () => quitting, oclr)
+  registerJournal(journal, irc, trusted, () => quitting, oclr, () => { if (window && !window.isDestroyed()) window.webContents.send('journal:invalidate') })
   app.on('will-quit', () => { void journal?.close().catch(() => {}) })
   function changed() { if (window && !window.isDestroyed()) window.webContents.send('irc:state', snapshot()) }
+  let operationContext = ''
+  oclr.on('state', state => {
+    const context = `${state.subject?.osuId ?? ''}:${state.selectedFixtureId ?? ''}`
+    if (context !== operationContext) { operationContext = context; irc.clearWebsiteOperations() }
+  })
   oclr.on('state', state => { if (window && !window.isDestroyed()) window.webContents.send('oclr:state', state) })
   async function websiteAction(event: Electron.IpcMainInvokeEvent, fn: () => unknown) {
     trusted(event)
@@ -129,6 +137,7 @@ app.whenReady().then(() => {
   ipcMain.handle('irc:create-room', (event, value: unknown) => action(event, () => irc.createRoom(value)))
   ipcMain.handle('irc:select-room', (event, value: unknown) => action(event, () => irc.selectRoom(value)))
   ipcMain.handle('irc:leave-room', (event, value: unknown) => action(event, () => irc.leaveRoom(value)))
+  ipcMain.handle('irc:operation-review', (event, input: unknown) => action(event, () => irc.reviewOperation(input)))
   ipcMain.handle('irc:query', (event, value: unknown) => action(event, () => irc.query(value)))
   ipcMain.handle('irc:mp-preview', (event, value: unknown) => {
     trusted(event)

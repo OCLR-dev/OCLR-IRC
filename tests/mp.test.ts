@@ -64,6 +64,8 @@ test('four manual commands require scoped one-use preview and explicit confirmat
       assert.ok(f.session.state.messages.some(m => m.text === preview.command && m.delivery === 'unconfirmed'))
       assert.throws(() => f.session.executeMp({ ...f.target(), token: preview.token, reviewed: true }))
       assert.throws(() => f.session.previewMp({ ...f.target(), intent }))
+      const operation = f.session.state.operations!.records.at(-1)!
+      f.session.reviewOperation({ id: operation.id, reviewed: true })
     }
     assert.equal(f.sent.filter(line => /:!mp (?:map|mods|start|abort)(?: |$)/.test(line)).length, 4)
     assert.ok(!f.sent.some(line => line.includes('!mp close')))

@@ -1,3 +1,4 @@
+import type { OperationRecord } from './operation.ts'
 import type { Countdown } from './countdown.ts'
 import type { MpIntent, MpPreview } from './mp-command.ts'
 import type { OclrSnapshot } from './oclr-contracts.ts'
@@ -16,6 +17,7 @@ export interface RoomCreation {
   message: string | null
 }
 export interface Snapshot {
+  operations?: { records: OperationRecord[]; failed: boolean }
   creation: RoomCreation
   credentialError?: string | null
   retryAttempt: number
@@ -34,6 +36,7 @@ export interface JournalEntry { time: number; room: string; text: string }
 export interface JournalState { enabled: boolean; status: 'saving' | 'memory_only' | 'failed'; account: string | null }
 export interface DesktopAPI {
   journal: {
+    onInvalidate(listener: () => void): () => void
     status(): Promise<JournalState>
     setEnabled(enabled: boolean): Promise<{ ok: boolean; error?: string }>
     read(room?: string): Promise<{ ok: boolean; entries?: JournalEntry[]; error?: string }>
@@ -41,6 +44,7 @@ export interface DesktopAPI {
     export(room?: string): Promise<{ ok: boolean; cancelled?: boolean; error?: string }>
   }
 
+  reviewOperation(input: { id: string; reviewed: boolean }): Promise<{ ok: boolean; error?: string }>
   runInBackground(): Promise<{ ok: boolean; error?: string }>
   quit(): Promise<{ ok: boolean; error?: string }>
   website: {

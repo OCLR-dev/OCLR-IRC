@@ -1,3 +1,5 @@
+import { Operations } from './operations.ts'
+import type { OperationStore } from './operation-store.ts'
 import { countdownEvent } from '../shared/countdown.ts'
 import { relayCommand } from '../shared/relay-command.ts'
 import { mpCommand } from '../shared/mp-command.ts'
@@ -69,6 +71,11 @@ export class IrcSession extends EventEmitter {
   private creationJoins = new Set<string>()
   private creationTimer: ReturnType<typeof setTimeout> | null = null
 
+  private operations = new Operations(() => this.publish())
+  private creationOperation: string | null = null
+  setOperationStore(store: OperationStore) { this.operations.setStore(store) }
+  clearWebsiteOperations() { this.operations.clearWebsite() }
+  reviewOperation(input: unknown) { this.operations.review(input) }
   constructor(createSocket = () => net.createConnection({ host: 'irc.ppy.sh', port: 6667 }), timing: Partial<Timing> = {}, durationLookup: (id: number) => Promise<number | null> = async () => null) {
     super()
     this.durationLookup = durationLookup
@@ -78,6 +85,7 @@ export class IrcSession extends EventEmitter {
   get state(): Snapshot {
     const view = this.selected === null ? undefined : this.views.get(this.selected)
     return {
+      operations: this.operations.snapshot,
       creation: { ...this.creation },
       retryAttempt: this.retryAttempt, retryAt: this.retryAt, connection: this.connection, username: this.username, leavingChannels: [...this.departing],
       error: this.error || view?.error || null, room: view?.room || null,
@@ -108,6 +116,7 @@ export class IrcSession extends EventEmitter {
     this.socket.write(line + '\r\n')
   }
   private disconnect() {
+    this.operations.interrupt()
     this.creationJoins.clear()
     this.mpPreview = null
     if (this.creation.status === 'awaiting') this.creationUnknown('開房時連線中斷，結果不明。請核對既有房間；不會自動重送。')
@@ -129,8 +138,9 @@ export class IrcSession extends EventEmitter {
       Object.assign(view.room, blankObservation(), { syncState: 'stale', name: null, mode: null, players: null, members: [] })
     }
   }
-  logout() {
+  logout(preserveRecovery = false) {
     this.disconnect()
+    this.operations.logout(preserveRecovery)
     this.views.clear(); this.selected = null
     if (this.auth) this.auth.password = ''
     this.auth = null; this.retryAttempt = 0
@@ -196,6 +206,7 @@ export class IrcSession extends EventEmitter {
   }
   private online() {
     this.clearLoginTimer(); this.connection = 'online'; this.error = null
+    this.operations.authenticate(this.username)
     this.prepareCreation()
     this.emit('authenticated')
     const generation = this.generation
@@ -254,6 +265,7 @@ export class IrcSession extends EventEmitter {
   }
   leaveRoom(input: unknown) {
     const view = this.target(input)
+    this.operations.interrupt(view.room.id)
     // PART only leaves this account's channel; it is never !mp close.
     const part = this.connection === 'online' && view.room.kind !== 'private' && (view.room.joined || view.joinSent)
     if (part) {
@@ -326,6 +338,8 @@ export class IrcSession extends EventEmitter {
     }
   }
   private creationUnknown(message: string) {
+    if (this.creationOperation) this.operations.finish(this.creationOperation, 'unknown')
+    this.creationOperation = null
     this.creationJoins.clear()
     if (this.creationTimer) clearTimeout(this.creationTimer)
     this.creationTimer = null; this.creationName = null
@@ -348,6 +362,7 @@ export class IrcSession extends EventEmitter {
       this.creation = { ...this.creation, status: 'blocked', message: '無法保存開房記錄，或其他視窗已開房。本次指令未送出，請重新登入後核對。' }
       this.publish(); throw new Error(this.creation.message!)
     }
+    this.creationOperation = this.operations.begin('manual', 'make', null, 0, this.generation, '!mp make')
     this.creationJoins.clear()
     this.creationName = name
     this.creation = { ...this.creation, status: 'awaiting', roomId: null, message: null }
@@ -374,6 +389,8 @@ export class IrcSession extends EventEmitter {
     this.creation = { status: 'created', requestId: randomUUID(), roomId: id, message: `已建立比賽房間 ${id}。` }
     try { this.creationStore!.complete(operationId, id); this.previousCreationId = operationId }
     catch { this.creation = { ...this.creation, status: 'blocked', message: `房間 ${id} 已建立，但防重送記錄更新失敗；禁止再次開房，請核對後重新登入。` } }
+    if (this.creationOperation) this.operations.finish(this.creationOperation, 'observed', id)
+    this.creationOperation = null
     this.join(String(id))
     const view = this.views.get(id)!
     view.needsSync = true
@@ -482,6 +499,7 @@ export class IrcSession extends EventEmitter {
     const value = input as Record<string, unknown>
     if (!preview || value.token !== preview.token || value.reviewed !== true || preview.view !== view || performance.now() >= preview.deadline || this.mpFingerprint(view.room) !== preview.fingerprint) throw new Error('確認已失效或房間狀態已變更，請重新預覽。')
     this.mpReady(view, preview.command)
+    const operationId = this.operations.begin('manual', preview.command.split(' ')[1], view.room.id, view.room.epoch, this.generation, preview.command)
     this.clearFresh(view)
     view.room.syncState = 'stale'; view.room.referee = 'unknown'; this.refereeSeen.delete(view)
     this.lastQueryAt = Date.now()
@@ -491,6 +509,7 @@ export class IrcSession extends EventEmitter {
     this.note(view, preview.command, 'self', this.username, 'unconfirmed')
     this.note(view, '房內操作已嘗試送出，結果未確認；請核對 BanchoBot 回覆，再讀取設定與裁判名單。不會自動重送。')
     try { this.send(`PRIVMSG ${view.room.channel} :${preview.command}`) }
+    catch (error) { this.operations.finish(operationId, 'unknown'); throw error }
     finally { this.publish() }
   }
   relayReady(input: RoomTarget) { try { this.mpReady(this.target(input)); return true } catch { return false } }
@@ -505,10 +524,12 @@ export class IrcSession extends EventEmitter {
     this.mpReady(view)
     if (/^!mp (?:map|mods|set|start)\b/.test(text) && view.room.startCountdown && ['active', 'unknown'].includes(view.room.startCountdown.status)) throw new Error('開賽倒數待取消或核對。')
     if (/^!mp (?:map|mods|set|start)\b/.test(text) && (view.room.phase === 'playing' || view.room.slots.some(slot => /^playing$/i.test(slot.status)))) throw new Error('比賽進行中，請先核對或中止比賽。')
+    const operationId = this.operations.begin('oclr', text.split(' ')[1], view.room.id, view.room.epoch, this.generation, text)
     this.lastQueryAt = Date.now()
     this.clearFresh(view); view.room.syncState = 'stale'
     this.note(view, text, 'self', this.username, 'unconfirmed')
     try { this.send(`PRIVMSG ${view.room.channel} :${text}`) }
+    catch (error) { this.operations.finish(operationId, 'unknown'); throw error }
     finally { this.enqueue(view, 'settings'); this.enqueue(view, 'listrefs'); this.publish() }
   }
   chat(input: unknown) {
@@ -521,6 +542,7 @@ export class IrcSession extends EventEmitter {
     this.note(view, text, 'self', this.username, 'sent'); view.error = null; this.publish()
   }
   private unavailable(view: RoomView, message: string) {
+    this.operations.interrupt(view.room.id)
     this.clearFresh(view); this.clearTimer(view); view.restore = false; view.collector = null; view.refsHeader = false; view.pending = null
     Object.assign(view.room, blankObservation())
     view.room.joined = false; view.room.binding = 'unknown'; view.room.referee = 'unknown'
@@ -583,6 +605,7 @@ export class IrcSession extends EventEmitter {
     if (command !== 'PRIVMSG' || params.length !== 2) return
     const body = params[1]; const bot = normalize(sender) === 'banchobot'
     this.note(view, body, bot ? 'bot' : self ? 'self' : 'chat', sender)
+    if (bot && room.joined && room.kind === 'match') this.operations.observe(room.id, room.epoch, this.generation, body)
     const countdown = bot && room.kind === 'match' && room.joined ? countdownEvent(body) : null
     if (countdown) {
       if (countdown.kind === 'start' && room.startCountdown?.status !== countdown.value.status) this.mpPreview = null

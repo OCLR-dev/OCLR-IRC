@@ -1,3 +1,4 @@
+import { OperationsView } from './operations'
 import { JournalView } from './journal'
 import { WorkspaceSelect, WorkspaceCheckbox } from './controls'
 import { MatchStatus } from './match-status'
@@ -27,7 +28,7 @@ function Icon({ name }: { name: 'connect' | 'room' | 'arrow' | 'logout' | 'key' 
 }
 function App() {
   const [state, setState] = useState(initial)
-  const [page, setPage] = useState<'account' | 'room' | 'oclr' | 'journal'>('account')
+  const [page, setPage] = useState<'account' | 'room' | 'oclr' | 'journal' | 'operations'>('account')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -95,15 +96,16 @@ function App() {
         <button className={page === 'room' ? 'nav-item selected' : 'nav-item'} disabled={!online && !state.rooms.length} onClick={() => setPage('room')}><Icon name="room" />房間記錄</button>
         <button className={page === 'oclr' ? 'nav-item selected' : 'nav-item'} onClick={() => setPage('oclr')}><Icon name="connect" />OCLR 場次</button>
         <button className={page === 'journal' ? 'nav-item selected' : 'nav-item'} onClick={() => setPage('journal')}><Icon name="room" />本機日誌</button>
+        <button className={page === 'operations' ? 'nav-item selected' : 'nav-item'} onClick={() => setPage('operations')}><Icon name="room" />操作記錄</button>
       </nav>
       <div className="sidebar-note"><span className="small-label">背景執行</span><Button variant="ghost" size="sm" isDisabled={!desktop} onPress={() => void runInBackground()}>轉入背景</Button><Button variant="ghost" size="sm" isDisabled={!desktop} onPress={() => { void window.oclr?.quit().catch(() => setFormError('無法退出程式。')) }}>退出程式</Button></div>
       <div className="sidebar-footer"><span className={`status-dot ${online ? 'online' : connecting ? 'connecting' : ''}`} /><div><strong>{online ? state.username : 'osu! IRC'}</strong><span>{statusText[state.connection]}</span></div>{state.username && <Button isIconOnly variant="ghost" aria-label="登出 IRC" onPress={() => void logout()}><Icon name="logout" /></Button>}</div>
     </aside>
     <div className="workspace">
-      <header className="topbar"><div><span>工作台</span><span className="breadcrumb-slash">/</span><strong>{page === 'journal' ? '本機日誌' : page === 'account' ? '帳號連線' : page === 'oclr' ? 'OCLR 場次' : '房間記錄'}</strong></div><span className="version">v0.7.0 <span>PREVIEW</span></span></header>
+      <header className="topbar"><div><span>工作台</span><span className="breadcrumb-slash">/</span><strong>{page === 'operations' ? '操作記錄' : page === 'journal' ? '本機日誌' : page === 'account' ? '帳號連線' : page === 'oclr' ? 'OCLR 場次' : '房間記錄'}</strong></div><span className="version">v0.7.0 <span>PREVIEW</span></span></header>
       {state.connection !== 'online' && state.username && <div className="reconnect-notice" role="status">{statusText[state.connection]}{state.retryAttempt > 0 && ` · 第 ${state.retryAttempt}/5 次重試`}{state.retryAt && ` · ${new Date(state.retryAt).toLocaleTimeString()} 重試`}{state.connection === 'error' && <Button size="sm" variant="ghost" onPress={() => { void window.oclr?.retry().then(result => { if (!result.ok) setFormError(result.error || '重試失敗') }).catch(() => setFormError('桌面服務無法回應。')) }}>重新連線</Button>}<Button size="sm" variant="ghost" onPress={() => void logout()}>停止並登出</Button></div>}
       <main>
-        {page === 'journal' ? <JournalView key={state.username} /> : page === 'oclr' ? <OclrView /> : page === 'account' ? <div className="account-view enter">
+        {page === 'operations' ? <OperationsView key={state.username} state={state} /> : page === 'journal' ? <JournalView key={state.username} /> : page === 'oclr' ? <OclrView /> : page === 'account' ? <div className="account-view enter">
           <section className="login-section">
             <div className="section-kicker">ACCOUNT CONNECTION</div>
             <h1>{online ? 'IRC 已連線' : '連接 osu! IRC'}</h1>

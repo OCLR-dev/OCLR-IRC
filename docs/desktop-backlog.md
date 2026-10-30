@@ -297,3 +297,9 @@ L01 Main 操作整合：手動預覽／執行及網站 relay 現在額外核對 
 IRC-only 日誌已接入 Main，預設開啟、偏好持久化、最近 1,000 則歷史／對話範圍清除及原生 JSON 匯出。明確登出清本帳號，正常退出保留七天內密文；讀取不延長期限，切帳號與匯出對話框晚回覆不返回舊帳號內容。OCLR context 不落盤，曾啟用投影的房間於該登入期間排除保存並清除既有日誌，避免在逐場重新驗權未完成時開放歷史。Linux 繼續 fail closed 僅記憶體。
 
 合成測試覆蓋偏好重開、範圍清除、generation 讀取隔離、IPC 範圍驗證、密文掃描、去密及登出取消匯出。OCLR 歷史、最小恢復 migration 與三平台真實 provider 仍未驗收，#6 保持 partial。
+
+### L03 單步操作追蹤與恢復（2026-10-30）
+
+現有 manual／relay／make 接上共用單步 tracker，固定房間 epoch、connection generation、15 秒等待期限及不重送語義。每房一筆等待；新一般操作遇未核對 unknown 阻擋。abort／aborttimer 可中止前筆等待，但仍經現有目標、權限、預覽與節流。精確可信回覆僅標 observed，不宣稱因果證明。人工核對停止等待並保留 unknown 標記。
+
+手動操作送出前同步保存最小 SQLite 恢復記錄，帳號隔離、七天清理、待回覆重啟轉 unknown；寫入失敗擋送出。網站記錄暫限記憶體並隨 subject／fixture 變更清除。舊開房單筆 guard 尚保留未確定歸屬；完整多步計畫、逐效果 preflight、OCLR 恢復與後續命令語義仍未完成。#7 保持 partial，真實回覆變體另待樣本。

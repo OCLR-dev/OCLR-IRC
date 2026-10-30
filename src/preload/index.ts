@@ -4,12 +4,18 @@ import type { OclrSnapshot } from '../shared/oclr-contracts.ts'
 
 const api: DesktopAPI = {
   journal: {
+    onInvalidate: listener => {
+      const handler = () => listener()
+      ipcRenderer.on('journal:invalidate', handler)
+      return () => ipcRenderer.removeListener('journal:invalidate', handler)
+    },
     status: () => ipcRenderer.invoke('journal:status'),
     setEnabled: enabled => ipcRenderer.invoke('journal:enabled', enabled),
     read: room => ipcRenderer.invoke('journal:read', room),
     clear: room => ipcRenderer.invoke('journal:clear', room),
     export: room => ipcRenderer.invoke('journal:export', room)
   },
+  reviewOperation: input => ipcRenderer.invoke('irc:operation-review', input),
   runInBackground: () => ipcRenderer.invoke('app:background'),
   quit: () => ipcRenderer.invoke('app:quit'),
   website: {
