@@ -1,3 +1,4 @@
+import type { RoomPlanInput, RoomPlanPreview } from './room-plan.ts'
 import type { LobbyIntent, LobbyPreview } from './lobby-command.ts'
 import type { MapProfile, MapPlanState, MapPlanPreview } from './map-profile.ts'
 import type { OperationRecord } from './operation.ts'
@@ -19,6 +20,7 @@ export interface RoomCreation {
   message: string | null
 }
 export interface Snapshot {
+  roomPlan?: MapPlanState | null
   mapPlan?: MapPlanState | null
   operations?: { records: OperationRecord[]; failed: boolean }
   creation: RoomCreation
@@ -38,6 +40,9 @@ export interface Snapshot {
 export interface JournalEntry { time: number; room: string; text: string }
 export interface JournalState { enabled: boolean; status: 'saving' | 'memory_only' | 'failed'; account: string | null }
 export interface DesktopAPI {
+  previewRoomPlan(input: RoomTarget & { plan: RoomPlanInput }): Promise<{ok: boolean; preview?: RoomPlanPreview; error?: string}>
+  executeRoomPlan(input: RoomTarget & {token: string; reviewed: boolean; names?: string[]; policyReviewed?: boolean}): Promise<{ok: boolean; error?: string}>
+  cancelRoomPlan(input: {id: string}): Promise<{ok: boolean; error?: string}>
   previewLobby(input: RoomTarget & { intent: LobbyIntent }): Promise<{ ok: boolean; preview?: LobbyPreview; error?: string }>
   executeLobby(input: RoomTarget & { token: string; reviewed: boolean; password?: string; closeRoom?: string; playerName?: string }): Promise<{ ok: boolean; error?: string }>
   previewProfile(input: RoomTarget & { profile: MapProfile }): Promise<{ ok: boolean; preview?: MapPlanPreview; error?: string }>
