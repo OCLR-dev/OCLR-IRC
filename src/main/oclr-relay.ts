@@ -1,3 +1,4 @@
+import { AccountPairing } from './account-pairing.ts'
 import { z } from 'zod'
 import { envelope, uuid } from '../shared/oclr-contracts.ts'
 import { relayCommand, relayReply } from '../shared/relay-command.ts'
@@ -21,6 +22,7 @@ function projectedMessage(message: Message) {
 
 /** Local explicit room binding. No token or IRC password enters the renderer/projection. */
 export class OclrRelay {
+  private identity = new AccountPairing()
   private binding: {subjectId: number; fixtureId: string; connectionId: string; roomId: number; roomEpoch: number; username: string; sequence: number} | null = null
   private receipts: Receipt[] = []
   private consumed = new Set<string>()
@@ -32,19 +34,31 @@ export class OclrRelay {
   private irc: IrcSession
   constructor(oclr: OclrSession, irc: IrcSession) {
     this.oclr = oclr; this.irc = irc
+    irc.on('state', () => this.refreshPairing())
     irc.on('message', ({roomId, roomEpoch, message}: {roomId: number; roomEpoch: number; message: Message}) => {
-      if (!this.binding || roomId !== this.binding.roomId || roomEpoch !== this.binding.roomEpoch || !this.pending || message.kind !== 'bot' || normalize(message.sender) !== 'banchobot' || message.id <= this.pending.after) return
+      if (!this.pairingReady() || !this.binding || roomId !== this.binding.roomId || roomEpoch !== this.binding.roomEpoch || !this.pending || message.kind !== 'bot' || normalize(message.sender) !== 'banchobot' || message.id <= this.pending.after) return
       const projected = projectedMessage(message)
       if (!projected) return
       const status = relayReply(this.pending.text, projected.text)
       if (status) { this.receipts.push({commandId: this.pending.id, status, evidence: {sender: 'BanchoBot', target: `#mp_${roomId}`, text: projected.text}}); this.pending = null }
     })
     oclr.on('state', () => {
+      this.refreshPairing()
       if (this.binding && (!oclr.state.subject || oclr.state.subject.osuId !== this.binding.subjectId || oclr.state.selectedFixtureId !== this.binding.fixtureId || normalize(oclr.state.subject.username) !== this.binding.username)) void this.stop()
     })
   }
+  refreshPairing() {
+    const irc = this.irc.state, website = this.oclr.state
+    if (this.identity.update({ generation: this.irc.sessionGeneration, online: irc.connection === 'online', username: irc.username }, { generation: this.oclr.sessionGeneration, subject: website.subject })) {
+      this.oclr.updatePairing(this.identity.state)
+      if (this.binding || this.running) void this.stop()
+    }
+  }
+  confirmPairing(input: unknown) { this.refreshPairing(); this.identity.confirm(input); this.oclr.updatePairing(this.identity.state) }
+  private pairingReady() { this.refreshPairing(); return this.identity.ready }
   private sameRoom(state: Snapshot) { const b = this.binding; return !!b && state.room?.id === b.roomId && state.room.epoch === b.roomEpoch && normalize(state.username) === b.username }
   async start() {
+    if (!this.pairingReady()) throw new OclrError('RELAY_LOCAL_NOT_READY')
     if (this.binding || this.running) throw new OclrError('RELAY_ALREADY_ACTIVE')
     const state = this.oclr.state, irc = this.irc.state
     if (!state.subject || !state.selectedFixtureId || state.panelState !== 'fresh' || irc.connection !== 'online' || !irc.room?.joined || irc.room.kind !== 'match' || irc.room.binding !== 'verified' || irc.room.referee !== 'listed' || normalize(irc.username) !== normalize(state.subject.username)) throw new OclrError('RELAY_LOCAL_NOT_READY')
@@ -57,7 +71,7 @@ export class OclrRelay {
       const reply = replySchema.parse(response.value).data
       if (generation !== this.generation) return
       const current = this.irc.state, website = this.oclr.state
-      if (website.subject?.osuId !== subjectId || normalize(website.subject?.username ?? '') !== username || website.selectedFixtureId !== fixtureId || website.panelState !== 'fresh' || current.connection !== 'online' || current.room?.id !== roomId || current.room.epoch !== roomEpoch || !current.room.joined || current.room.binding !== 'verified' || current.room.referee !== 'listed' || normalize(current.username) !== username) throw new Error('Binding identity changed')
+      if (!this.pairingReady() || generation !== this.generation || website.subject?.osuId !== subjectId || normalize(website.subject?.username ?? '') !== username || website.selectedFixtureId !== fixtureId || website.panelState !== 'fresh' || current.connection !== 'online' || current.room?.id !== roomId || current.room.epoch !== roomEpoch || !current.room.joined || current.room.binding !== 'verified' || current.room.referee !== 'listed' || normalize(current.username) !== username) throw new Error('Binding identity changed')
       if (reply.sequence !== 0 || reply.command !== null) throw new Error('Unexpected bind response')
       this.binding = {subjectId, fixtureId, connectionId: reply.connectionId, roomId: irc.room.id, roomEpoch: irc.room.epoch, username: normalize(irc.username), sequence: 0}
       this.consumed.clear(); this.receipts = []; this.pending = null
@@ -71,12 +85,13 @@ export class OclrRelay {
     if (!binding || this.running) return
     this.running = true
     try {
+      if (!this.pairingReady()) { await this.stop(); return }
       const irc = this.irc.state, same = this.sameRoom(irc)
       if (this.pending && (!same || irc.connection !== 'online' || performance.now() >= this.pending.deadline)) { this.receipts.push({commandId: this.pending.id, status: 'unknown'}); this.pending = null }
       const receipts = this.receipts.splice(0, 10)
       const response = await this.oclr.relayRequest(binding.fixtureId, {action: 'sync', connectionId: binding.connectionId, sequence: ++binding.sequence, projection: {status: same && irc.connection === 'online' ? 'connected' : 'disconnected', messages: same ? irc.messages.slice(-100).map(projectedMessage).filter(m => m !== null) : []}, receipts})
       const reply = replySchema.parse(response.value).data
-      if (generation !== this.generation) return
+      if (!this.pairingReady() || generation !== this.generation) return
       if (reply.connectionId !== binding.connectionId || reply.sequence !== binding.sequence) throw new Error('Unexpected relay generation')
       const command = reply.command
       if (command && !this.consumed.has(command.id)) {
@@ -93,7 +108,7 @@ export class OclrRelay {
               const deadline = performance.now() + 8000
               while (!this.irc.relayReady(target) && performance.now() < deadline && generation === this.generation && this.sameRoom(this.irc.state)) await new Promise(resolve => setTimeout(resolve, 50))
             }
-            if (generation !== this.generation || !this.sameRoom(this.irc.state) || !this.irc.relayReady(target)) throw new Error('Local room checks failed')
+            if (!this.pairingReady() || generation !== this.generation || !this.sameRoom(this.irc.state) || !this.irc.relayReady(target)) throw new Error('Local room checks failed')
             this.pending = {id: command.id, text, after: this.irc.state.messages.at(-1)?.id ?? 0, deadline: performance.now() + 15000}
             this.irc.relaySend({roomId: binding.roomId, roomEpoch: binding.roomEpoch, text})
             this.receipts.push({commandId: command.id, status: 'sent'})

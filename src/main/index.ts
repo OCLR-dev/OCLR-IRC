@@ -70,14 +70,15 @@ app.whenReady().then(() => {
     const context = `${state.subject?.osuId ?? ''}:${state.selectedFixtureId ?? ''}`
     if (context !== operationContext) { operationContext = context; irc.clearWebsiteOperations() }
   })
-  oclr.on('state', state => { if (window && !window.isDestroyed()) window.webContents.send('oclr:state', state) })
+  oclr.on('state', state => { if (window && !window.isDestroyed()) window.webContents.send('oclr:state', oclr.state) })
   async function websiteAction(event: Electron.IpcMainInvokeEvent, fn: () => unknown) {
     trusted(event)
     try { await fn(); return { ok: true } } catch (error) { return { ok: false, error: publicOclrError(error) } }
   }
+  ipcMain.handle('oclr:pairing-confirm', (event, input: unknown) => websiteAction(event, () => relay.confirmPairing(input)))
   ipcMain.handle('oclr:relay-start', event => websiteAction(event, () => relay.start()))
   ipcMain.handle('oclr:relay-stop', event => websiteAction(event, () => relay.stop()))
-  ipcMain.handle('oclr:snapshot', event => { trusted(event); return oclr.state })
+  ipcMain.handle('oclr:snapshot', event => { trusted(event); relay.refreshPairing(); return oclr.state })
   ipcMain.handle('oclr:login', event => websiteAction(event, () => oclr.login()))
   ipcMain.handle('oclr:cancel-login', event => websiteAction(event, () => oclr.cancelLogin()))
   ipcMain.handle('oclr:logout', event => websiteAction(event, () => oclr.logout()))

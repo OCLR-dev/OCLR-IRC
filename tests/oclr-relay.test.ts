@@ -11,10 +11,12 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 async function until(predicate: () => boolean) { for (let i = 0; i < 400; i++) { if (predicate()) return; await delay(10) } throw Error('Timed out') }
 function harness() {
   const requests: any[] = [], writes: any[] = []
-  const irc = Object.assign(new EventEmitter(), {state: {connection: 'online', username: 'Ref_Name', room: {id: 123, epoch: 1, joined: true, kind: 'match', binding: 'verified', referee: 'listed'}, messages: [] as any[]}, relayReady() {return true}, relayRefresh() {}, relaySend(input: unknown) {writes.push(input)}})
+  const irc = Object.assign(new EventEmitter(), {sessionGeneration: 1, state: {connection: 'online', username: 'Ref_Name', room: {id: 123, epoch: 1, joined: true, kind: 'match', binding: 'verified', referee: 'listed'}, messages: [] as any[]}, relayReady() {return true}, relayRefresh() {}, relaySend(input: unknown) {writes.push(input)}})
   let command: any = null, fail = false
-  const oclr = Object.assign(new EventEmitter(), {state: {subject: {osuId: 100, username: 'Ref Name'}, selectedFixtureId: id(101), panelState: 'fresh', relay: null as any}, updateRelay(state: unknown) {this.state.relay = state; (this as unknown as EventEmitter).emit('state')}, async relayRequest(_id: string, body: any) {requests.push(body); if (fail) throw Error('network failure'); return {value: {data: {connectionId: id(40), sequence: body.sequence ?? 0, command: body.action === 'sync' ? command : null}, meta: meta()}}}})
+  const oclr = Object.assign(new EventEmitter(), {sessionGeneration: 1, updatePairing(value: unknown) { this.state.pairing = value }, state: {pairing: null as any, subject: {osuId: 100, username: 'Ref Name'}, selectedFixtureId: id(101), panelState: 'fresh', relay: null as any}, updateRelay(state: unknown) {this.state.relay = state; (this as unknown as EventEmitter).emit('state')}, async relayRequest(_id: string, body: any) {requests.push(body); if (fail) throw Error('network failure'); return {value: {data: {connectionId: id(40), sequence: body.sequence ?? 0, command: body.action === 'sync' ? command : null}, meta: meta()}}}})
   const relay = new OclrRelay(oclr as unknown as OclrSession, irc as unknown as IrcSession)
+  relay.refreshPairing()
+  relay.confirmPairing({ token: oclr.state.pairing.token, reviewed: true })
   return {relay, oclr, irc, requests, writes, command(value: any) {command = value}, fail() {fail = true}}
 }
 
@@ -53,6 +55,7 @@ test('relay binds explicitly, sends once, projects only bound room and correlate
 test('identity mismatch, wrong command target and lost response never send or retry', async () => {
   const f = harness(); try {
     f.irc.state.username = 'Other'; await assert.rejects(f.relay.start()); f.irc.state.username = 'Ref_Name'
+    f.relay.refreshPairing(); f.relay.confirmPairing({ token: f.oclr.state.pairing.token, reviewed: true })
     await f.relay.start(); f.command({id: id(50), text: '!mp map 42', target: '#mp_999'})
     await until(() => f.requests.some(r => r.receipts?.some((receipt: any) => receipt.status === 'failed')))
     assert.equal(f.writes.length, 0)
@@ -124,9 +127,34 @@ test('late bind cannot attach to a changed room or subject', async () => {
       if (change === 'room') f.irc.state.room.epoch++
       else f.oclr.state.subject.osuId++
       release(); await starting
-      assert.equal(f.oclr.state.relay.status, 'error')
+      assert.equal(f.oclr.state.relay.status, change === 'room' ? 'error' : 'off')
       assert.equal(f.writes.length, 0)
       assert.equal(f.requests.filter(request => request.action === 'sync').length, 0)
     } finally { await f.relay.stop() }
   }
+})
+
+test('unreviewed same nickname never binds; reconnect invalidates review before late sync can send', async () => {
+  const f = harness()
+  try {
+    f.irc.sessionGeneration++
+    await assert.rejects(f.relay.start())
+    assert.equal(f.requests.length, 0)
+    f.relay.confirmPairing({ token: f.oclr.state.pairing.token, reviewed: true })
+    let release!: () => void
+    const original = f.oclr.relayRequest.bind(f.oclr)
+    f.oclr.relayRequest = async (fixture, body) => {
+      if (body.action === 'sync') await new Promise<void>(resolve => { release = resolve })
+      return original(fixture, body)
+    }
+    await f.relay.start()
+    f.command({ id: id(70), text: '!mp start', target: '#mp_123' })
+    await until(() => Boolean(release))
+    // Even without a renderer/state event, Main checks the actual login generation.
+    f.irc.sessionGeneration++
+    release()
+    await until(() => f.oclr.state.relay.status === 'off')
+    assert.equal(f.writes.length, 0)
+    assert.equal(f.oclr.state.pairing.reviewed, false)
+  } finally { await f.relay.stop() }
 })
