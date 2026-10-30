@@ -10,7 +10,7 @@ import { MP_MODS } from '../../shared/mp-command'
 import type { WorkspaceAction } from '../../shared/referee-tools'
 import type { MpIntent, MpPreview } from '../../shared/mp-command'
 import type { Snapshot } from '../../shared/types'
-export function MpControls({ state }: { state: Snapshot }) {
+export function MpControls({ state, onReveal }: { state: Snapshot; onReveal?: (players: boolean) => void }) {
   const details = useRef<HTMLDetailsElement>(null)
   const searchInput = useRef<HTMLInputElement>(null)
   const composing = useRef(false)
@@ -24,13 +24,14 @@ export function MpControls({ state }: { state: Snapshot }) {
       if (!commandSearchShortcut(event, editing, composing.current)) return
       event.preventDefault()
       if (details.current) details.current.open = true
-      searchInput.current?.focus()
+      onReveal?.(false)
+      requestAnimationFrame(() => searchInput.current?.focus())
     }
     window.addEventListener('keydown', keydown)
     window.addEventListener('compositionstart', start)
     window.addEventListener('compositionend', end)
     return () => { window.removeEventListener('keydown', keydown); window.removeEventListener('compositionstart', start); window.removeEventListener('compositionend', end) }
-  }, [])
+  }, [onReveal])
   const [kind, setKind] = useState<MpIntent['kind']>('map')
   const [seconds, setSeconds] = useState('30')
   const [delayed, setDelayed] = useState(false)
@@ -81,13 +82,14 @@ export function MpControls({ state }: { state: Snapshot }) {
     }
     const target = details.current?.closest('.room-inspector')?.querySelector<HTMLDetailsElement>(action.target)
     if (!target) return
+    onReveal?.(action.target === '.manual-lineup')
     target.open = true
     requestAnimationFrame(() => {
       target.scrollIntoView({ block: 'nearest' })
       target.querySelector<HTMLElement>('input:not([type=checkbox]):not([type=hidden]), button[aria-haspopup]')?.focus({ preventScroll: true })
     })
   }
-  return <details ref={details} className="mp-controls"><summary>房內快捷操作</summary>
+  return <details ref={details} className="mp-controls" open><summary>房內快捷操作</summary>
     {!available && <p className="slots-caption">設定或裁判名單待更新</p>}
     <TextField aria-label="搜尋房內指令" value={search} onChange={setSearch} isDisabled={busy || Boolean(preview)} className="command-search"><Input ref={searchInput} onKeyDown={event => { if (event.key === 'Escape' && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229 && !composing.current) { setSearch(''); event.stopPropagation() } }} placeholder="搜尋指令" maxLength={80} /></TextField>
     {search.trim() && <div className="command-results" aria-label="指令搜尋結果">{searchWorkspaceActions(search).map(action => <Button key={action.value} size="sm" variant="secondary" isDisabled={busy || Boolean(preview)} onPress={() => navigate(action)}>{action.label}</Button>)}{!searchWorkspaceActions(search).length && <span role="status">沒有符合的指令</span>}</div>}
