@@ -258,3 +258,5 @@ D01–D08 已確認並統一記錄於 [設計決策](design-review.md)。D06 改
 2026-10-30 #16：補充 [面板寫入候選方案](contracts/panel-write-proposal.md)，涵蓋 revision／冪等、unknown、撤權及雙端衝突測試矩陣。僅設計；PANEL-W／C 仍待正式契約與排程，不啟用寫入。最新逐項合成證據及外部／實機阻礙見 [backlog 更新](desktop-backlog.md)。
 
 房間三欄介面更新：加入／新建移入 HeroUI Modal，右側工具改為全高獨立欄及 HeroUI Tabs，支援收合與寬視窗調整寬度。900×640 合成檢查涵蓋輸入框可見、工具欄上下邊界、獨立捲動、分頁及無水平溢出；不取代實機 IME 驗收。
+
+OCLR 房名帶入：新建房間表單訂閱已選場次的唯讀 panel，優先使用 session settings，否則 default settings；只取新鮮、相符場次且符合房名長度／控制字元限制的名稱。來源變更、過期／登出清除舊名稱與確認；送出前再比對快照。仍為人工確認的手動開房，不取代 #40 的正式 context 流程，也不自動初始化或投影。
