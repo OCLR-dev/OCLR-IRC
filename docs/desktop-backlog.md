@@ -315,3 +315,7 @@ IRC-only 日誌已接入 Main，預設開啟、偏好持久化、最近 1,000 �
 新增 Main 管理的 unknown／nickname_matched／mismatch 與一次身分範圍核對 token。比較沿用 IRC 空格／底線正規化，綁定原始暱稱、IRC 連線世代、OCLR subject ID／名稱及授權世代；即使同名重新登入，也需重新人工確認。配對失效會停止 relay；bind／sync 晚到回覆及送線前均重新檢查，不重送命令。網站唯讀查閱仍由原授權檢查決定。
 
 核心涵蓋暱稱差異、改名、同名不同 UID、重連、舊確認、晚到 sync；Electron 合成測試操作實際核對 checkbox 及重新登入。這不是 UID 證明；正式 endpoint／contractVersion、有效本人指派測試環境、撤權與期限真實驗收尚缺，L09 保持 partial。
+
+### L11 成品啟動驗證（2026-10-30）
+
+Windows／Linux 新增與 macOS 共用的成品壓縮包 SHA256、內外 build identity 及隔離離線啟動驗證，成功才發布 CI artifact。真實 OS／IME／休眠／升級／復原仍另待驗收，L11 保持 partial；詳見 [平台驗收](m1/platform-acceptance.md)。
