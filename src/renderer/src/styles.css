@@ -333,3 +333,23 @@ main { min-height: 0; overflow: auto; }
 .journal-entries time { color: #92929f; margin-right: 16px; }
 .journal-entries p { white-space: pre-wrap; margin: 6px 0 0; }
 .sidebar { height: 100vh; overflow-y: auto; }
+
+.command-search { margin-top: 12px; }
+.command-search .input { height: 36px; }
+.command-results { display: grid; gap: 6px; padding-top: 8px; }
+.command-results .button { justify-content: flex-start; font-size: 12px; }
+.composer-templates { margin-bottom: 8px; font-size: 11px; color: #c7b7ff; }
+.composer-templates summary { cursor: pointer; width: fit-content; }
+.composer-templates > div { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.composer-templates .workspace-select { max-width: 220px; }
+.composer-templates .select__trigger { min-height: 34px; }
+@media (max-height: 700px) {
+  .topbar { height: 44px; }
+  .app-footer { height: 28px; }
+  .room-view { padding-block: 12px; }
+  .room-heading .section-kicker { display: none; }
+  .join-form { margin-block: 10px; }
+  .conversation-header { padding-block: 8px; }
+  .match-status { padding-block: 8px; }
+  .message-area { min-height: 30px; }
+}

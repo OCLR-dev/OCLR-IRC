@@ -98,6 +98,22 @@ async function main() {
   async function button(text) {
     await js(`Array.from(document.querySelectorAll('.mp-controls button')).find(b => b.textContent === ${JSON.stringify(text)}).click()`)
   }
+  const beforeTools = sent.length
+  await js(`document.querySelector('.mp-controls').open = false; document.querySelector('input[name=chat]').focus(); document.querySelector('input[name=chat]').dispatchEvent(new KeyboardEvent('keydown', {key:'k',ctrlKey:true,bubbles:true}))`)
+  assert.equal(await js('document.querySelector(".mp-controls").open'), false)
+  await js(`document.activeElement.blur(); window.dispatchEvent(new KeyboardEvent('keydown', {key:'k',ctrlKey:true,isComposing:true,bubbles:true}))`)
+  assert.equal(await js('document.querySelector(".mp-controls").open'), false)
+  await js(`window.dispatchEvent(new KeyboardEvent('keydown', {key:'k',metaKey:true,bubbles:true,cancelable:true}))`)
+  await until(() => js('document.activeElement === document.querySelector(".command-search input")'))
+  await js(`(() => {const e=document.querySelector('.command-search input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'開賽');e.dispatchEvent(new Event('input',{bubbles:true}))})()`)
+  await until(() => js('document.querySelector(".command-results button")?.textContent === "開始比賽"'))
+  await js('document.querySelector(".command-results button").click()')
+  assert.equal(sent.length, beforeTools)
+  await js('document.querySelector(".composer-templates").open = true')
+  await js('Array.from(document.querySelectorAll(".composer-templates button")).find(b => b.textContent === "插入草稿").click()')
+  await until(() => js('document.querySelector("input[name=chat]").value.includes("Ready")'))
+  assert.equal(sent.length, beforeTools, 'search and templates never send commands or chat')
+  await js('document.querySelector(".composer-templates").open = false')
   async function choose(kind) {
     await js(`document.querySelector('button[aria-label="房內操作"]').click()`)
     await until(() => js('Boolean(document.querySelector("[role=option]"))'))
@@ -167,7 +183,7 @@ async function main() {
   playing = true
   peer.write(':BanchoBot PRIVMSG #mp_900000001 :The match has started!\n')
   await until(() => sent.filter(line => line.endsWith(':!mp settings')).length > readsBeforeStart)
-  await until(() => js('document.querySelector(".match-status").textContent.includes("In progress") && document.querySelector(".slot-status").textContent.includes("Playing")'))
+  await until(() => js('document.querySelector(".match-status")?.textContent.includes("In progress") && document.querySelector(".slot-status")?.textContent.includes("Playing")'))
   assert.ok(await js('document.querySelector(".match-status").textContent.includes("Synthetic Artist - Map")'))
   assert.ok(await js('document.querySelector(".match-status").textContent.includes("NoMod")'))
   await until(() => js('document.querySelector(".match-status").textContent.includes("剩餘約")'))

@@ -1,10 +1,31 @@
+import { MP_ACTIONS, searchMpActions, commandSearchShortcut } from '../../shared/referee-tools'
 import { WorkspaceSelect, WorkspaceCheckbox } from './controls'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button, Input, Label, TextField } from '@heroui/react'
 import { MP_MODS } from '../../shared/mp-command'
 import type { MpIntent, MpPreview } from '../../shared/mp-command'
 import type { Snapshot } from '../../shared/types'
 export function MpControls({ state }: { state: Snapshot }) {
+  const details = useRef<HTMLDetailsElement>(null)
+  const searchInput = useRef<HTMLInputElement>(null)
+  const composing = useRef(false)
+  const [search, setSearch] = useState('')
+  useEffect(() => {
+    const start = () => { composing.current = true }
+    const end = () => { composing.current = false }
+    const keydown = (event: KeyboardEvent) => {
+      const target = event.target instanceof HTMLElement ? event.target : null
+      const editing = Boolean(target?.isContentEditable || target?.closest('input, textarea, select, [contenteditable], [role=combobox]'))
+      if (!commandSearchShortcut(event, editing, composing.current)) return
+      event.preventDefault()
+      if (details.current) details.current.open = true
+      searchInput.current?.focus()
+    }
+    window.addEventListener('keydown', keydown)
+    window.addEventListener('compositionstart', start)
+    window.addEventListener('compositionend', end)
+    return () => { window.removeEventListener('keydown', keydown); window.removeEventListener('compositionstart', start); window.removeEventListener('compositionend', end) }
+  }, [])
   const [kind, setKind] = useState<MpIntent['kind']>('map')
   const [seconds, setSeconds] = useState('30')
   const [delayed, setDelayed] = useState(false)
@@ -45,10 +66,12 @@ export function MpControls({ state }: { state: Snapshot }) {
     } catch { setMessage('結果不明，請核對 BanchoBot 回覆；不會自動重送。') }
     finally { setBusy(false) }
   }
-  return <details className="mp-controls"><summary>房內快捷操作</summary>
+  return <details ref={details} className="mp-controls"><summary>房內快捷操作</summary>
     {!available && <p className="slots-caption">設定或裁判名單待更新</p>}
+    <TextField aria-label="搜尋房內指令" value={search} onChange={setSearch} isDisabled={busy || Boolean(preview)} className="command-search"><Input ref={searchInput} placeholder="搜尋指令" maxLength={80} /></TextField>
+    {search.trim() && <div className="command-results" aria-label="指令搜尋結果">{searchMpActions(search).map(action => <Button key={action.value} size="sm" variant="secondary" isDisabled={busy || Boolean(preview)} onPress={() => { setKind(action.value); setSearch(''); setMessage('') }}>{action.label}</Button>)}{!searchMpActions(search).length && <span role="status">沒有符合的指令</span>}</div>}
     <fieldset disabled={busy || Boolean(preview)}>
-      <WorkspaceSelect label="房內操作" value={kind} disabled={busy || Boolean(preview)} onChange={value => { setKind(value as MpIntent['kind']); setMessage('') }} options={[{ value: 'map', label: '換圖' }, { value: 'mods', label: '設定 Mods' }, { value: 'start', label: '開始比賽' }, { value: 'timer', label: '一般計時' }, { value: 'aborttimer', label: '取消倒數' }, { value: 'abort', label: '中止比賽' }]} />
+      <WorkspaceSelect label="房內操作" value={kind} disabled={busy || Boolean(preview)} onChange={value => { setKind(value as MpIntent['kind']); setMessage('') }} options={MP_ACTIONS} />
       {kind === 'map' && <TextField name="beatmapId" value={beatmapId} onChange={setBeatmapId}><Label>Beatmap ID</Label><Input placeholder="例如 123456" inputMode="numeric" /></TextField>}
       {kind === 'start' && <WorkspaceCheckbox selected={delayed} disabled={busy || Boolean(preview)} onChange={setDelayed}>延遲開賽</WorkspaceCheckbox>}
       {(kind === 'timer' || kind === 'start' && delayed) && <TextField name="seconds" value={seconds} onChange={setSeconds}><Label>秒數（1–600）</Label><Input inputMode="numeric" /></TextField>}

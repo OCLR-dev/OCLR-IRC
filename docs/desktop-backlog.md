@@ -303,3 +303,9 @@ IRC-only 日誌已接入 Main，預設開啟、偏好持久化、最近 1,000 �
 現有 manual／relay／make 接上共用單步 tracker，固定房間 epoch、connection generation、15 秒等待期限及不重送語義。每房一筆等待；新一般操作遇未核對 unknown 阻擋。abort／aborttimer 可中止前筆等待，但仍經現有目標、權限、預覽與節流。精確可信回覆僅標 observed，不宣稱因果證明。人工核對停止等待並保留 unknown 標記。
 
 手動操作送出前同步保存最小 SQLite 恢復記錄，帳號隔離、七天清理、待回覆重啟轉 unknown；寫入失敗擋送出。網站記錄暫限記憶體並隨 subject／fixture 變更清除。舊開房單筆 guard 尚保留未確定歸屬；完整多步計畫、逐效果 preflight、OCLR 恢復與後續命令語義仍未完成。#7 保持 partial，真實回覆變體另待樣本。
+
+### L08 搜尋、模板與安全快捷鍵（2026-10-30）
+
+現有六種手動操作共享標籤／關鍵字／風險 registry，搜尋只選取表單操作，不新增 raw IRC bridge，送出仍由既有 mpCommand schema、預覽與 Main gate 處理。Cmd／Ctrl＋K 只開啟搜尋並聚焦，忽略輸入區、contenteditable、IME composition／229、repeat 及額外修飾鍵。常用訊息只有固定模板與受限房間 placeholder，追加至草稿後人工送出；超過 wire 長度不改寫草稿。操作記錄沿用 L03 的 awaiting／observed／unknown 與人工核對。
+
+純函式與 Electron 合成測試驗證搜尋／模板不送出、IME／輸入焦點 guard、兩平台修飾鍵及注入拒絕。Windows／Linux 與 macOS 真實 IME、螢幕閱讀器操作尚待實機驗收，#12 不由合成證據宣稱完整完成。
