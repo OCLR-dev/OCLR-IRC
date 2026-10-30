@@ -1,0 +1,1073 @@
+{
+  "status": "candidate-not-deployed",
+  "contractVersion": "1.0.0",
+  "source": "referee-context-api.md",
+  "contract": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "data": {
+        "type": "object",
+        "properties": {
+          "contextRevision": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "capturedAt": {
+            "$ref": "#/$defs/__schema1"
+          },
+          "freshUntil": {
+            "$ref": "#/$defs/__schema1"
+          },
+          "sourceVersions": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "viewer": {
+            "$ref": "#/$defs/__schema4"
+          },
+          "edition": {
+            "$ref": "#/$defs/__schema7"
+          },
+          "round": {
+            "$ref": "#/$defs/__schema9"
+          },
+          "fixture": {
+            "$ref": "#/$defs/__schema11"
+          },
+          "rules": {
+            "$ref": "#/$defs/__schema13"
+          },
+          "teams": {
+            "$ref": "#/$defs/__schema15"
+          },
+          "lobby": {
+            "$ref": "#/$defs/__schema22"
+          },
+          "pool": {
+            "$ref": "#/$defs/__schema27"
+          },
+          "officials": {
+            "$ref": "#/$defs/__schema30"
+          },
+          "allowedIntents": {
+            "$ref": "#/$defs/__schema31"
+          },
+          "requiredLocalChecks": {
+            "$ref": "#/$defs/__schema32"
+          },
+          "issues": {
+            "$ref": "#/$defs/__schema33"
+          },
+          "links": {
+            "$ref": "#/$defs/__schema35"
+          }
+        },
+        "required": [
+          "contextRevision",
+          "capturedAt",
+          "freshUntil",
+          "sourceVersions",
+          "viewer",
+          "edition",
+          "round",
+          "fixture",
+          "rules",
+          "teams",
+          "lobby",
+          "pool",
+          "officials",
+          "allowedIntents",
+          "requiredLocalChecks",
+          "issues",
+          "links"
+        ]
+      },
+      "meta": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "const": "1"
+          },
+          "contractVersion": {
+            "type": "string",
+            "pattern": "^1\\.\\d+\\.\\d+$"
+          },
+          "requestId": {
+            "$ref": "#/$defs/__schema10"
+          },
+          "serverTime": {
+            "$ref": "#/$defs/__schema1"
+          },
+          "pollAfterSeconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 300
+          }
+        },
+        "required": [
+          "apiVersion",
+          "contractVersion",
+          "requestId",
+          "serverTime"
+        ]
+      }
+    },
+    "required": [
+      "data",
+      "meta"
+    ],
+    "$defs": {
+      "__schema0": {
+        "type": "string",
+        "pattern": "^ctx_[a-f0-9]{64}$"
+      },
+      "__schema1": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+      },
+      "__schema2": {
+        "type": "object",
+        "properties": {
+          "fixture": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/__schema3"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "assignment": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/__schema3"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rules": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/__schema3"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rosters": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/__schema3"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pool": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/__schema3"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "streaming": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/__schema3"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lobby": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/__schema3"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "fixture",
+          "assignment",
+          "rules",
+          "rosters",
+          "pool",
+          "streaming",
+          "lobby"
+        ]
+      },
+      "__schema3": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "__schema4": {
+        "type": "object",
+        "properties": {
+          "osuId": {
+            "$ref": "#/$defs/__schema5"
+          },
+          "username": {
+            "$ref": "#/$defs/__schema6"
+          }
+        },
+        "required": [
+          "osuId",
+          "username"
+        ]
+      },
+      "__schema5": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991
+      },
+      "__schema6": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 50
+      },
+      "__schema7": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,79}$"
+          },
+          "name": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "abbreviation": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "status": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "archive": {
+            "type": "boolean"
+          },
+          "operational": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "abbreviation",
+          "status",
+          "archive",
+          "operational"
+        ]
+      },
+      "__schema8": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "__schema9": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/__schema10"
+          },
+          "name": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "group",
+              "knockout",
+              "other"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "stage"
+        ]
+      },
+      "__schema10": {
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+      },
+      "__schema11": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/__schema10"
+          },
+          "label": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "scheduledAt": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/__schema1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "timeZone": {
+            "$ref": "#/$defs/__schema12"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "scheduled",
+              "in_progress",
+              "cancelled"
+            ]
+          },
+          "resultReviewState": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "draft",
+                  "submitted",
+                  "approved"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "scheduledAt",
+          "timeZone",
+          "status",
+          "resultReviewState"
+        ]
+      },
+      "__schema12": {
+        "type": "string",
+        "maxLength": 100
+      },
+      "__schema13": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "revision": {
+                "$ref": "#/$defs/__schema3"
+              },
+              "ruleset": {
+                "$ref": "#/$defs/__schema14"
+              },
+              "teamMode": {
+                "$ref": "#/$defs/__schema14"
+              },
+              "scoringMode": {
+                "$ref": "#/$defs/__schema14"
+              },
+              "playersPerTeam": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "roomSize": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "series": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "$ref": "#/$defs/__schema8"
+                      },
+                      "target": {
+                        "anyOf": [
+                          {
+                            "$ref": "#/$defs/__schema5"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "mapCount": {
+                        "anyOf": [
+                          {
+                            "$ref": "#/$defs/__schema5"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "target",
+                      "mapCount"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "noFailPolicy": {
+                "$ref": "#/$defs/__schema14"
+              },
+              "substitutionPolicy": {
+                "$ref": "#/$defs/__schema14"
+              },
+              "startPolicy": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "streamingRequirement": {
+                        "$ref": "#/$defs/__schema8"
+                      }
+                    },
+                    "required": [
+                      "streamingRequirement"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "revision",
+              "ruleset",
+              "teamMode",
+              "scoringMode",
+              "playersPerTeam",
+              "roomSize",
+              "series",
+              "noFailPolicy",
+              "substitutionPolicy",
+              "startPolicy"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "__schema14": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "__schema15": {
+        "minItems": 2,
+        "maxItems": 2,
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/__schema16"
+        }
+      },
+      "__schema16": {
+        "type": "object",
+        "properties": {
+          "slot": {
+            "$ref": "#/$defs/__schema17"
+          },
+          "resolution": {
+            "$ref": "#/$defs/__schema18"
+          },
+          "team": {
+            "$ref": "#/$defs/__schema19"
+          },
+          "sourceLabel": {
+            "$ref": "#/$defs/__schema21"
+          }
+        },
+        "required": [
+          "slot",
+          "resolution",
+          "team",
+          "sourceLabel"
+        ]
+      },
+      "__schema17": {
+        "type": "string",
+        "enum": [
+          "home",
+          "away"
+        ]
+      },
+      "__schema18": {
+        "type": "string",
+        "enum": [
+          "resolved",
+          "unresolved"
+        ]
+      },
+      "__schema19": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/__schema10"
+              },
+              "name": {
+                "$ref": "#/$defs/__schema8"
+              },
+              "rosterRevision": {
+                "$ref": "#/$defs/__schema3"
+              },
+              "roster": {
+                "maxItems": 64,
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema20"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "rosterRevision",
+              "roster"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "__schema20": {
+        "type": "object",
+        "properties": {
+          "osuId": {
+            "$ref": "#/$defs/__schema5"
+          },
+          "username": {
+            "$ref": "#/$defs/__schema6"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "captain",
+              "player"
+            ]
+          },
+          "eligible": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "osuId",
+          "username",
+          "role",
+          "eligible"
+        ]
+      },
+      "__schema21": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/__schema8"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "__schema22": {
+        "type": "object",
+        "properties": {
+          "roomName": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nameTemplateId": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/__schema8"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "teamColourAssignments": {
+            "anyOf": [
+              {
+                "minItems": 2,
+                "maxItems": 2,
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema23"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "binding": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "$ref": "#/$defs/__schema24"
+                  },
+                  "roomId": {
+                    "$ref": "#/$defs/__schema25"
+                  },
+                  "mpUrl": {
+                    "$ref": "#/$defs/__schema26"
+                  }
+                },
+                "required": [
+                  "state",
+                  "roomId",
+                  "mpUrl"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "roomName",
+          "nameTemplateId",
+          "teamColourAssignments",
+          "binding"
+        ]
+      },
+      "__schema23": {
+        "type": "object",
+        "properties": {
+          "teamId": {
+            "$ref": "#/$defs/__schema10"
+          },
+          "colour": {
+            "type": "string",
+            "enum": [
+              "red",
+              "blue"
+            ]
+          }
+        },
+        "required": [
+          "teamId",
+          "colour"
+        ]
+      },
+      "__schema24": {
+        "type": "string",
+        "enum": [
+          "bound",
+          "unbound"
+        ]
+      },
+      "__schema25": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/__schema5"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "__schema26": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 200
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "__schema27": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/__schema10"
+              },
+              "revision": {
+                "$ref": "#/$defs/__schema3"
+              },
+              "name": {
+                "$ref": "#/$defs/__schema8"
+              },
+              "entries": {
+                "maxItems": 256,
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema28"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "revision",
+              "name",
+              "entries"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "__schema28": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/__schema10"
+          },
+          "slot": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "category": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 256
+          },
+          "beatmapId": {
+            "$ref": "#/$defs/__schema5"
+          },
+          "ruleset": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "artist": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "title": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "difficulty": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "lengthSeconds": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "stars": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "artist",
+                  "title",
+                  "difficulty",
+                  "lengthSeconds",
+                  "stars"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "commandProfile": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "roomMods": {
+                    "maxItems": 32,
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/__schema29"
+                    }
+                  },
+                  "freeMod": {
+                    "type": "boolean"
+                  },
+                  "individualModsCheck": {
+                    "$ref": "#/$defs/__schema8"
+                  },
+                  "policyText": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "roomMods",
+                  "freeMod",
+                  "individualModsCheck",
+                  "policyText"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "availability": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "blockingCodes": {
+            "maxItems": 64,
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/__schema8"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "slot",
+          "category",
+          "position",
+          "beatmapId",
+          "ruleset",
+          "metadata",
+          "commandProfile",
+          "availability",
+          "blockingCodes"
+        ]
+      },
+      "__schema29": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 32
+      },
+      "__schema30": {
+        "type": "object",
+        "properties": {
+          "referees": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/__schema4"
+            }
+          },
+          "streaming": {
+            "type": "object",
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "unassigned",
+                  "unavailable",
+                  "confirmed",
+                  "needs_confirmation"
+                ]
+              },
+              "streamer": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/__schema4"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "confirmedFor": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "scheduledAt": {
+                        "$ref": "#/$defs/__schema1"
+                      },
+                      "timeZone": {
+                        "$ref": "#/$defs/__schema12"
+                      }
+                    },
+                    "required": [
+                      "scheduledAt",
+                      "timeZone"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "state",
+              "streamer",
+              "confirmedFor"
+            ]
+          }
+        },
+        "required": [
+          "referees",
+          "streaming"
+        ]
+      },
+      "__schema31": {
+        "maxItems": 32,
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/__schema8"
+        }
+      },
+      "__schema32": {
+        "type": "object",
+        "propertyNames": {
+          "$ref": "#/$defs/__schema8"
+        },
+        "additionalProperties": {
+          "maxItems": 32,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema8"
+          }
+        }
+      },
+      "__schema33": {
+        "maxItems": 64,
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/__schema34"
+        }
+      },
+      "__schema34": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "blocking",
+              "warning"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "affectedIntents": {
+            "maxItems": 32,
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/__schema8"
+            }
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "code",
+          "severity",
+          "path",
+          "affectedIntents",
+          "message"
+        ]
+      },
+      "__schema35": {
+        "type": "object",
+        "properties": {
+          "fixtureUrl": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "reviewUrl": {
+            "type": "string",
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "fixtureUrl",
+          "reviewUrl"
+        ]
+      }
+    }
+  }
+}
