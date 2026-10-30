@@ -237,3 +237,33 @@ test('workspace strips unexpected fields and rejects cross-team identities and i
   ;(event.data.workspace.events as unknown[]).push({ id: id(401), ordinal: 3, actorId: 900000001, createdAt: at(0), payload: { type: 'dependencies_reconfirmed' } })
   assert.equal(panelSchema.safeParse(event).success, false)
 })
+
+test('read-only fixture reasons stay specific and cannot copy commands', async () => {
+  for (const scenario of ['cancelled', 'approved', 'unavailable', 'missing-rules'] as const) {
+    const expected = { cancelled: '此場次已取消', approved: '賽果已核准', unavailable: '此場次未開放裁判操作', 'missing-rules': '尚未設定本場遊戲規則' }[scenario]
+    const f = harness(request => {
+      if (request.path.startsWith('/api/referee/v1/me/fixtures')) {
+        const value = fixtures()
+        if (scenario === 'approved') Object.assign(value.data.items[0], { resultReviewState: 'approved' })
+        if (scenario !== 'missing-rules') value.data.items[0].operational = false
+        return jsonResponse(value)
+      }
+      if (request.path.endsWith('/panel')) {
+        const value = panel()
+        if (scenario === 'cancelled') value.data.workspace.fixture.status = 'cancelled'
+        if (scenario === 'missing-rules') Object.assign(value.data.workspace, { rules: null })
+        return jsonResponse(value)
+      }
+    })
+    try {
+      await f.login(); await f.session.selectFixture(id(101))
+      assert.equal(f.session.state.panelState, 'fresh')
+      assert.ok(f.session.state.commands.length > 0)
+      for (const command of f.session.state.commands) {
+        assert.equal(command.text, null); assert.ok(command.reason?.startsWith(expected), `${scenario}: ${command.reason}`)
+        await assert.rejects(f.session.copyCommand({ previewId: f.session.state.previewId, commandId: command.id }))
+      }
+      assert.deepEqual(f.clipboard, [])
+    } finally { f.session.dispose() }
+  }
+})
