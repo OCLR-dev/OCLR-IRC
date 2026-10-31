@@ -1,5 +1,5 @@
 // Real Main/preload with isolated profile, synthetic HTTP/IRC and crypto provider.
-const { app, BrowserWindow, safeStorage, shell } = require('electron')
+const { app, BrowserWindow, safeStorage, shell, clipboard } = require('electron')
 const fs = require('node:fs')
 const path = require('node:path')
 const net = require('node:net')
@@ -22,7 +22,7 @@ const commandId = '00000000-0000-4000-8000-000000000090'
 const command = {id: commandId, text: `!mp make ${name}`, target: 'BanchoBot'}
 const json = (data, status = 200) => new Response(JSON.stringify({data, meta}), {status, headers: {'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-OCLR-Desktop-Contract': '1.1.0', 'X-OCLR-Referee-Contract': '1.1.0', 'X-Request-Id': meta.requestId}})
 const nativeFetch = global.fetch, syncs = [], sent = []
-let auth, peer, username
+let auth, peer, username, invitePhase = false
 global.fetch = async (value, init = {}) => {
   const url = new URL(String(value))
   assert.equal(url.origin, 'https://oclr.org')
@@ -37,8 +37,8 @@ global.fetch = async (value, init = {}) => {
   if (url.pathname.endsWith('/relay')) {
     const body = JSON.parse(init.body)
     if (body.action === 'sync') syncs.push(body)
-    if (body.action === 'bind') assert.equal(body.roomId, 0)
-    return json({connectionId: meta.requestId, receiptReasons: true, sequence: body.sequence ?? 0, command: body.action === 'sync' ? command : null})
+    if (body.action === 'bind') assert.equal(body.roomId, invitePhase ? roomId : 0)
+    return json({connectionId: meta.requestId, receiptReasons: true, sequence: body.sequence ?? 0, command: body.action === 'sync' && !invitePhase ? command : null})
   }
   throw Error('Unexpected synthetic endpoint')
 }
@@ -92,6 +92,42 @@ async function main() {
   assert.equal((await js('window.oclr.website.snapshot()')).relay.status, 'off')
   peer.write(`:Player PRIVMSG #mp_${roomId} :SYNTHETIC_PRIVATE_RELAY_HISTORY\n`)
   await until(() => js('(async () => (await window.oclr.snapshot()).messages.some(m => m.text === "SYNTHETIC_PRIVATE_RELAY_HISTORY"))()'))
+  // Room tools share the authenticated round pool and both rosters.
+  window.setSize(900, 640)
+  await js('Array.from(document.querySelectorAll("[role=tab]")).find(b => b.textContent === "圖池").click()')
+  await until(() => js('Boolean(document.querySelector(".fixture-map"))'))
+  assert.equal(await js('document.querySelector(".fixture-pool").textContent.includes("Synthetic song <img src=x>")'), true)
+  assert.equal(await js('Boolean(document.querySelector(".fixture-pool img"))'), false)
+  await js('document.querySelector(".fixture-map").click()')
+  await until(() => js('document.querySelectorAll(".fixture-map-commands button").length === 2'))
+  await js('document.querySelector(".fixture-map-commands button").click()')
+  await until(async () => (await clipboard.readText()).includes('!mp map 900000101'))
+  assert.equal(sent.some(line => /:!mp (map|mods) /.test(line)), false, 'sync and pool selection cannot send IRC')
+  await js('Array.from(document.querySelectorAll("[role=tab]")).find(b => b.textContent === "玩家").click()')
+  await until(() => js('document.querySelectorAll(".fixture-team").length === 2'))
+  assert.equal(await js('document.querySelectorAll(".fixture-player").length'), 2)
+  assert.equal(await js('document.querySelector(".fixture-player button").disabled'), true, 'unbound room cannot invite')
+  invitePhase = true
+  assert.equal((await js('window.oclr.website.startRelay()')).ok, true)
+  await until(() => js('!document.querySelector(".fixture-player button").disabled'))
+  await js('document.querySelector(".fixture-player button").click()')
+  await until(() => js('Boolean(document.querySelector(".fixture-invite-confirm"))'))
+  assert.equal(sent.some(line => line.includes('!mp invite')), false, 'preview is not dispatch')
+  assert.equal(await js('document.querySelector(".fixture-invite-confirm").textContent.includes("Team A")'), true)
+  await js(`(() => {const e=document.querySelector('input[name=fixtureConfirmName]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'Player A');e.dispatchEvent(new Event('input',{bubbles:true}));})()`)
+  await js('document.querySelector(".fixture-invite-confirm input[type=checkbox]").click()')
+  await until(() => js('!document.querySelector(".fixture-invite-confirm .primary-button").disabled'))
+  await js('document.querySelector(".fixture-invite-confirm .primary-button").click()')
+  await until(() => sent.includes(`PRIVMSG #mp_${roomId} :!mp invite Player_A`))
+  assert.equal(sent.filter(line => line.includes('!mp invite')).length, 1)
+  assert.equal((await js('window.oclr.snapshot()')).room.players, 0, 'invitation does not imply arrival')
+  assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
+  assert.equal(await js('document.documentElement.scrollWidth <= innerWidth'), true)
+  await js('document.querySelector(".tools-scroll").scrollTop=0')
+  fs.mkdirSync(path.resolve('artifacts'), {recursive: true})
+  fs.writeFileSync(path.resolve('artifacts/fixture-tools-compact-synthetic.png'), (await window.webContents.capturePage()).toPNG())
+  await js('window.oclr.website.logout()')
+  await until(() => js('!document.querySelector(".fixture-team, .fixture-map")'))
   // Once the intent is closed, a duplicate reply becomes ordinary private Bot chat.
   // It must stay private even when IRC varies the sender's case.
   peer.write(`:BaNcHoBoT PRIVMSG ${username} :Created the tournament match https://osu.ppy.sh/mp/${roomId} ${name}\n`)
@@ -110,7 +146,7 @@ async function main() {
   const db = new DatabaseSync(path.join(profile, 'operation-recovery.sqlite'), {readOnly: true})
   try { assert.equal(db.prepare('SELECT COUNT(*) AS count FROM operations').get().count, 0) } finally { db.close() }
   assert.equal(sent.filter(line => line.startsWith('PRIVMSG BanchoBot :!mp make ')).length, 1)
-  console.log(JSON.stringify({evidence: 'synthetic-relay-creation', passed: ['single make despite duplicate command ID', 'sent receipt at dispatch boundary', 'late creation after relay stop still joins and reads settings/listrefs', 'website operation history stays memory only', ...(process.platform !== 'linux' ? ['private room excluded before first journal message', 'ordinary IRC history positive control'] : ['Linux journal remains memory only'])], limitation: 'Synthetic HTTP/IRC and crypto provider; real OAuth, Bancho and native provider acceptance remain separate.'}))
+  console.log(JSON.stringify({evidence: 'synthetic-relay-creation', passed: ['single make despite duplicate command ID', 'sent receipt at dispatch boundary', 'late creation after relay stop still joins and reads settings/listrefs', 'round pool and both team rosters in room tools', 'pool selection and command copy send no IRC', 'bound room and typed player confirmation before a single invitation', 'invitation never means player arrival', '900x640 composer and independent tools', 'logout clears private roster and pool', 'website operation history stays memory only', ...(process.platform !== 'linux' ? ['private room excluded before first journal message', 'ordinary IRC history positive control'] : ['Linux journal remains memory only'])], limitation: 'Synthetic HTTP/IRC and crypto provider; real OAuth, Bancho and native provider acceptance remain separate.'}))
   app.exit(0)
 }
 main().catch(error => {console.error(error); app.exit(1)})

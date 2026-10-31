@@ -80,7 +80,7 @@ export class IrcSession extends EventEmitter {
   private creationJoins = new Set<string>()
   private creationTimer: ReturnType<typeof setTimeout> | null = null
 
-  private lobbyPreview: { playerName?: string; token: string; intent: LobbyIntent; view: RoomView; fingerprint: string; deadline: number } | null = null
+  private lobbyPreview: { source: 'manual' | 'oclr'; command: string; playerName?: string; token: string; intent: LobbyIntent; view: RoomView; fingerprint: string; deadline: number } | null = null
   private roomPlan: OperationPlan | null = null
   private roomPlanPreview: { definition: RoomPlanDefinition; view: RoomView; token: string; fingerprint: string; deadline: number } | null = null
   private manualPool = new ManualPool()
@@ -91,7 +91,8 @@ export class IrcSession extends EventEmitter {
   private operations = new Operations(() => this.publish())
   private creationOperation: string | null = null
   setOperationStore(store: OperationStore) { this.operations.setStore(store) }
-  clearWebsiteOperations() { this.operations.clearWebsite() }
+  clearWebsiteOperations() { this.operations.clearWebsite(); this.cancelWebsiteInvite() }
+  cancelWebsiteInvite(token?: string) { if (this.lobbyPreview?.source === 'oclr' && (!token || token === this.lobbyPreview.token)) this.lobbyPreview = null }
   reviewOperation(input: unknown) { if ((input as { id?: string })?.id === this.mapPlan?.state.id) this.mapPlan?.cancel(); if ((input as { id?: string })?.id === this.roomPlan?.state.id) this.roomPlan?.cancel(); this.operations.review(input) }
   constructor(createSocket = () => net.createConnection({ host: 'irc.ppy.sh', port: 6667 }), timing: Partial<Timing> = {}, durationLookup: (id: number) => Promise<number | null> = async () => null) {
     super()
@@ -520,9 +521,13 @@ export class IrcSession extends EventEmitter {
     const { timer: _timer, startCountdown, ...rest } = room
     return JSON.stringify({ ...rest, startCountdown: startCountdown?.status ?? null })
   }
-  previewLobby(input: unknown): LobbyPreview {
+  previewLobby(input: unknown): LobbyPreview { return this.previewLobbyIntent(input, 'manual') }
+  /** Main-only, fixed invitation intent. No website command text is accepted from IPC. */
+  previewWebsiteInvite(input: unknown): LobbyPreview { return this.previewLobbyIntent(input, 'oclr') }
+  private previewLobbyIntent(input: unknown, source: 'manual' | 'oclr'): LobbyPreview {
     this.lobbyPreview = null
     const view = this.target(input), intent = lobbyIntent((input as { intent?: unknown }).intent)
+    if (source === 'oclr' && intent.kind !== 'invite') throw new Error('無效的玩家邀請。')
     this.mpReady(view, '', true); this.profileIdle(view)
     if (this.mapPlan?.active || this.roomPlan?.active) throw new Error('請先停止目前的選圖計畫。')
     if (intent.kind === 'host' && !view.room.slots.some(slot => slot.osuId === Number(intent.osuId))) throw new Error('玩家不在目前已核對的槽位內。')
@@ -540,20 +545,23 @@ export class IrcSession extends EventEmitter {
       if (intent.kind === 'team' && !/^(?:TeamVs|TagTeamVs)\b/.test(view.room.mode ?? '')) throw new Error('目前不是已核對的分隊模式。')
     }
     const token = randomUUID()
-    this.lobbyPreview = { playerName, token, intent, view, fingerprint: this.mpFingerprint(view.room), deadline: performance.now() + 10000 }
-    return { token, channel: view.room.channel, command: lobbyCommand(intent), kind: intent.kind, ...(playerName ? { playerName } : {}), ...(intent.kind === 'password' ? { passwordMode: intent.mode } : {}), expiresAt: new Date(Date.now() + 10000).toISOString() }
+    const command = source === 'oclr' && intent.kind === 'invite' ? relayCommand(`!mp invite ${intent.name.replace(/\s+/gu, '_')}`) : lobbyCommand(intent)
+    this.lobbyPreview = { source, command, playerName, token, intent, view, fingerprint: this.mpFingerprint(view.room), deadline: performance.now() + 10000 }
+    return { token, channel: view.room.channel, command, kind: intent.kind, ...(playerName ? { playerName } : {}), ...(intent.kind === 'password' ? { passwordMode: intent.mode } : {}), expiresAt: new Date(Date.now() + 10000).toISOString() }
   }
-  executeLobby(input: unknown) {
+  executeLobby(input: unknown) { this.executeLobbyIntent(input, 'manual') }
+  executeWebsiteInvite(input: unknown) { this.executeLobbyIntent(input, 'oclr') }
+  private executeLobbyIntent(input: unknown, source: 'manual' | 'oclr') {
     const preview = this.lobbyPreview; this.lobbyPreview = null
     const view = this.target(input), value = input as Record<string, unknown>
-    if (!preview || preview.view !== view || preview.token !== value.token || value.reviewed !== true || performance.now() >= preview.deadline || preview.fingerprint !== this.mpFingerprint(view.room) || this.mapPlan?.active || this.roomPlan?.active) throw new Error('房間設定確認已失效。')
+    if (!preview || preview.source !== source || preview.view !== view || preview.token !== value.token || value.reviewed !== true || performance.now() >= preview.deadline || preview.fingerprint !== this.mpFingerprint(view.room) || this.mapPlan?.active || this.roomPlan?.active) throw new Error('房間設定確認已失效。')
     this.mpReady(view, '', true); this.profileIdle(view)
     if (preview.playerName !== undefined && value.playerName !== preview.playerName) throw new Error('請輸入預覽中的玩家名稱以確認身份。')
     if (preview.intent.kind === 'close' && value.closeRoom !== view.room.channel) throw new Error('請輸入完整頻道名稱以確認關房。')
     if (preview.intent.kind === 'password' && preview.intent.mode === 'set' && value.password === undefined) throw new Error('請輸入房間密碼。')
-    const command = lobbyCommand(preview.intent, value.password), masked = lobbyCommand(preview.intent)
+    const command = source === 'oclr' ? preview.command : lobbyCommand(preview.intent, value.password), masked = source === 'oclr' ? preview.command : lobbyCommand(preview.intent)
     if (Buffer.byteLength(`PRIVMSG ${view.room.channel} :${command}`, 'utf8') > 510) throw new Error('房間設定過長。')
-    const id = this.operations.begin('manual', preview.intent.kind, view.room.id, view.room.epoch, this.generation, masked)
+    const id = this.operations.begin(source, preview.intent.kind, view.room.id, view.room.epoch, this.generation, masked)
     this.lastQueryAt = Date.now(); this.clearFresh(view); view.room.syncState = 'stale'; view.room.referee = 'unknown'; this.refereeSeen.delete(view)
     this.note(view, masked, 'self', this.username, 'unconfirmed')
     try { this.send(`PRIVMSG ${view.room.channel} :${command}`) } catch (error) { this.operations.finish(id, 'unknown'); throw error }

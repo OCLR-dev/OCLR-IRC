@@ -57,6 +57,8 @@ const api: DesktopAPI = {
     refreshPanel: () => ipcRenderer.invoke('oclr:panel'),
     selectMap: input => ipcRenderer.invoke('oclr:select-map', input),
     copyCommand: input => ipcRenderer.invoke('oclr:copy-command', input),
+    previewInvite: input => ipcRenderer.invoke('oclr:invite-preview', input),
+    executeInvite: input => ipcRenderer.invoke('oclr:invite-execute', input),
     openReview: input => ipcRenderer.invoke('oclr:open-review', input),
     onState: listener => {
       const handler = (_event: Electron.IpcRendererEvent, state: OclrSnapshot) => listener(state)

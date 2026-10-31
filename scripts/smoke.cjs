@@ -15,6 +15,7 @@ fs.mkdirSync(output, { recursive: true })
 const sent = []
 let username = ''
 let peer
+let holdSettings = false, releaseSettings
 const opened = []
 shell.openExternal = async url => { opened.push(url) }
 const server = net.createServer(socket => {
@@ -34,7 +35,7 @@ const server = net.createServer(socket => {
       if (line.startsWith('PRIVMSG BanchoBot :!mp make ')) socket.write(`:BanchoBot PRIVMSG ${username} :Created the tournament match https://osu.ppy.sh/mp/900000003 ${line.slice('PRIVMSG BanchoBot :!mp make '.length)}\n`)
       const channel = line.split(' ')[1]
       const id = channel?.replace('#mp_', '')
-      if (line.endsWith(':!mp settings')) socket.write(`:BanchoBot PRIVMSG ${channel} :Room name: SYNTHETIC QA ROOM, History: https://osu.ppy.sh/mp/${id}\n:BanchoBot PRIVMSG ${channel} :Beatmap: https://osu.ppy.sh/b/123 Synthetic Artist - Map\n:BanchoBot PRIVMSG ${channel} :Team mode: TeamVs, Win condition: ScoreV2\n:BanchoBot PRIVMSG ${channel} :Active mods: None\n:BanchoBot PRIVMSG ${channel} :Players: 2\n:BanchoBot PRIVMSG ${channel} :Slot 1 Ready https://osu.ppy.sh/u/101 Synthetic Red [Host / Team Red]\n:BanchoBot PRIVMSG ${channel} :Slot 4 Not Ready https://osu.ppy.sh/u/102 Synthetic Blue [Team Blue]\n`)
+      if (line.endsWith(':!mp settings')) { const reply = `:BanchoBot PRIVMSG ${channel} :Room name: SYNTHETIC QA ROOM, History: https://osu.ppy.sh/mp/${id}\n:BanchoBot PRIVMSG ${channel} :Beatmap: https://osu.ppy.sh/b/123 Synthetic Artist - Map\n:BanchoBot PRIVMSG ${channel} :Team mode: TeamVs, Win condition: ScoreV2\n:BanchoBot PRIVMSG ${channel} :Active mods: None\n:BanchoBot PRIVMSG ${channel} :Players: 2\n:BanchoBot PRIVMSG ${channel} :Slot 1 Ready https://osu.ppy.sh/u/101 Synthetic Red [Host / Team Red]\n:BanchoBot PRIVMSG ${channel} :Slot 4 Not Ready https://osu.ppy.sh/u/102 Synthetic Blue [Team Blue]\n`; if (holdSettings) releaseSettings = () => socket.write(reply); else socket.write(reply) }
       if (line.endsWith(':!mp listrefs')) socket.write(`:BanchoBot PRIVMSG ${channel} :Match referees:\n:BanchoBot PRIVMSG ${channel} :${username}\n`)
     }
   })
@@ -155,6 +156,20 @@ async function main() {
   assert.ok(Math.abs(layout.tools.bottom-layout.main.bottom)<2)
   assert.ok(layout.tools.width>=275 && layout.tools.width<=285)
   assert.ok(layout.chat.width>100 && layout.chat.bottom<=640 && layout.heading.bottom-layout.heading.top<=56)
+  await until(() => js('(async () => !(await window.oclr.snapshot()).pending)()'))
+  await delay(1100)
+  const geometry = () => js(`(() => {const rect = selector => {const r=document.querySelector(selector).getBoundingClientRect();return [r.x,r.y,r.width,r.height]};return [rect('.composer'),rect('.message-area'),rect('.conversation-header'),rect('.room-inspector')]})()`)
+  const beforeQuery = await geometry()
+  holdSettings = true
+  await js('document.querySelectorAll(".query-actions button")[0].click()')
+  await until(() => Boolean(releaseSettings))
+  await until(() => js('document.querySelector(".query-status").textContent.includes("正在等待伺服器回覆")'))
+  assert.deepEqual(await geometry(), beforeQuery, 'pending query must not move composer, messages, header or tools')
+  assert.equal(await js('!document.querySelector(".app-footer, .topbar, .conversation-footer")'), true)
+  assert.equal(await js('document.querySelector(".sidebar-footer").getAttribute("aria-label").includes("已連線")'), true)
+  holdSettings = false; releaseSettings(); releaseSettings = null
+  await until(() => js('(async () => !(await window.oclr.snapshot()).pending)()'))
+  assert.deepEqual(await geometry(), beforeQuery, 'completed query keeps the same geometry')
   await js('document.querySelector(".tools-scroll").scrollTop = 9999')
   assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom'), layout.composer.bottom)
   await js('document.querySelector(".tools-scroll").scrollTop = 0')
@@ -205,7 +220,9 @@ async function main() {
   assert.equal(await js('document.querySelector(".player-slots").textContent.includes("空位")'), false)
   await delay(250)
   assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
-  assert.equal(await js('document.querySelector(".app-footer").getBoundingClientRect().bottom <= innerHeight'), true)
+  assert.equal(await js('!document.querySelector(".app-footer, .topbar, .conversation-footer")'), true)
+  assert.equal(await js('document.querySelector(".sidebar-footer").getBoundingClientRect().bottom <= innerHeight'), true)
+  assert.equal(await js('document.querySelector(".sidebar-footer").getAttribute("aria-label").includes("正在重連")'), true)
   fs.writeFileSync(path.join(output, 'workspace-reconnecting-synthetic.png'), (await capture()).toPNG())
   await until(() => js('(async () => { const s = await window.oclr.snapshot(); return s.connection === "online" && s.room?.referee === "listed" && s.room?.syncState === "complete" })()'))
   const afterRecovery = await js('window.oclr.snapshot()')
