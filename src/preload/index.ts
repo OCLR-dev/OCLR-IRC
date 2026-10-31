@@ -3,6 +3,16 @@ import type { DesktopAPI, Snapshot } from '../shared/types.ts'
 import type { OclrSnapshot } from '../shared/oclr-contracts.ts'
 
 const api: DesktopAPI = {
+  websiteLaunch: {
+    snapshot: () => ipcRenderer.invoke('app:website-launch'),
+    continue: id => ipcRenderer.invoke('app:website-launch-continue', id),
+    clear: () => ipcRenderer.invoke('app:website-launch-clear'),
+    onState: listener => {
+      const handler = (_event: Electron.IpcRendererEvent, state: import('../shared/website-launch.ts').WebsiteLaunchState | null) => listener(state)
+      ipcRenderer.on('app:website-launch', handler)
+      return () => ipcRenderer.removeListener('app:website-launch', handler)
+    }
+  },
   settings: {
     snapshot: () => ipcRenderer.invoke('app:settings'),
     update: input => ipcRenderer.invoke('app:settings-update', input),

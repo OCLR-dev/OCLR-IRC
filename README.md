@@ -177,3 +177,5 @@ IRC 登入後，在 OCLR 場次核對帳號並按「連接網站 IRC」，沒有
 面板規則已相容網站的可選 `exPlayersPerTeam`，保留 1–16 或 null 的驗證、本人指派、PKCE 與帳號配對。瀏覽器網站登入與桌面授權仍為獨立 session。
 
 設定位於側欄底部齒輪；原本「轉入背景／退出程式」區塊已移除。背景執行預設開啟以延續既有行為，語言預設跟隨系統。設定只保存背景開關與語言，不保存帳號或聊天。詳見 [應用程式設定](docs/m1/app-settings.md)。
+
+網站執裁頁可按「開啟 OCLR IRC」，以 `oclr-irc://connect?fixture=<UUID>` 帶入場次；請使用最新版封裝程式。桌面登入 IRC 並按「繼續連接」後接續原 OCLR 授權／帳號核對流程。Linux 解壓後另執行成品內的 `install-protocol.sh`。連結不攜帶憑證或自動送指令。詳見 [網站 IRC 投影](docs/m1/website-irc-relay.md)。

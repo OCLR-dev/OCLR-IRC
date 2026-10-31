@@ -12,6 +12,7 @@ async function main() {
   const outputs = await packager({
     dir: '.', name: 'OCLR IRC', platform: 'darwin', arch: 'arm64',
     appBundleId: 'org.oclr.ref-tools',
+    protocols: [{name: 'OCLR IRC', schemes: ['oclr-irc']}],
     out: 'release', overwrite: true,
     ignore: [/^\/(?:release(?:-input|-assets)?|spikes|docs|tests|src|scripts|artifacts|\.github)(?:\/|$)/],
     osxSign: {
