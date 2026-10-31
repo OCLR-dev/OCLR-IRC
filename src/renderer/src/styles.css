@@ -371,6 +371,7 @@ main { min-height: 0; overflow: auto; }
 .room-heading h1 { font-size: 15px; letter-spacing: 0; }
 .room-actions { display: flex; gap: 6px; align-items: center; }
 .room-actions .button { height: 34px; min-height: 34px; padding-inline: 12px; font-size: 12px; border-radius: 7px; }
+.tools-toggle.button { width: 34px; min-width: 34px; height: 34px; min-height: 34px; padding: 0; }
 .room-grid, .room-view:has(.create-room-form) .room-grid { display: flex; flex: 1; min-height: 0; }
 .conversation { width: 100%; }
 .conversation-title { min-width: 0; }
