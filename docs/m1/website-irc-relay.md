@@ -54,3 +54,11 @@ relay 現在要求綁定房間仍為已加入的比賽房間。離開或被移�
 2026-10-30 真實 Test1／#mp_122090631 的 settings 只包含房名、History、模式與 Players: 0。網站換圖排隊後原本會失敗且不送線，因為 relayReady／relaySend 未將已驗證命令傳入既有 Main 證據檢查。現在轉送與手動操作沿用同一逐指令要求：換圖不依賴舊地圖／Mods、timer／aborttimer 不依賴地圖／Mods、明確替換 Mods 不依賴舊 Mods；start 維持完整觀測要求。送線前仍重新驗證，不因準備檢查成功而跳過房間、世代、裁判或 freshness。
 
 合成驗證：152 項核心測試、typecheck 與完整 Electron smoke 通過；新增真實 IrcSession＋本機模擬 IRC 測試，核對空房指令各送一次、非法指令及資料不足的 start 被拒絕、送出不把省略資料變成已知。
+
+## 2026-10-31：獨立開房接收狀態
+
+本次使用者明確要求網站直接開房，新增 relay bind `roomId: 0` 作為僅開房的內部接收狀態（不是 IRC 房號），不需先有 MP 房間。桌面仍須正式授權、本人場次、fresh panel、已核對的帳號配對、online IRC、無已知／未知既有開房結果，並在本機明確啟用連線。網站一次只排一筆 `!mp make <1–200字房名>`，目標固定 BanchoBot；其他命令在此狀態拒絕。一般房間 relay 繼續禁止 make。這取代本文舊版一律禁止 make 的限制，並非完整 context 自動執裁。
+
+Main 使用原有 createRoom 的送前持久化、節流、可信 BanchoBot 回覆與 JOIN 流程，消耗 command ID 後不重送。已建立的房間立即排除 IRC journal；只有加入、History 與 listrefs 核對完成，才在下一筆 sync 帶正整數 `roomId`，將同一接收連線轉為房間投影。網站只允許原 roomId 0 且有已派送 make 的連線進行這項轉換；既有房間不能切換為另一房號。開房 receipt 保守標記 unknown，實際房間由本機與投影核對，不捏造 Bancho 回覆證據。
+
+此修改需網站與桌面一起更新；不部署、不進行真實 Bancho 操作。契約相容修復保留 unknown enum、身份及權限拒絕；不以 cookie 替代桌面 token。

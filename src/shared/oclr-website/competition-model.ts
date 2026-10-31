@@ -8,6 +8,7 @@ export const scoringRulesSchema = z
     scoringType: z.enum(["score", "scorev2"]),
     aggregation: z.enum(["sum", "average"]),
     playersPerTeam: z.number().int().min(1).max(16),
+    exPlayersPerTeam: z.number().int().min(1).max(16).nullable().optional(),
     series: z.discriminatedUnion("type", [
       z
         .object({

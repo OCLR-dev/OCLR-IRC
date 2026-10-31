@@ -367,3 +367,5 @@ Windows／Linux 新增與 macOS 共用的成品壓縮包 SHA256、內外 build i
 未發出取消為 cancelled；在途取消／斷線／回覆缺失為 unknown，後續不送；保留已 observed 步驟，不假回滾。人工核對操作記錄或緊急 abort／aborttimer 同步停止計畫。送前持久化失敗仍禁止寫線，重啟只恢復 unknown，沒有自動續跑。UI 提供預覽、完整設定確認、FM 個人規則確認與停止後續步驟。未完成或地圖／Mods 已偏離的選圖計畫不能滿足 Start 檢查。
 
 Profile 區分 roomMods、freemod、individualModsPolicy、revision、ruleset；NF 可選，未知 FM policy 拒絕。此版 ruleset 明確為 current，未提供無可靠觀測的模式切換；正式 OCLR entry／圖池契約、個人 Mods 真實觀測與完整房間初始化仍為後續。合成案例不代表真實 Bancho／FM 驗收。
+
+2026-10-31 使用者追加修復：網站直接開房接收與 panel exPlayersPerTeam 相容已加入，見 [relay 說明](m1/website-irc-relay.md)。完整 context 與真實 Bancho／跨平台驗收仍為 partial。

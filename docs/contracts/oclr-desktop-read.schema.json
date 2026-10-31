@@ -975,6 +975,18 @@
                   "minimum": 1,
                   "maximum": 16
                 },
+                "exPlayersPerTeam": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 16
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "series": {
                   "$ref": "#/$defs/__schema16"
                 },

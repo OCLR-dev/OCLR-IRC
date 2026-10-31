@@ -267,3 +267,11 @@ test('read-only fixture reasons stay specific and cannot copy commands', async (
     } finally { f.session.dispose() }
   }
 })
+
+test('panel accepts the website optional substitute count while keeping invalid rules rejected', () => {
+  const value = panel()
+  value.data.workspace.rules = {...value.data.workspace.rules, exPlayersPerTeam: 2} as any
+  assert.equal(panelSchema.safeParse(value).success, true)
+  ;(value.data.workspace.rules as any).exPlayersPerTeam = 0
+  assert.equal(panelSchema.safeParse(value).success, false)
+})

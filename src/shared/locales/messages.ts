@@ -1,5 +1,7 @@
 // Application-authored text only. Interpolation values and external content remain literal.
 export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
+  "等待網站開房指令": {"zh-Hans": "等待网站开房指令", "en": "Waiting for a room creation command from the website"},
+  "連接網站 IRC": {"zh-Hans": "连接网站 IRC", "en": "Connect website IRC"},
   " · {{v0}} 勝": {
     "zh-Hans": " · {{v0}} 胜",
     "en": " · {{v0}} wins"

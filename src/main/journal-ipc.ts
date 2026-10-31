@@ -11,14 +11,17 @@ export function registerJournal(journal: EncryptedJournal | null, irc: IrcSessio
   let account: string | null = null
   let generation = 0
   const privateRooms = new Set<string>()
+  const markPrivate = (roomId: number) => {
+    const room = `#mp_${roomId}`
+    if (!privateRooms.has(room)) {
+      privateRooms.add(room); generation++; invalidate()
+      void journal?.clear(room).catch(() => {})
+    }
+  }
+  oclr.on('private-room', markPrivate)
   oclr.on('state', value => {
     if (value.relay.roomId && ['connecting', 'connected'].includes(value.relay.status)) {
-      const room = `#mp_${value.relay.roomId}`
-      if (!privateRooms.has(room)) {
-        privateRooms.add(room); generation++; invalidate()
-        // Until per-fixture reauthorization exists, projected rooms are memory-only.
-        void journal?.clear(room).catch(() => {})
-      }
+      markPrivate(value.relay.roomId)
     }
   })
   const state = () => ({ enabled: journal?.isEnabled ?? true, status: journal?.status ?? 'failed', account })
