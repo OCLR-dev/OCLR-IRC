@@ -1,5 +1,6 @@
 // Application-authored text only. Interpolation values and external content remain literal.
 export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
+  "帳號名稱相符・已自動核對": {"zh-Hans": "帐号名称相符・已自动核对", "en": "Account names match · Automatically checked"},
   "圖池": {"zh-Hans": "图池", "en": "Pool"},
   "場次來源": {"zh-Hans": "场次来源", "en": "Match source"},
   "同步場次資料": {"zh-Hans": "同步场次数据", "en": "Sync match data"},
@@ -26,7 +27,7 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
   "此場次不能準備邀請。": {"zh-Hans": "此场次不能准备邀请。", "en": "Invitations are unavailable for this match."},
   "無效的玩家邀請。": {"zh-Hans": "无效的玩家邀请。", "en": "Invalid player invitation."},
   "網站連接請求": {"zh-Hans": "网站连接请求", "en": "Website connection request"},
-  "場次已帶入，請核對帳號並啟用網站 IRC。": {"zh-Hans": "场次已带入，请核对账号并启用网站 IRC。", "en": "Match selected. Review your accounts and enable website IRC."},
+  "場次已帶入，請啟用網站 IRC。": {"zh-Hans": "场次已带入，请启用网站 IRC。", "en": "Match selected. Enable website IRC."},
   "無法帶入場次，請確認授權與本人指派後重試。": {"zh-Hans": "无法带入场次，请确认授权与本人指派后重试。", "en": "Unable to select the match. Check authorization and your assignment, then retry."},
   "請在瀏覽器完成 OCLR 授權。": {"zh-Hans": "请在浏览器完成 OCLR 授权。", "en": "Complete OCLR authorization in your browser."},
   "正在讀取場次…": {"zh-Hans": "正在读取场次…", "en": "Loading match…"},
@@ -847,10 +848,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
     "zh-Hans": "帐号配对",
     "en": "Account pairing"
   },
-  "帳號配對已變更，請重新核對。": {
-    "zh-Hans": "帐号配对已变更，请重新核对。",
-    "en": "Account pairing changed. Review it again."
-  },
   "常用訊息": {
     "zh-Hans": "常用讯息",
     "en": "Message templates"
@@ -942,10 +939,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
   "我已核對目標房間與變更": {
     "zh-Hans": "我已核对目标房间与变更",
     "en": "I reviewed the target room and change"
-  },
-  "我已確認兩個登入屬於同一帳號": {
-    "zh-Hans": "我已确认两个登入属于同一帐号",
-    "en": "I confirmed both logins belong to the same account"
   },
   "我已確認本次 Freemod 個人 Mods 規則": {
     "zh-Hans": "我已确认本次 Freemod 个人 Mods 规则",
@@ -1238,14 +1231,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
   "暱稱不符": {
     "zh-Hans": "暱称不符",
     "en": "Nickname mismatch"
-  },
-  "暱稱相符・已人工核對": {
-    "zh-Hans": "暱称相符・已人工核对",
-    "en": "Nickname matches · Reviewed"
-  },
-  "暱稱相符・待人工核對": {
-    "zh-Hans": "暱称相符・待人工核对",
-    "en": "Nickname matches · Needs review"
   },
   "更換隊伍": {
     "zh-Hans": "更换队伍",

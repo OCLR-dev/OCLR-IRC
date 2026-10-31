@@ -60,7 +60,6 @@ export class OclrRelay {
       if (this.binding || this.running) void this.stop()
     }
   }
-  confirmPairing(input: unknown) { this.refreshPairing(); this.identity.confirm(input); this.oclr.updatePairing(this.identity.state) }
   localBinding(target: {roomId: number; roomEpoch: number}) {
     const binding = this.binding
     if (!this.pairingReady() || !binding || binding.roomId !== target.roomId || binding.roomEpoch !== target.roomEpoch || !this.sameRoom(this.irc.state) || this.pending || this.creation) throw new OclrError('RELAY_LOCAL_NOT_READY')

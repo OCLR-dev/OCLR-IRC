@@ -58,7 +58,7 @@ export const panelSchema = envelope(z.object({ viewer: subjectSchema, edition: e
 export type RefereePanel = z.infer<typeof panelSchema>['data']
 export interface OclrCommand { id: string; kind: string; text: string | null; reason: string | null; teamName?: string; playerName?: string }
 export interface OclrRelayState { status: 'off' | 'connecting' | 'connected' | 'error'; roomId: number | null; error: string | null }
-export interface AccountPairingState { status: 'unknown' | 'nickname_matched' | 'mismatch'; token: string; reviewed: boolean; ircUsername: string | null }
+export interface AccountPairingState { status: 'unknown' | 'nickname_matched' | 'mismatch'; ircUsername: string | null }
 export interface OclrSnapshot {
   pairing: AccountPairingState
   relay: OclrRelayState

@@ -25,7 +25,7 @@ async function fixture(brokenStore=false){
   irc.login({username:'Example_Referee',password:'SYNTHETIC_ONLY'});await until(()=>irc.state.connection==='online')
   const reader=new ContextReader(async()=>{reads++;if(barrier)await barrier;return {value:structuredClone(data),startedAt:now,receivedAt:now}},()=>now)
   const scope={fixtureId:data.data.fixture.id,subjectId:data.data.viewer.osuId,generation:1};reader.select(scope)
-  const evidence:ContextLocalEvidence={sessionActive:true,ircOnline:true,fresh:true,subjectId:scope.subjectId,ircUsername:'Example_Referee',identityReviewed:true,connectionGeneration:irc.sessionGeneration,room:null,roomAgeMs:null,permissionAgeMs:null,noLocalLobbyReference:true,recoveryReviewed:true,entryId:null,lineup:[],teamColours:[],lineupChanged:false,policyReviewed:false,individualModsReviewed:false,confirmationFingerprint:null}
+  const evidence:ContextLocalEvidence={sessionActive:true,ircOnline:true,fresh:true,subjectId:scope.subjectId,ircUsername:'Example_Referee',connectionGeneration:irc.sessionGeneration,room:null,roomAgeMs:null,permissionAgeMs:null,noLocalLobbyReference:true,recoveryReviewed:true,entryId:null,lineup:[],teamColours:[],lineupChanged:false,policyReviewed:false,individualModsReviewed:false,confirmationFingerprint:null}
   const controller=new FixtureCreation(reader,irc,()=>({...evidence}),id=>events.push(`private:${id}`),()=>now)
   return {irc,reader,controller,data,evidence,sent,events,scope,reads:()=>reads,holdReads:()=>{barrier=new Promise<void>(resolve=>{release=resolve})},resumeReads:()=>{barrier=null;release?.()},setNow:(value:number)=>{now=value},reply:(sender='BanchoBot',name=data.data.lobby.roomName)=>peer.write(`:${sender} PRIVMSG Example_Referee :Created the tournament match https://osu.ppy.sh/mp/9 ${name}\n`),async close(){controller.dispose();reader.select(null);irc.logout();for(const socket of sockets)socket.destroy();await new Promise<void>(resolve=>server.close(()=>resolve()))}}
 }
@@ -51,7 +51,7 @@ test('changed context, expired preview, identity mismatch and unavailable persis
     const preview=await f.controller.prepare()
     if(mode==='revision')f.data.data.contextRevision='ctx_'+'b'.repeat(64)
     if(mode==='expired')f.setNow(11000)
-    if(mode==='identity')f.evidence.identityReviewed=false
+    if(mode==='identity')f.evidence.subjectId++
     if(mode==='cancel')f.controller.cancelPreview()
     if(mode==='dispose')f.controller.dispose()
     await assert.rejects(f.controller.execute({token:preview.token,reviewed:true}))

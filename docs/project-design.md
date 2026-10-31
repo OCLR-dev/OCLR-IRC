@@ -144,7 +144,7 @@ flowchart TB
 | OCLR | 正式隊伍、規則、圖池、指派、直播與核准賽果 | Bancho 當前房間狀態 |
 | 本機工作台 | 操作計畫、Pick／Ban 筆記、暫記比分、操作紀錄 | 官方賽果及遠端操作鎖 |
 
-OCLR 身分與 IRC 帳號不一致時，停用全部 OCLR 衍生變更操作。已確認 P0 的 identity_match 是「IRC 登入成功的暱稱與當次 OCLR 登入名稱，依同一已驗證規則正規化後相符，且裁判核對帳號」；狀態使用 nickname_matched／mismatched／unavailable，不能標成 UID 已驗證。暱稱相符不是跨系統 UID 證明，亦不增加 API 權限；改名／名稱過時時重新登入核對，無法比對則保留手動 IRC。D05 已接受此 P0 門檻；SPIKE-01 回報可用證據，不能把尚未存在的 UID 查詢服務當成已完成依賴。Bancho 房間授權仍以實際回覆為準。
+OCLR 身分與 IRC 帳號不一致時，停用全部 OCLR 衍生變更操作。已確認 P0 的 identity_match 是「IRC 登入成功的暱稱與當次 OCLR 登入名稱，由 Main 自動依同一規則比對相符（大小寫不敏感、底線＝空格；2026-11-01 使用者修訂，移除人工勾選）」；狀態使用 nickname_matched／mismatch／unknown，不能標成 UID 已驗證。暱稱相符不是跨系統 UID 證明，亦不增加 API 權限；改名／名稱過時時重新登入自動比對，無法比對則保留手動 IRC。D05 已接受此 P0 門檻；SPIKE-01 回報可用證據，不能把尚未存在的 UID 查詢服務當成已完成依賴。Bancho 房間授權仍以實際回覆為準。
 
 IRC 官方設定為 `irc.ppy.sh:6667`、SSL 關閉；帳號空格轉底線，使用 osu! 帳號設定頁的 IRC 專用密碼。此傳輸限制應在首次設定時清楚告知；尚未驗證的 TLS 連接埠或代理不作為預設。
 

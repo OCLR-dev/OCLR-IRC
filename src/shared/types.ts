@@ -78,7 +78,6 @@ export interface DesktopAPI {
   runInBackground(): Promise<{ ok: boolean; error?: string }>
   quit(): Promise<{ ok: boolean; error?: string }>
   website: {
-    confirmPairing(input: { token: string; reviewed: boolean }): Promise<{ ok: boolean; error?: string }>
     startRelay(): Promise<{ ok: boolean; error?: string }>
     stopRelay(): Promise<{ ok: boolean; error?: string }>
     snapshot(): Promise<OclrSnapshot>

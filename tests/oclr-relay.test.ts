@@ -16,7 +16,6 @@ function harness(receiptReasons = true, bpSync = false) {
   const oclr = Object.assign(new EventEmitter(), {sessionGeneration: 1, updatePairing(value: unknown) { this.state.pairing = value }, state: {pairing: null as any, subject: {osuId: 100, username: 'Ref Name'}, selectedFixtureId: id(101), panelState: 'fresh', relay: null as any}, updateRelay(state: unknown) {this.state.relay = state; (this as unknown as EventEmitter).emit('state')}, async relayRequest(_id: string, body: any) {requests.push(body); if (fail) throw Error('network failure'); return {value: {data: {...(receiptReasons ? {receiptReasons: true} : {}), ...(bpSync ? {bpSync: true} : {}), connectionId: id(40), sequence: body.sequence ?? 0, command: body.action === 'sync' ? command : null}, meta: meta()}}}})
   const relay = new OclrRelay(oclr as unknown as OclrSession, irc as unknown as IrcSession)
   relay.refreshPairing()
-  relay.confirmPairing({ token: oclr.state.pairing.token, reviewed: true })
   return {relay, oclr, irc, requests, writes, command(value: any) {command = value}, fail() {fail = true}}
 }
 
@@ -24,7 +23,7 @@ test('relay allowlist rejects raw IRC, secret commands and line injection', () =
   for (const value of ['!mp map 42 0', '!mp invite Player_Name', '!mp timer 30', '!mp start 5', '!mp abort', '!mp mods NF HD']) assert.equal(relayCommand(value), value)
   for (const value of ['PASS secret', '!mp password secret', '!mp make Test', '!mp map 42\r\nQUIT', '!mp invite player with space', '!mp start 0', '!mp map 4\u202e']) assert.throws(() => relayCommand(value))
 })
-test('local fixture actions require the exact active reviewed binding and no remote command in flight', async () => {
+test('local fixture actions require the exact active paired binding and no remote command in flight', async () => {
   const f = harness()
   try {
     assert.throws(() => f.relay.localBinding({roomId: 123, roomEpoch: 1}))
@@ -78,7 +77,7 @@ test('relay binds explicitly, sends once, projects only bound room and correlate
 test('identity mismatch, wrong command target and lost response never send or retry', async () => {
   const f = harness(); try {
     f.irc.state.username = 'Other'; await assert.rejects(f.relay.start()); f.irc.state.username = 'Ref_Name'
-    f.relay.refreshPairing(); f.relay.confirmPairing({ token: f.oclr.state.pairing.token, reviewed: true })
+    f.relay.refreshPairing()
     await f.relay.start(); f.command({id: id(50), text: '!mp map 42', target: '#mp_999'})
     await until(() => f.requests.some(r => r.receipts?.some((receipt: any) => receipt.status === 'failed')))
     assert.equal(f.writes.length, 0)
@@ -136,8 +135,8 @@ test('same nickname with a different OCLR subject invalidates binding', async ()
     assert.equal(f.writes.length, 0)
   } finally { await f.relay.stop() }
 })
-test('late bind cannot attach to a changed room or subject', async () => {
-  for (const change of ['room', 'subject']) {
+test('late bind cannot attach to a changed room, subject or authenticated session', async () => {
+  for (const change of ['room', 'subject', 'irc-login', 'website-login', 'irc-name', 'website-name']) {
     const f = harness()
     let release!: () => void
     const original = f.oclr.relayRequest.bind(f.oclr)
@@ -148,7 +147,11 @@ test('late bind cannot attach to a changed room or subject', async () => {
     try {
       const starting = f.relay.start()
       if (change === 'room') f.irc.state.room.epoch++
-      else f.oclr.state.subject.osuId++
+      else if (change === 'subject') f.oclr.state.subject.osuId++
+      else if (change === 'irc-login') f.irc.sessionGeneration++
+      else if (change === 'website-login') f.oclr.sessionGeneration++
+      else if (change === 'irc-name') f.irc.state.username = 'REF_NAME'
+      else f.oclr.state.subject.username = 'REF NAME'
       release(); await starting
       assert.equal(f.oclr.state.relay.status, change === 'room' ? 'error' : 'off')
       assert.equal(f.writes.length, 0)
@@ -157,13 +160,17 @@ test('late bind cannot attach to a changed room or subject', async () => {
   }
 })
 
-test('unreviewed same nickname never binds; reconnect invalidates review before late sync can send', async () => {
+test('automatic pairing blocks offline or different accounts and reconnect cannot consume a late sync', async () => {
   const f = harness()
   try {
-    f.irc.sessionGeneration++
+    f.irc.state.connection = 'connecting'
     await assert.rejects(f.relay.start())
+    assert.equal(f.oclr.state.pairing.status, 'unknown')
+    f.irc.state.connection = 'online'; f.irc.state.username = 'Other'
+    await assert.rejects(f.relay.start())
+    assert.equal(f.oclr.state.pairing.status, 'mismatch')
     assert.equal(f.requests.length, 0)
-    f.relay.confirmPairing({ token: f.oclr.state.pairing.token, reviewed: true })
+    f.irc.state.username = 'ref_name'
     let release!: () => void
     const original = f.oclr.relayRequest.bind(f.oclr)
     f.oclr.relayRequest = async (fixture, body) => {
@@ -171,14 +178,18 @@ test('unreviewed same nickname never binds; reconnect invalidates review before 
       return original(fixture, body)
     }
     await f.relay.start()
+    assert.equal(f.oclr.state.pairing.status, 'nickname_matched')
     f.command({ id: id(70), text: '!mp start', target: '#mp_123' })
     await until(() => Boolean(release))
-    // Even without a renderer/state event, Main checks the actual login generation.
+    // A new same-name login may pair automatically, but cannot resume this binding.
     f.irc.sessionGeneration++
     release()
     await until(() => f.oclr.state.relay.status === 'off')
     assert.equal(f.writes.length, 0)
-    assert.equal(f.oclr.state.pairing.reviewed, false)
+    assert.equal(f.oclr.state.pairing.status, 'nickname_matched')
+    const count = f.requests.length
+    await delay(1100)
+    assert.equal(f.requests.length, count)
   } finally { await f.relay.stop() }
 })
 

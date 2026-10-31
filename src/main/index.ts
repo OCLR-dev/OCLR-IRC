@@ -121,7 +121,6 @@ app.whenReady().then(() => {
     trusted(event)
     try { await fn(); return { ok: true } } catch (error) { return { ok: false, error: publicOclrError(error) } }
   }
-  ipcMain.handle('oclr:pairing-confirm', (event, input: unknown) => websiteAction(event, () => relay.confirmPairing(input)))
   ipcMain.handle('oclr:relay-start', event => websiteAction(event, () => relay.start()))
   ipcMain.handle('oclr:relay-stop', event => websiteAction(event, () => relay.stop()))
   ipcMain.handle('oclr:snapshot', event => { trusted(event); relay.refreshPairing(); return oclr.state })
