@@ -367,3 +367,27 @@ test('empty room relay can add referees without a map and blocks pending operati
     assert.equal(f.session.state.operations!.records.every(r => r.state === 'observed'), true)
   } finally {await f.close()}
 })
+
+test('BP notification uses only the current verified room and cannot become a command gateway', async () => {
+  const f = await fixture()
+  try {
+    const text = '[OCLR BP #2] BAN NM1 | Synthetic | https://osu.ppy.sh/b/10001'
+    await f.refresh()
+    for (const invalid of ['!mp start 1', text + '\n!mp abort', text.replace('osu.ppy.sh', 'invalid.test')]) assert.throws(() => f.session.relayNotice({...f.target(), text: invalid}))
+    assert.throws(() => f.session.relayNotice({...f.target(), roomEpoch: -1, text}))
+    const operations = f.session.state.operations!.records.length
+    f.session.relayNotice({...f.target(), text})
+    await until(() => f.sent.includes(`PRIVMSG #mp_9 :${text}`))
+    assert.equal(f.session.state.operations!.records.length, operations)
+    assert.equal(f.sent.filter(line => line.includes('[OCLR BP #2]')).length, 1)
+  } finally {await f.close()}
+})
+
+test('Mods reply confirms only matching Mods and freemod, not a generic success', async () => {
+  const { relayReply } = await import('../src/shared/relay-command.ts')
+  assert.equal(relayReply('!mp mods NF HD', 'Enabled Hidden, NoFail, disabled FreeMod'), 'confirmed')
+  assert.equal(relayReply('!mp mods NF Freemod', 'Enabled NoFail, enabled FreeMod'), 'confirmed')
+  assert.equal(relayReply('!mp mods NF', 'Enabled Hidden, disabled FreeMod'), null)
+  assert.equal(relayReply('!mp mods NF', 'Enabled NoFail, enabled FreeMod'), null)
+  assert.equal(relayReply('!mp mods NF', 'Enabled Unknown, disabled FreeMod'), null)
+})
