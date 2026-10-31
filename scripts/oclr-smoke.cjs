@@ -15,7 +15,7 @@ const fixtures = JSON.parse(fs.readFileSync('tests/fixtures/oclr-fixtures.json',
 const meta = fixtures.meta
 const nativeFetch = global.fetch
 const sent = [], requests = [], opened = [], errors = []
-let authRequest, unavailable = true, stale = false, revoked = false
+let authRequest, unavailable = true, stale = false, revoked = false, panelGate = null
 const access = 'oclr_desk_at_' + 'A'.repeat(43), refresh = 'oclr_desk_rt_' + 'D'.repeat(43)
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-OCLR-Desktop-Contract': '1.1.0', 'X-OCLR-Referee-Contract': '1.1.0', 'X-Request-Id': meta.requestId } })
 global.fetch = async (url, init = {}) => {
@@ -39,6 +39,7 @@ global.fetch = async (url, init = {}) => {
   if (revoked) return json({ error: { code: 'REFEREE_ACCESS_REVOKED', message: 'SYNTHETIC_SERVER_MESSAGE_NOT_FOR_UI', requestId: meta.requestId, retryable: false } }, 403)
   if (target.pathname.includes('/me/fixtures')) return json(fixtures)
   if (target.pathname.endsWith('/panel')) {
+    if (panelGate) await panelGate
     const value = structuredClone(panel)
     if (stale) value.data.freshUntil = value.data.capturedAt
     value.data.workspace.unexpectedSecret = 'SYNTHETIC_UNEXPECTED_FIELD_NOT_FOR_RENDERER'
@@ -126,6 +127,32 @@ async function main() {
   assert.equal(await js('Boolean(document.querySelector("[data-room-name-source]"))'), true)
   assert.equal(await js('document.querySelector("input[name=reviewedCreation]").checked'), false)
   assert.equal(await js('document.querySelector(".create-room-form button[type=submit]").disabled'), true)
+  // Retain user edits and review through a stale -> fresh refresh of the same source.
+  await js(`(() => { const input = document.querySelector('input[name=matchName]'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(input, 'SYNTHETIC CUSTOM ROOM'); input.dispatchEvent(new Event('input', {bubbles:true})); })()`)
+  await until(() => js('document.querySelector("input[name=matchName]")?.value === "SYNTHETIC CUSTOM ROOM"'))
+  await js('document.querySelector("input[name=reviewedCreation]").click()')
+  await until(() => js('!document.querySelector(".create-room-form button[type=submit]").disabled'))
+  let releasePanel
+  panelGate = new Promise(resolve => { releasePanel = resolve })
+  await js('void window.oclr.website.refreshPanel()')
+  await until(() => js('document.querySelector(".create-room-form")?.textContent.includes("場次資料待更新")'))
+  assert.equal(await js('document.querySelector("input[name=matchName]").value'), 'SYNTHETIC CUSTOM ROOM')
+  assert.equal(await js('document.querySelector(".create-room-form button[type=submit]").disabled'), true)
+  await js('document.querySelector(".create-room-form").requestSubmit()')
+  assert.equal(sent.some(line => line.includes('!mp make ')), false)
+  panelGate = null; releasePanel()
+  await until(() => js('!document.querySelector(".create-room-form button[type=submit]").disabled'))
+  assert.equal(await js('document.querySelector("input[name=matchName]").value'), 'SYNTHETIC CUSTOM ROOM')
+  assert.equal(await js('document.querySelector("input[name=reviewedCreation]").checked'), true)
+  // A real source revision/name change still clears customization and its review.
+  const originalName = panel.data.workspace.defaultSettings.roomName
+  panel.data.workspace.defaultSettings.roomName = 'SYNTHETIC UPDATED ROOM'
+  await js('window.oclr.website.refreshPanel()')
+  await until(() => js('document.querySelector("input[name=matchName]")?.value === "SYNTHETIC UPDATED ROOM"'))
+  assert.equal(await js('document.querySelector("input[name=reviewedCreation]").checked'), false)
+  assert.equal(await js('document.querySelector(".create-room-form button[type=submit]").disabled'), true)
+  assert.equal(sent.some(line => line.includes('!mp make ')), false)
+  panel.data.workspace.defaultSettings.roomName = originalName
   await js('document.querySelector(".create-room-heading button").click()')
   await until(() => js('!document.querySelector(".create-room-form")'))
   await js(`Array.from(document.querySelectorAll('nav button')).find(b => b.textContent.includes('OCLR 場次')).click()`)

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { roomNameSource } from '../src/shared/room-name-source.ts'
+import { roomNameSource, roomNameSourcePending } from '../src/shared/room-name-source.ts'
 import { emptyOclrState } from '../src/shared/oclr-state.ts'
 import { panelSchema } from '../src/shared/oclr-contracts.ts'
 import { panel, subject, id } from './fixtures/oclr.ts'
@@ -25,4 +25,19 @@ test('stale, wrong-fixture, logged-out or unsafe names never prefill', () => {
     const state = selected(); state.panel.workspace.defaultSettings!.roomName = name
     assert.equal(roomNameSource(state), null)
   }
+})
+
+test('only an unchanged cached source may retain a draft while freshness is unavailable', () => {
+  const state = selected(), source = roomNameSource(state)
+  for (const panelState of ['stale', 'loading'] as const) {
+    const pending = { ...state, panelState }
+    assert.equal(roomNameSourcePending(pending, source), true)
+    assert.equal(roomNameSource(pending), null, 'retained draft is never fresh enough to submit')
+    assert.equal(roomNameSourcePending({ ...pending, subject: { ...subject, osuId: 999 } }, source), false)
+    assert.equal(roomNameSourcePending({ ...pending, selectedFixtureId: id(103) }, source), false)
+    assert.equal(roomNameSourcePending({ ...pending, status: 'disconnected' }, source), false)
+    assert.equal(roomNameSourcePending({ ...pending, panel: null }, source), false)
+  }
+  state.panel.workspace.defaultSettings!.roomName = 'Changed source'
+  assert.equal(roomNameSourcePending({ ...state, panelState: 'stale' }, source), false)
 })

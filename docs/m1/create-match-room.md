@@ -67,3 +67,9 @@ v1 未記錄帳號，不能將舊房間推定給第一次登入者。交易式 m
 只有既有 IRC 解析器確認的相符 BanchoBot 回覆才建立來源關係。來源只留記憶體；先呼叫必要的房間隱私 hook，再於目標 JOIN 成功後排入 settings／listrefs。建立房間不代表初始化、房間權限或網站投影成功，也不自動開始 relay。未知／逾時不重送；取消、dispose、換場次或帳號發生於重讀等待期間時不得派送。來源清除後到達的舊房號仍可用最小 pending metadata 交給隱私 hook，不綁到新場次。
 
 此協調器尚未註冊生產 IPC 或 UI；正式接入必須供應已定版 context、目前授權／配對證據及 IRC 日誌排除 hook。不可用 PR409 panel、`operational` 或 renderer boolean 替代完整授權。`tests/fixture-creation.test.ts` 使用真實 IrcSession、本機模擬 IRC 與合成 context，涵蓋送前保存、雙擊、假 bot／錯房名、讀回、未知、儲存失敗、撤銷及晚到來源隔離；不代表真實 Bancho 開房已驗收。
+
+## 2026-10-31：背景刷新保留房名草稿（#40）
+
+場次 panel 在背景重讀期間會暫時標為 stale。開房表單現保留同一 subject、fixture、版本、依賴指紋及房名來源的草稿與人工核對；資料尚未恢復 fresh 前禁止送出，不把保留的草稿當有效來源。相同來源恢復 fresh 後不清空自訂房名。來源版本／名稱、身分或場次真正改變時仍清除舊草稿與核對，送出前再次讀取新鮮快照。
+
+Electron 合成回歸在延遲 panel 回覆期間嘗試提交，核對沒有 make 送線，並驗證相同來源恢復、不同來源作廢。這仍是手動房名建議，不替代正式 context 或 #40 的直接場次開房授權。
