@@ -1,3 +1,4 @@
+import { isBpNotice } from '../shared/bp-notice.ts'
 import { ManualPool } from './manual-pool.ts'
 import { roomPlan, roomPlanMatches } from '../shared/room-plan.ts'
 import type { RoomPlanDefinition, RoomPlanPreview } from '../shared/room-plan.ts'
@@ -746,6 +747,15 @@ export class IrcSession extends EventEmitter {
     try { this.send(`PRIVMSG ${view.room.channel} :${text}`) }
     catch (error) { this.operations.finish(operationId, 'unknown'); throw error }
     finally { this.enqueue(view, 'settings'); this.enqueue(view, 'listrefs'); this.publish() }
+  }
+  relayNotice(input: RoomTarget & { text: string }, onDispatch?: () => void) {
+    const view = this.target(input)
+    if (!isBpNotice(input.text) || view.room.kind !== 'match' || view.room.binding !== 'verified' || view.room.referee !== 'listed') throw new Error('無效的 BP 通知或房間權限。')
+    const text = chatText(input.text, view.room.channel)
+    this.ready(view)
+    onDispatch?.()
+    this.send(`PRIVMSG ${view.room.channel} :${text}`)
+    this.note(view, text, 'self', this.username, 'sent'); this.publish()
   }
   chat(input: unknown) {
     const view = this.target(input)

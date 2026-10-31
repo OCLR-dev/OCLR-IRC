@@ -1,3 +1,4 @@
+import { isBpNotice } from '../shared/bp-notice.ts'
 import { AccountPairing } from './account-pairing.ts'
 import { z } from 'zod'
 import { envelope, uuid } from '../shared/oclr-contracts.ts'
@@ -8,9 +9,9 @@ import type { IrcSession } from './irc.ts'
 import { normalize } from './protocol.ts'
 import { OclrError } from './oclr-http.ts'
 
-const replySchema = envelope(z.object({ connectionId: uuid, receiptReasons: z.boolean().optional(), sequence: z.number().int().nonnegative(), command: z.object({ id: uuid, text: z.string().max(300), target: z.string().regex(/^(?:#mp_[1-9]\d*|BanchoBot)$/) }).nullable() }))
+const replySchema = envelope(z.object({ connectionId: uuid, receiptReasons: z.boolean().optional(), bpSync: z.boolean().optional(), sequence: z.number().int().nonnegative(), command: z.object({ id: uuid, text: z.string().max(300), target: z.string().regex(/^(?:#mp_[1-9]\d*|BanchoBot)$/) }).nullable() }))
 type FailureReason = 'pending_operation' | 'room_checks' | 'bancho_rejected' | 'reply_timeout' | 'invalid_command' | 'target_changed' | 'local_rejected'
-type Receipt = { commandId: string; status: 'sent' | 'confirmed' | 'failed' | 'unknown'; reason?: FailureReason; evidence?: {sender: string; target: string; text: string} }
+type Receipt = { commandId: string; status: 'sent' | 'notified' | 'confirmed' | 'failed' | 'unknown'; reason?: FailureReason; evidence?: {sender: string; target: string; text: string} }
 const cleanProjectionText = (value: string) => value.replace(/[\p{Cc}\p{Cf}\u2028\u2029]/gu, '')
 const sensitiveProjectionText = (value: string) => /(?:password|access_token|refresh_token|code_verifier|oclr_desk_(?:at|rt)_|^\s*PASS\s|^\s*AUTHENTICATE\s)/i.test(value)
 function projectedMessage(message: Message) {
@@ -24,7 +25,7 @@ function projectedMessage(message: Message) {
 /** Local explicit room binding. No token or IRC password enters the renderer/projection. */
 export class OclrRelay {
   private identity = new AccountPairing()
-  private binding: {subjectId: number; fixtureId: string; connectionId: string; roomId: number; roomEpoch: number; username: string; sequence: number; receiptReasons: boolean} | null = null
+  private binding: {subjectId: number; fixtureId: string; connectionId: string; roomId: number; roomEpoch: number; username: string; sequence: number; receiptReasons: boolean; bpSync: boolean} | null = null
   private receipts: Receipt[] = []
   private consumed = new Set<string>()
   private pending: {id: string; text: string; after: number; deadline: number} | null = null
@@ -84,7 +85,7 @@ export class OclrRelay {
       const current = this.irc.state, website = this.oclr.state
       if (!this.pairingReady() || generation !== this.generation || website.subject?.osuId !== subjectId || normalize(website.subject?.username ?? '') !== username || website.selectedFixtureId !== fixtureId || website.panelState !== 'fresh' || current.connection !== 'online' || (preparing ? !!current.room || current.creation.status !== 'unreviewed' || current.creation.roomId !== null : current.room?.id !== roomId || current.room.epoch !== roomEpoch || !current.room.joined || current.room.binding !== 'verified' || current.room.referee !== 'listed') || normalize(current.username) !== username) throw new Error('Binding identity changed')
       if (reply.sequence !== 0 || reply.command !== null) throw new Error('Unexpected bind response')
-      this.binding = {subjectId, fixtureId, connectionId: reply.connectionId, roomId, roomEpoch, username: normalize(irc.username), sequence: 0, receiptReasons: reply.receiptReasons === true}
+      this.binding = {subjectId, fixtureId, connectionId: reply.connectionId, roomId, roomEpoch, username: normalize(irc.username), sequence: 0, receiptReasons: reply.receiptReasons === true, bpSync: reply.bpSync === true}
       this.consumed.clear(); this.receipts = []; this.pending = null
       this.oclr.updateRelay({status: 'connected', roomId: roomId || null, error: null})
       this.timer = setTimeout(() => void this.tick(), 100)
@@ -111,7 +112,7 @@ export class OclrRelay {
         if (binding.receiptReasons) return receipt
         const {reason: _reason, ...legacy} = receipt; return legacy
       })
-      const response = await this.oclr.relayRequest(binding.fixtureId, {action: 'sync', connectionId: binding.connectionId, sequence: ++binding.sequence, ...(createdRoomId ? {roomId: createdRoomId} : {}), projection: {status: same && irc.connection === 'online' ? 'connected' : 'disconnected', messages: same && binding.roomId !== 0 ? irc.messages.slice(-100).map(projectedMessage).filter(m => m !== null) : []}, receipts})
+      const response = await this.oclr.relayRequest(binding.fixtureId, {action: 'sync', connectionId: binding.connectionId, sequence: ++binding.sequence, ...(binding.bpSync ? {bpSync: true} : {}), ...(createdRoomId ? {roomId: createdRoomId} : {}), projection: {status: same && irc.connection === 'online' ? 'connected' : 'disconnected', messages: same && binding.roomId !== 0 ? irc.messages.slice(-100).map(projectedMessage).filter(m => m !== null) : []}, receipts})
       const reply = replySchema.parse(response.value).data
       if (!this.pairingReady() || generation !== this.generation) return
       if (reply.connectionId !== binding.connectionId || reply.sequence !== binding.sequence) throw new Error('Unexpected relay generation')
@@ -134,6 +135,15 @@ export class OclrRelay {
             this.receipts.push({commandId: command.id, status: 'sent'})
           } catch { if (dispatched) this.creation = null; this.receipts.push({commandId: command.id, status: dispatched ? 'unknown' : 'failed', reason: dispatched ? 'reply_timeout' : 'local_rejected'}) }
         } else if (!same || irc.connection !== 'online' || command.target !== `#mp_${binding.roomId}` || this.pending) this.receipts.push({commandId: command.id, status: 'failed', reason: this.pending ? 'pending_operation' : 'target_changed'})
+        else if (isBpNotice(command.text)) {
+          let dispatched = false
+          try {
+            if (!binding.bpSync || !this.pairingReady() || !this.sameRoom(this.irc.state)) throw new Error('Invalid BP notice binding')
+            this.irc.relayNotice({roomId: binding.roomId, roomEpoch: binding.roomEpoch, text: command.text}, () => { dispatched = true })
+            // This is local transport evidence, never a Bancho room-effect confirmation.
+            this.receipts.push({commandId: command.id, status: 'notified'})
+          } catch { this.receipts.push({commandId: command.id, status: dispatched ? 'unknown' : 'failed', reason: dispatched ? 'reply_timeout' : 'local_rejected'}) }
+        }
         else {
           let reason: FailureReason = 'invalid_command'
           try {

@@ -15,6 +15,7 @@ export function relayCommand(value: unknown): string {
 /** A wire write is not acceptance. Only a subsequent scoped BanchoBot reply can confirm. */
 export function relayReply(command: string, text: string): 'confirmed' | 'failed' | null {
   if (/^(?:You (?:are not|must be)|Invalid |Failed to |User not found|No user found|Beatmap not found|The beatmap could not be found)/i.test(text)) return 'failed'
+  if (confirmsMods(command, text)) return 'confirmed'
   const timer = /^!mp timer ([1-9]\d{0,3})$/.exec(command)
   if (timer) {
     const event = countdownEvent(text, 0)
@@ -39,4 +40,21 @@ export function relayReply(command: string, text: string): 'confirmed' | 'failed
   // Other response wordings are deliberately left unconfirmed until an exact
   // correlated response is supported; receipt messages still reach the website.
   return null
+}
+
+export function confirmsMods(command: string, reply: string): boolean {
+  const requested = /^!mp mods (.+)$/.exec(command);
+  const observed = /^(?:Enabled (.+)|Disabled all mods), (enabled|disabled) FreeMod\.?$/i.exec(reply);
+  if (!requested || !observed) return false;
+  const aliases: Record<string, string | undefined> = {NOFAIL: "NF", EASY: "EZ", HIDDEN: "HD", HARDROCK: "HR", DOUBLETIME: "DT", HALFTIME: "HT", NIGHTCORE: "NC", FLASHLIGHT: "FL", FADEIN: "FI", SUDDENDEATH: "SD", PERFECT: "PF", SPUNOUT: "SO", MIRROR: "MR"};
+  const normalize = (value: string) => {
+    const name = value.replace(/[ -]/g, "").toUpperCase();
+    return aliases[name] ?? (/^(?:NF|EZ|HD|HR|DT|HT|NC|FL|FI|SD|PF|SO|MR|[1-9]K)$/.test(name) ? name : null);
+  };
+  const words = requested[1].split(" ");
+  const freemod = words.includes("Freemod");
+  if (freemod !== (observed[2].toLowerCase() === "enabled")) return false;
+  const desired = words.filter(m => !["None", "Freemod"].includes(m)).map(normalize);
+  const actual = observed[1] ? observed[1].split(/,\s*/).map(normalize) : [];
+  return !desired.includes(null) && !actual.includes(null) && new Set(actual).size === actual.length && desired.sort().join(",") === actual.sort().join(",");
 }

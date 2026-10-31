@@ -85,6 +85,16 @@ bind 回應可附 receiptReasons:true；只有收到此能力的新桌面才送�
 
 參考回覆格式：[bancho.js parser](https://github.com/ThePooN/bancho.js/blob/master/lib/Multiplayer/BanchoLobbyRegexes.js)。本輪以本機 TCP 模擬空房、操作阻擋與精確回覆，不操作截圖中的真實房間；真實權限或上線後效果需另驗收。
 
+## 2026-10-31：BP 自動通知與 Pick 換圖／Mods（網站 #621）
+
+網站保存 BP 後可排定自動同步：Ban 發送固定格式的 BP 通知；Pick／TB 依序通知、換圖與套用本輪已保存的 Mods／NF；撤回則通知修正。網站以保存事件 UUID 去重及伺服器生成內容，BP 保存與 IRC 結果獨立。網站更新需要 migration 0066；桌面更新以 bind 回應 `bpSync:true` 與 sync 請求 `bpSync:true` 協商能力，舊網站不收到新欄位，舊桌面不接收自動計畫。
+
+Main 僅讓固定 `[OCLR BP #數字]`、操作／圖池編號／隊名與官方譜面連結格式走 `relayNotice`，另核對當前房間 epoch、加入／History／裁判及帳號配對。通知沿用既有 chatText 的命令阻擋、UTF-8 長度與全連線節流，不放寬一般聊天成為命令入口，也不建立一筆會等待 Bancho 效果的 MP 操作。通知 handed-to-local-transport 以 `notified` 回報，不冒稱伺服器已收到或房間已變更。
+
+換圖／Mods 沿用原 MP 驗證、送前消耗 ID、共同操作阻擋及未知結果不重送。網站計畫只在上一筆成功後派送下一筆。新增有限 Mods 回覆比對：`Enabled ... / Disabled all mods, enabled/disabled FreeMod` 必須與原命令的 Mods 集合及 Freemod 完全一致；未知名稱、其他集合、其他房間或舊回覆不能確認。格式參考 [bancho.js 的 BanchoLobbyRegexes](https://github.com/ThePooN/bancho.js/blob/master/lib/Multiplayer/BanchoLobbyRegexes.js)。
+
+合成驗證包含網站隔離 DB 的計畫順序／去重／失敗停步及撤回，桌面 relay 不重送，以及真實 IrcSession 加本機 TCP 模擬 IRC 的通知送線／注入／epoch 邊界。未操作真實房間；此切片不建立 start/abort 自動化，不代表完整 MVP 或三平台實機驗收完成。
+
 ## 2026-10-31：開房送出邊界與來源隔離（#2／#6／#40）
 
 網站 make 也以 Main 的送線邊界回呼區分 failed／unknown；名稱、節流、既有在途操作或儲存檢查未通過，回報 failed／local_rejected，不能因另一筆開房處於 awaiting／blocked 就冒稱本筆結果不明。相同 command ID 仍先消耗、不重試；拒絕另一筆請求不覆寫原在途請求的關聯。
