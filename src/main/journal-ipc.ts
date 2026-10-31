@@ -1,3 +1,5 @@
+import { localize } from '../shared/localization.ts'
+import type { AppLocale } from '../shared/preferences.ts'
 import { dialog, ipcMain, type IpcMainInvokeEvent } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import type { EncryptedJournal } from './encrypted-journal.ts'
@@ -5,7 +7,7 @@ import type { OclrSession } from './oclr.ts'
 import type { IrcSession } from './irc.ts'
 
 /** IRC-only history. Never accepts renderer event bodies, account IDs or paths. */
-export function registerJournal(journal: EncryptedJournal | null, irc: IrcSession, trusted: (event: IpcMainInvokeEvent) => void, isQuitting: () => boolean, oclr: OclrSession, invalidate: () => void) {
+export function registerJournal(journal: EncryptedJournal | null, irc: IrcSession, trusted: (event: IpcMainInvokeEvent) => void, isQuitting: () => boolean, oclr: OclrSession, invalidate: () => void, locale: () => AppLocale = () => 'zh-Hant') {
   let account: string | null = null
   let generation = 0
   const privateRooms = new Set<string>()
@@ -67,7 +69,7 @@ export function registerJournal(journal: EncryptedJournal | null, irc: IrcSessio
         let entries = (await journal.read(room)).filter(entry => !privateRooms.has(entry.room))
         if (expectedGeneration !== generation || journal.status !== 'saving') throw new Error('Unavailable')
         if (operation === 'read') return { ok: true, entries }
-        const result = await dialog.showSaveDialog({ title: room ? `匯出 ${room} 日誌（最多 1,000 則）` : '匯出本帳號日誌（最多 1,000 則）', defaultPath: 'oclr-irc-history.json', filters: [{ name: 'JSON', extensions: ['json'] }] })
+        const result = await dialog.showSaveDialog({ title: room ? localize(locale(), '匯出 {{v0}} 日誌（最多 1,000 則）', { v0: room }) : localize(locale(), '匯出本帳號日誌（最多 1,000 則）'), defaultPath: 'oclr-irc-history.json', filters: [{ name: 'JSON', extensions: ['json'] }] })
         if (result.canceled || !result.filePath) return { ok: true, cancelled: true }
         if (expectedGeneration !== generation) throw new Error('Session changed')
         // Re-read after the dialog: deletion/disable/expiry while it was open must win.

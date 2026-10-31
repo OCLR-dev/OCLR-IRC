@@ -1,3 +1,4 @@
+import { tr, uiLocale } from './i18n'
 import { MESSAGE_TEMPLATES, messageTemplate } from '../../shared/referee-tools'
 import { WorkspaceSelect } from './controls'
 import React, { useRef, useState } from 'react'
@@ -15,22 +16,22 @@ export function MessageList({ state, onError }: { state: Snapshot; onError: (mes
       if (!result?.ok) onError(result?.error || '無法開啟此連結。')
     } catch { onError('無法開啟此連結。') }
   }
-  if (!state.messages.length) return <div className="message-area empty-state"><h2>連接你的比賽房間</h2></div>
-  return <div className="message-area" role="region" aria-label="IRC 訊息">
+  if (!state.messages.length) return <div className="message-area empty-state"><h2>{tr("連接你的比賽房間")}</h2></div>
+  return <div className="message-area" role="region" aria-label={tr("IRC 訊息")}>
     <Virtuoso ref={list} className="message-list" data={state.messages}
       firstItemIndex={state.messageStartIndex}
       computeItemKey={(_index, message) => message.id}
       initialTopMostItemIndex={{ index: 'LAST', align: 'end' }}
       defaultItemHeight={32} minOverscanItemCount={2} followOutput="auto" atBottomStateChange={setAtBottom} atBottomThreshold={50}
       itemContent={(_index, message) => <div className={`message-row ${message.kind}`}>
-        <time dateTime={message.time}>{new Date(message.time).toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time>
-        <span className="message-sender" title={message.sender}>{message.sender}</span>
-        <span className="message-text"><Linkify options={{ validate: { email: false, url: (value: string) => !/^(?!https?:)[a-z][a-z\d+.-]*:/i.test(value) }, attributes: { onClick: openLink, onAuxClick: (event: React.MouseEvent) => event.preventDefault() } }}>{message.text}</Linkify>
-          {message.delivery === 'sent' && <span className="delivery-note">已送出</span>}
-          {message.delivery === 'unconfirmed' && <span className="delivery-note">執行結果待核對</span>}
+        <time dateTime={message.time}>{new Date(message.time).toLocaleTimeString(uiLocale(), { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time>
+        <span className="message-sender" title={message.kind === 'system' ? tr(message.sender) : message.sender}>{message.kind === 'system' ? tr(message.sender) : message.sender}</span>
+        <span className="message-text"><Linkify options={{ validate: { email: false, url: (value: string) => !/^(?!https?:)[a-z][a-z\d+.-]*:/i.test(value) }, attributes: { onClick: openLink, onAuxClick: (event: React.MouseEvent) => event.preventDefault() } }}>{message.kind === 'system' ? tr(message.text) : message.text}</Linkify>
+          {message.delivery === 'sent' && <span className="delivery-note">{tr("已送出")}</span>}
+          {message.delivery === 'unconfirmed' && <span className="delivery-note">{tr("執行結果待核對")}</span>}
         </span>
       </div>} />
-    {!atBottom && <button type="button" className="jump-latest" onClick={() => list.current?.scrollToIndex({ index: 'LAST', align: 'end', behavior: 'auto' })}>回到最新訊息 ↓</button>}
+    {!atBottom && <button type="button" className="jump-latest" onClick={() => list.current?.scrollToIndex({ index: 'LAST', align: 'end', behavior: 'auto' })}>{tr("回到最新訊息 ↓")}</button>}
   </div>
 }
 export function Composer({ state, onError }: { state: Snapshot; onError: (message: string | null) => void }) {
@@ -56,19 +57,19 @@ export function Composer({ state, onError }: { state: Snapshot; onError: (messag
     finally { locked.current = false; setSending(false) }
   }
   return <form className="composer" onSubmit={submit}>
-    {room?.kind === 'match' && <details className="composer-templates"><summary>常用訊息</summary><div>
-      <WorkspaceSelect label="常用訊息" value={template} onChange={setTemplate} disabled={!available || sending} options={MESSAGE_TEMPLATES.map(({ value, label }) => ({ value, label }))} />
+    {room?.kind === 'match' && <details className="composer-templates"><summary>{tr("常用訊息")}</summary><div>
+      <WorkspaceSelect label={tr("常用訊息")} value={template} onChange={setTemplate} disabled={!available || sending} options={MESSAGE_TEMPLATES.map(({ value, label }) => ({ value, label: tr(label) }))} />
       <Button type="button" size="sm" variant="secondary" isDisabled={!available || sending} onPress={() => {
         try {
           const text = [draft, messageTemplate(template, room.channel)].filter(Boolean).join(' ')
           if (new TextEncoder().encode(`PRIVMSG ${room.channel} :${text.trim()}`).length > 510) { onError('草稿過長，請先縮短訊息。'); return }
           setDraft(text); onError(null)
         } catch { onError('無法插入常用訊息。') }
-      }}>插入草稿</Button>
+      }}>{tr("插入草稿")}</Button>
     </div></details>}
 
-    <div className="composer-controls"><TextField aria-label="房間聊天訊息" value={draft} onChange={setDraft} isDisabled={!available || sending} className="chat-field">
-      <Input name="chat" placeholder={available ? `傳送至 ${room.channel}` : room?.kind === 'private' && room.channel.toLowerCase() === 'banchobot' ? 'BanchoBot 私訊僅供讀取' : '加入房間後即可聊天'} maxLength={510} autoComplete="off"
+    <div className="composer-controls"><TextField aria-label={tr("房間聊天訊息")} value={draft} onChange={setDraft} isDisabled={!available || sending} className="chat-field">
+      <Input name="chat" placeholder={available ? tr("傳送至 {{v0}}", { v0: room.channel }) : room?.kind === 'private' && room.channel.toLowerCase() === 'banchobot' ? tr("BanchoBot 私訊僅供讀取") : tr("加入房間後即可聊天")} maxLength={510} autoComplete="off"
         onCompositionStart={() => { composing.current = true }} onCompositionEnd={() => { composing.current = false }}
         onKeyDown={event => {
           if (event.key === 'Tab' && !event.nativeEvent.isComposing && !composing.current && event.currentTarget.selectionStart === draft.length) {
@@ -78,7 +79,7 @@ export function Composer({ state, onError }: { state: Snapshot; onError: (messag
             if (found) { event.preventDefault(); setDraft(draft.slice(0, -token.length) + found + (draft === token ? ': ' : ' ')) }
           }
           if (event.key === 'Enter' && (event.nativeEvent.isComposing || composing.current || event.keyCode === 229)) event.preventDefault() }} />
-    </TextField><Button type="submit" className="primary-button" isDisabled={!available || sending || Boolean(state.pending) || !draft.trim() || prohibited || bytes > 510}>{sending ? '傳送中…' : '傳送'}</Button></div>
-    <div className="composer-help"><span>{prohibited ? '不支援指令或換行' : ''}</span><span className={bytes > 510 ? 'over-limit' : ''}>{bytes} / 510 bytes</span></div>
+    </TextField><Button type="submit" className="primary-button" isDisabled={!available || sending || Boolean(state.pending) || !draft.trim() || prohibited || bytes > 510}>{sending ? tr("傳送中…") : tr("傳送")}</Button></div>
+    <div className="composer-help"><span>{prohibited ? tr("不支援指令或換行") : ''}</span><span className={bytes > 510 ? 'over-limit' : ''}>{bytes} / 510 bytes</span></div>
   </form>
 }

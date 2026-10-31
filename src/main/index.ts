@@ -15,6 +15,8 @@ import { OclrRelay } from './oclr-relay.ts'
 import { OclrSession } from './oclr.ts'
 import { publicOclrError } from './oclr-http.ts'
 import { DesktopBackground } from './background.ts'
+import { PreferencesStore } from './preferences-store.ts'
+import { resolveLocale } from '../shared/preferences.ts'
 
 // Preserve the existing profile (and test overrides) when changing the display name.
 app.setPath('userData', app.getPath('userData'))
@@ -47,6 +49,35 @@ function action(event: Electron.IpcMainInvokeEvent, fn: () => void) {
 }
 app.whenReady().then(() => {
   if (!primaryInstance) return
+  const preferences = new PreferencesStore(join(app.getPath('userData'), 'preferences.json'))
+  const settingsSnapshot = () => ({ preferences: preferences.get(), locale: resolveLocale(preferences.get().language, app.getPreferredSystemLanguages()), version: app.getVersion(), platform: process.platform })
+  let lastLocale = settingsSnapshot().locale
+  function refreshSystemLocale() {
+    const settings = settingsSnapshot()
+    if (settings.locale === lastLocale) return
+    lastLocale = settings.locale
+    background?.setLocale(settings.locale)
+    window?.webContents.send('app:settings-state', settings)
+  }
+  ipcMain.handle('app:settings', event => { trusted(event); return settingsSnapshot() })
+  ipcMain.handle('app:settings-update', (event, input: unknown) => {
+    trusted(event)
+    try {
+      preferences.set(input)
+      const settings = settingsSnapshot()
+      lastLocale = settings.locale
+      background?.setLocale(settings.locale)
+      window?.webContents.send('app:settings-state', settings)
+      return { ok: true, settings }
+    } catch { return { ok: false, error: '無法保存設定，請重試。' } }
+  })
+  ipcMain.handle('app:about-link', async (event, kind: unknown) => {
+    trusted(event)
+    const links = { repository: 'https://github.com/OCLR-dev/OCLR-IRC', license: 'https://github.com/OCLR-dev/OCLR-IRC/blob/main/LICENSE', notices: 'https://github.com/OCLR-dev/OCLR-IRC/blob/main/THIRD_PARTY_NOTICES.md' }
+    if (typeof kind !== 'string' || !Object.hasOwn(links, kind)) return { ok: false, error: '無效的連結。' }
+    try { await shell.openExternal(links[kind as keyof typeof links]); return { ok: true } }
+    catch { return { ok: false, error: '無法開啟此連結。' } }
+  })
   try { const operationStore = new SqliteOperationStore(join(app.getPath('userData'), 'operation-recovery.sqlite')); irc.setOperationStore(operationStore); app.on('will-quit', () => operationStore.close()) }
   catch { irc.setOperationStore({ load() { throw new Error('Unavailable') }, save() { throw new Error('Unavailable') }, clear() {} }) }
   irc.setCreationStore(new SqliteCreationStore(join(app.getPath('userData'), 'room-creation.sqlite')))
@@ -63,7 +94,7 @@ app.whenReady().then(() => {
       encrypt: value => safeStorage.encryptStringAsync(value), decrypt: value => safeStorage.decryptStringAsync(value)
     })
   } catch { /* Storage failure is reported without blocking IRC or falling back to plaintext. */ }
-  registerJournal(journal, irc, trusted, () => quitting, oclr, () => { if (window && !window.isDestroyed()) window.webContents.send('journal:invalidate') })
+  registerJournal(journal, irc, trusted, () => quitting, oclr, () => { if (window && !window.isDestroyed()) window.webContents.send('journal:invalidate') }, () => settingsSnapshot().locale)
   app.on('will-quit', () => { void journal?.close().catch(() => {}) })
   function changed() { if (window && !window.isDestroyed()) window.webContents.send('irc:state', snapshot()) }
   let operationContext = ''
@@ -196,11 +227,16 @@ app.whenReady().then(() => {
     window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
     window.webContents.on('will-navigate', (event, url) => { if (devURL ? url !== devURL : !sameLocalPage(url, productionURL)) event.preventDefault() })
     window.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false))
-    window.on('focus', () => oclr.setForeground(true))
+    window.on('focus', () => { oclr.setForeground(true); refreshSystemLocale() })
     window.on('blur', () => oclr.setForeground(false))
     window.on('hide', () => oclr.setForeground(false))
     window.on('minimize', () => oclr.setForeground(false))
-    window.on('close', event => { if (!quitting && background) { event.preventDefault(); background.hide() } })
+    window.on('close', event => {
+      if (quitting) return
+      event.preventDefault()
+      if (preferences.get().closeToBackground && background) background.hide()
+      else setImmediate(() => { if (!quitting) app.quit() })
+    })
     // The shutdown query may be cancelled by the user; clean up only on confirmed end.
     window.on('session-end', () => { quitting = true; logout(); oclr.dispose() })
     window.on('closed', () => { window = null; logout(); oclr.dispose() })
@@ -208,7 +244,8 @@ app.whenReady().then(() => {
     else void window.loadFile(join(__dirname, '../renderer/index.html'))
   }
   create()
-  background = new DesktopBackground(() => window, value => oclr.setForeground(value), () => app.quit())
+  background = new DesktopBackground(() => window, value => oclr.setForeground(value))
+  background.setLocale(settingsSnapshot().locale)
   app.on('activate', () => { if (!window) create(); background?.show() })
 })
 app.on('before-quit', () => { quitting = true; logout(); oclr.dispose(); background?.destroy() })

@@ -1,8 +1,9 @@
+import { tr } from './i18n'
 import { RoomPlanControls, RoomPlanProgress } from './room-plan'
 import { PlayerControls } from './player-controls'
 import { LobbyControls } from './lobby-controls'
 import { MapProfileControls } from './map-profile'
-import { MP_ACTIONS, searchWorkspaceActions, commandSearchShortcut } from '../../shared/referee-tools'
+import { MP_ACTIONS, PANEL_ACTIONS, commandSearchShortcut } from '../../shared/referee-tools'
 import { WorkspaceSelect, WorkspaceCheckbox } from './controls'
 import { useEffect, useRef, useState } from 'react'
 import { Button, Input, Label, TextField } from '@heroui/react'
@@ -10,6 +11,7 @@ import { MP_MODS } from '../../shared/mp-command'
 import type { WorkspaceAction } from '../../shared/referee-tools'
 import type { MpIntent, MpPreview } from '../../shared/mp-command'
 import type { Snapshot } from '../../shared/types'
+function localizedSearch(query: string) { const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean); return [...MP_ACTIONS, ...PANEL_ACTIONS].filter(action => terms.every(term => `${tr(action.label)} ${action.label} ${action.keywords}`.toLowerCase().includes(term))) }
 export function MpControls({ state, onReveal }: { state: Snapshot; onReveal?: (players: boolean) => void }) {
   const details = useRef<HTMLDetailsElement>(null)
   const searchInput = useRef<HTMLInputElement>(null)
@@ -47,7 +49,7 @@ export function MpControls({ state, onReveal }: { state: Snapshot; onReveal?: (p
   useEffect(() => { setPreview(null); setReviewed(false) }, [fingerprint, state.connection])
   useEffect(() => {
     if (!preview) return
-    const timer = setTimeout(() => { setPreview(null); setReviewed(false); setMessage('預覽已過期，請重新讀取設定及預覽。') }, Math.max(0, Date.parse(preview.expiresAt) - Date.now()))
+    const timer = setTimeout(() => { setPreview(null); setReviewed(false); setMessage("預覽已過期，請重新讀取設定及預覽。") }, Math.max(0, Date.parse(preview.expiresAt) - Date.now()))
     return () => clearTimeout(timer)
   }, [preview])
   const available = state.connection === 'online' && room.joined && room.binding === 'verified' && room.referee === 'listed' && (room.syncState === 'complete' || ((kind === 'timer' || kind === 'aborttimer' || kind === 'map' || (kind === 'mods' && room.beatmap !== null)) && room.syncState === 'partial')) && !state.pending
@@ -58,8 +60,8 @@ export function MpControls({ state, onReveal }: { state: Snapshot; onReveal?: (p
     try {
       const result = await window.oclr.previewMp({ roomId: room.id, roomEpoch: room.epoch, intent })
       if (result.ok && result.preview) setPreview(result.preview)
-      else setMessage(result.error || '無法預覽操作。')
-    } catch { setMessage('桌面服務無法回應。') }
+      else setMessage(result.error || "無法預覽操作。")
+    } catch { setMessage("桌面服務無法回應。") }
     finally { setBusy(false) }
   }
   async function execute() {
@@ -68,8 +70,8 @@ export function MpControls({ state, onReveal }: { state: Snapshot; onReveal?: (p
     setPreview(null); setReviewed(false); setBusy(true)
     try {
       const result = await window.oclr.executeMp({ roomId: room.id, roomEpoch: room.epoch, token, reviewed: true })
-      setMessage(result.ok ? '已送出，執行結果待核對' : result.error || '操作未完成，請核對房間後重新預覽。')
-    } catch { setMessage('結果不明，請核對 BanchoBot 回覆；不會自動重送。') }
+      setMessage(result.ok ? "已送出，執行結果待核對" : result.error || "操作未完成，請核對房間後重新預覽。")
+    } catch { setMessage("結果不明，請核對 BanchoBot 回覆；不會自動重送。") }
     finally { setBusy(false) }
   }
   function navigate(action: WorkspaceAction) {
@@ -89,23 +91,23 @@ export function MpControls({ state, onReveal }: { state: Snapshot; onReveal?: (p
       target.querySelector<HTMLElement>('input:not([type=checkbox]):not([type=hidden]), button[aria-haspopup]')?.focus({ preventScroll: true })
     })
   }
-  return <details ref={details} className="mp-controls" open><summary>房內快捷操作</summary>
-    {!available && <p className="slots-caption">設定或裁判名單待更新</p>}
-    <TextField aria-label="搜尋房內指令" value={search} onChange={setSearch} isDisabled={busy || Boolean(preview)} className="command-search"><Input ref={searchInput} onKeyDown={event => { if (event.key === 'Escape' && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229 && !composing.current) { setSearch(''); event.stopPropagation() } }} placeholder="搜尋指令" maxLength={80} /></TextField>
-    {search.trim() && <div className="command-results" aria-label="指令搜尋結果">{searchWorkspaceActions(search).map(action => <Button key={action.value} size="sm" variant="secondary" isDisabled={busy || Boolean(preview)} onPress={() => navigate(action)}>{action.label}</Button>)}{!searchWorkspaceActions(search).length && <span role="status">沒有符合的指令</span>}</div>}
+  return <details ref={details} className="mp-controls" open><summary>{tr("房內快捷操作")}</summary>
+    {!available && <p className="slots-caption">{tr("設定或裁判名單待更新")}</p>}
+    <TextField aria-label={tr("搜尋房內指令")} value={search} onChange={setSearch} isDisabled={busy || Boolean(preview)} className="command-search"><Input ref={searchInput} onKeyDown={event => { if (event.key === 'Escape' && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229 && !composing.current) { setSearch(''); event.stopPropagation() } }} placeholder={tr("搜尋指令")} maxLength={80} /></TextField>
+    {search.trim() && <div className="command-results" aria-label={tr("指令搜尋結果")}>{localizedSearch(search).map(action => <Button key={action.value} size="sm" variant="secondary" isDisabled={busy || Boolean(preview)} onPress={() => navigate(action)}>{tr(action.label)}</Button>)}{!localizedSearch(search).length && <span role="status">{tr("沒有符合的指令")}</span>}</div>}
     <fieldset disabled={busy || Boolean(preview)}>
-      <WorkspaceSelect label="房內操作" value={kind} disabled={busy || Boolean(preview)} onChange={value => { setKind(value as MpIntent['kind']); setMessage('') }} options={MP_ACTIONS} />
-      {kind === 'map' && <TextField name="beatmapId" value={beatmapId} onChange={setBeatmapId}><Label>Beatmap ID</Label><Input placeholder="例如 123456" inputMode="numeric" /></TextField>}
-      {kind === 'start' && <WorkspaceCheckbox selected={delayed} disabled={busy || Boolean(preview)} onChange={setDelayed}>延遲開賽</WorkspaceCheckbox>}
-      {(kind === 'timer' || kind === 'start' && delayed) && <TextField name="seconds" value={seconds} onChange={setSeconds}><Label>秒數（1–600）</Label><Input inputMode="numeric" /></TextField>}
+      <WorkspaceSelect label={tr("房內操作")} value={kind} disabled={busy || Boolean(preview)} onChange={value => { setKind(value as MpIntent['kind']); setMessage('') }} options={MP_ACTIONS.map(action => ({ ...action, label: tr(action.label) }))} />
+      {kind === 'map' && <TextField name="beatmapId" value={beatmapId} onChange={setBeatmapId}><Label>Beatmap ID</Label><Input placeholder={tr("例如 123456")} inputMode="numeric" /></TextField>}
+      {kind === 'start' && <WorkspaceCheckbox selected={delayed} disabled={busy || Boolean(preview)} onChange={setDelayed}>{tr("延遲開賽")}</WorkspaceCheckbox>}
+      {(kind === 'timer' || kind === 'start' && delayed) && <TextField name="seconds" value={seconds} onChange={setSeconds}><Label>{tr("秒數（1–600）")}</Label><Input inputMode="numeric" /></TextField>}
       {kind === 'mods' && <><div className="mp-mods">{MP_MODS.map(mod => <WorkspaceCheckbox key={mod} selected={mods.includes(mod)} disabled={busy || Boolean(preview)} onChange={selected => setMods(selected ? [...mods, mod] : mods.filter(item => item !== mod))}>{mod}</WorkspaceCheckbox>)}</div></>}
     </fieldset>
-    {preview ? <div className="mp-confirm"><strong>{preview.channel}</strong><code>{preview.command}</code><WorkspaceCheckbox selected={reviewed} onChange={setReviewed}>我已核對目標房間、比賽狀態及操作影響{kind === 'start' && '，確認玩家、地圖、Mods 與直播已準備完成'}。</WorkspaceCheckbox><Button size="sm" variant="danger" isDisabled={busy || !reviewed || !available} onPress={() => void execute()}>確認送出</Button><Button size="sm" variant="ghost" onPress={() => { setPreview(null); setReviewed(false) }}>取消</Button></div> : <Button size="sm" variant="secondary" isDisabled={busy || !available} onPress={() => void prepare()}>預覽指令</Button>}
+    {preview ? <div className="mp-confirm"><strong>{preview.channel}</strong><code>{preview.command}</code><WorkspaceCheckbox selected={reviewed} onChange={setReviewed}>{tr("我已核對目標房間、比賽狀態及操作影響")}{kind === 'start' && tr("，確認玩家、地圖、Mods 與直播已準備完成")}{tr("。")}</WorkspaceCheckbox><Button size="sm" variant="danger" isDisabled={busy || !reviewed || !available} onPress={() => void execute()}>{tr("確認送出")}</Button><Button size="sm" variant="ghost" onPress={() => { setPreview(null); setReviewed(false) }}>{tr("取消")}</Button></div> : <Button size="sm" variant="secondary" isDisabled={busy || !available} onPress={() => void prepare()}>{tr("預覽指令")}</Button>}
     <MapProfileControls state={state} />
     <LobbyControls state={state} />
     <RoomPlanControls state={state} />
     <RoomPlanProgress state={state} />
     <PlayerControls state={state} />
-    {message && <p className="mp-result" role="status">{message}</p>}
+    {message && <p className="mp-result" role="status">{tr(message)}</p>}
   </details>
 }

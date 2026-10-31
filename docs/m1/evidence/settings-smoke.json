@@ -1,0 +1,43 @@
+{
+  "kind": "synthetic",
+  "date": "2026-10-31",
+  "platform": "darwin-arm64",
+  "checks": {
+    "typecheck": "passed",
+    "core": {
+      "passed": 161,
+      "failed": 0
+    },
+    "desktopStages": 9,
+    "runtimeAudit": {
+      "vulnerabilities": 0
+    }
+  },
+  "settings": {
+    "evidence": "synthetic-settings-localization",
+    "passed": [
+      "HeroUI language selection for all four options",
+      "language changes without relogin or IRC commands",
+      "chat, names, maps and draft remain literal",
+      "900x640 settings, about and composer",
+      "no custom quit option",
+      "fixed About link allowlist",
+      "invalid IPC inputs and sender rejected",
+      "preferences survive renderer reload",
+      "close without background exits and cleans authentication"
+    ],
+    "limitation": "Synthetic services and OS language. Physical tray/IME acceptance remains separate."
+  },
+  "restart": {
+    "evidence": "synthetic-settings-restart",
+    "passed": [
+      "new application process restores locale and close behavior",
+      "close without background exits"
+    ],
+    "limitation": "Synthetic services and OS language. Physical tray/IME acceptance remains separate."
+  },
+  "limitations": [
+    "OS locale and IRC are synthetic.",
+    "Physical Windows/Linux tray, IME and shutdown acceptance remain separate."
+  ]
+}
