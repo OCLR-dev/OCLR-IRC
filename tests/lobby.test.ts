@@ -42,6 +42,23 @@ test('room commands validate structured values and conceal passwords', () => {
   for (const intent of [{kind:'rename',name:'a\nQUIT'}, {kind:'configure',teamMode:'4',scoreMode:'0',size:'16'}, {kind:'host',osuId:'1 PRIVMSG'}, {kind:'raw'}]) assert.throws(() => lobbyIntent(intent))
   assert.throws(() => lobbyCommand({kind:'password',mode:'set'}, 'a b'))
 })
+test('queued room refresh fences readiness until both reads and shared throttle finish', async () => {
+  const f = await fixture()
+  try {
+    assert.equal(f.session.relayReady(f.target(), '!mp invite New_Player'), true)
+    const priorReads = f.sent.filter(line => line.endsWith(':!mp settings')).length
+    f.session.relayRefresh(f.target())
+    // The queued timer has not run yet: the old snapshot is still fresh, but it
+    // cannot be used for a preview which the imminent refresh would invalidate.
+    assert.equal(f.session.relayReady(f.target(), '!mp invite New_Player'), false)
+    await until(() => f.session.relayReady(f.target(), '!mp invite New_Player'))
+    assert.equal(f.sent.filter(line => line.endsWith(':!mp settings')).length, priorReads + 1)
+    const preview = f.session.previewWebsiteInvite({...f.target(), intent: {kind: 'invite', osuId: '999', name: 'New Player'}})
+    f.session.executeWebsiteInvite({...f.target(), token: preview.token, reviewed: true, playerName: 'New Player'})
+    await until(() => f.sent.includes('PRIVMSG #mp_9 :!mp invite New_Player'))
+    assert.equal(f.sent.filter(line => line.includes('!mp invite')).length, 1)
+  } finally {await f.close()}
+})
 test('room mutations require one-use review, mask secrets, and never infer execution from sending', async () => {
   for (const intent of [{kind:'rename',name:'Synthetic renamed'}, {kind:'configure',teamMode:'2',scoreMode:'3',size:'8'}, {kind:'lock'}, {kind:'unlock'}, {kind:'host',osuId:'101'}, {kind:'clearhost'}, {kind:'password',mode:'set'}, {kind:'password',mode:'clear'}, {kind:'close'}]) {
     const f = await fixture()

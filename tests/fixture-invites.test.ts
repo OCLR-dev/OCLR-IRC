@@ -63,6 +63,19 @@ test('fixture invite rereads its source, previews one fixed player and sends onc
     assert.equal(f.saved.length, 0); assert.equal(f.irc.state.room?.players, 0)
   } finally {await f.close()}
 })
+test('queued refresh completes before fixture invite preview, so confirmation still dispatches once', async () => {
+  const f = await fixture()
+  try {
+    const reads = () => f.sent.filter(line => line.endsWith(':!mp settings')).length
+    const before = reads()
+    f.irc.relayRefresh(f.target())
+    const preview = await f.controller.prepare(f.input())
+    await until(() => reads() === before + 1 && f.irc.relayReady(f.target(), preview.command))
+    await f.controller.execute({...f.target(), token: preview.token, reviewed: true, playerName: preview.playerName!})
+    await until(() => f.sent.includes('PRIVMSG #mp_9 :!mp invite Player_A'))
+    assert.equal(f.sent.filter(line => line.includes('!mp invite')).length, 1)
+  } finally {await f.close()}
+})
 test('manual IPC cannot execute a website invitation and missing name confirmation never writes', async () => {
   const f = await fixture()
   try {

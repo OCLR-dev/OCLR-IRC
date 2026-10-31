@@ -1,5 +1,5 @@
 // Real Main/preload with isolated profile, synthetic HTTP/IRC and crypto provider.
-const { app, BrowserWindow, safeStorage, shell, clipboard } = require('electron')
+const { app, BrowserWindow, safeStorage, shell, clipboard, ipcMain } = require('electron')
 const fs = require('node:fs')
 const path = require('node:path')
 const net = require('node:net')
@@ -23,6 +23,13 @@ const command = {id: commandId, text: `!mp make ${name}`, target: 'BanchoBot'}
 const json = (data, status = 200) => new Response(JSON.stringify({data, meta}), {status, headers: {'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-OCLR-Desktop-Contract': '1.1.0', 'X-OCLR-Referee-Contract': '1.1.0', 'X-Request-Id': meta.requestId}})
 const nativeFetch = global.fetch, syncs = [], sent = []
 let auth, peer, username, invitePhase = false
+const inviteOutcomes = []
+const handle = ipcMain.handle.bind(ipcMain)
+ipcMain.handle = (channel, listener) => handle(channel, channel === 'oclr:invite-execute' ? async (...args) => {
+  const result = await listener(...args)
+  inviteOutcomes.push({ok: result.ok, error: result.error})
+  return result
+} : listener)
 global.fetch = async (value, init = {}) => {
   const url = new URL(String(value))
   assert.equal(url.origin, 'https://oclr.org')
@@ -118,6 +125,8 @@ async function main() {
   await js('document.querySelector(".fixture-invite-confirm input[type=checkbox]").click()')
   await until(() => js('!document.querySelector(".fixture-invite-confirm .primary-button").disabled'))
   await js('document.querySelector(".fixture-invite-confirm .primary-button").click()')
+  await until(() => inviteOutcomes.length > 0)
+  assert.equal(inviteOutcomes[0].ok, true, `Synthetic invitation rejected: ${inviteOutcomes[0].error}`)
   await until(() => sent.includes(`PRIVMSG #mp_${roomId} :!mp invite Player_A`))
   assert.equal(sent.filter(line => line.includes('!mp invite')).length, 1)
   assert.equal((await js('window.oclr.snapshot()')).room.players, 0, 'invitation does not imply arrival')
@@ -149,4 +158,12 @@ async function main() {
   console.log(JSON.stringify({evidence: 'synthetic-relay-creation', passed: ['single make despite duplicate command ID', 'sent receipt at dispatch boundary', 'late creation after relay stop still joins and reads settings/listrefs', 'round pool and both team rosters in room tools', 'pool selection and command copy send no IRC', 'bound room and typed player confirmation before a single invitation', 'invitation never means player arrival', '900x640 composer and independent tools', 'logout clears private roster and pool', 'website operation history stays memory only', ...(process.platform !== 'linux' ? ['private room excluded before first journal message', 'ordinary IRC history positive control'] : ['Linux journal remains memory only'])], limitation: 'Synthetic HTTP/IRC and crypto provider; real OAuth, Bancho and native provider acceptance remain separate.'}))
   app.exit(0)
 }
-main().catch(error => {console.error(error); app.exit(1)})
+main().catch(async error => {
+  console.error(error)
+  const window = BrowserWindow.getAllWindows()[0]
+  if (window && !window.isDestroyed()) {
+    const status = await window.webContents.executeJavaScript(`(async () => {const s=await window.oclr.snapshot();return {connection:s.connection,pending:s.pending,room:s.room&&{id:s.room.id,epoch:s.room.epoch,syncState:s.room.syncState,referee:s.room.referee},operations:s.operations?.records.map(r=>({kind:r.kind,state:r.state})),notice:document.querySelector('.fixture-roster [role=status]')?.textContent}})()`).catch(() => null)
+    console.error(JSON.stringify({syntheticInviteFailure: true, inviteOutcomes, status}))
+  }
+  app.exit(1)
+})
