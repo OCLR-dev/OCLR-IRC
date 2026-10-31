@@ -196,7 +196,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   </div>
 }
 async function bootstrap() {
-  let settings: AppSettings = { preferences: { ...DEFAULT_PREFERENCES }, locale: resolveLocale('system', navigator.languages), version: '0.7.0', platform: '' }
+  let settings: AppSettings = { preferences: { ...DEFAULT_PREFERENCES }, locale: resolveLocale('system', navigator.languages), version: '0.8.0', platform: '' }
   try { if (window.oclr) settings = await window.oclr.settings.snapshot() } catch { /* Preview defaults; never read credentials here. */ }
   await changeLocale(settings.locale)
   createRoot(document.getElementById('root')!).render(<App initialSettings={settings} />)
