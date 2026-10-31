@@ -36,6 +36,7 @@ test('fixture creation rereads before a single persisted make and associates onl
     await assert.rejects(f.controller.execute({token:preview.token,reviewed:true}));await first
     await until(()=>f.sent.some(line=>line.includes(':!mp make ')))
     assert.equal(f.reads(),2);assert.deepEqual(f.events,['persisted']);assert.equal(f.controller.state!.status,'awaiting')
+    assert.equal(f.irc.state.operations?.records.at(-1)?.source,'oclr')
     f.reply('OtherUser');f.reply('BanchoBot','Wrong room');await pause(20);assert.equal(f.controller.state!.status,'awaiting')
     f.reply();await until(()=>f.controller.state?.status==='created');await until(()=>f.sent.some(line=>line.endsWith(':!mp listrefs')))
     assert.equal(f.controller.state!.fixtureId,f.scope.fixtureId);assert.equal(f.controller.state!.roomId,9)
@@ -55,6 +56,7 @@ test('changed context, expired preview, identity mismatch and unavailable persis
     if(mode==='dispose')f.controller.dispose()
     await assert.rejects(f.controller.execute({token:preview.token,reviewed:true}))
     assert.equal(f.sent.some(line=>line.includes(':!mp make ')),false)
+    if(mode==='storage')assert.equal(f.controller.state?.status,'failed')
   }finally{await f.close()}}
 })
 test('timeout stays unknown without replay; context change clears source but still quarantines a late-created room',async()=>{

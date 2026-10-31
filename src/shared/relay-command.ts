@@ -26,7 +26,15 @@ export function relayReply(command: string, text: string): 'confirmed' | 'failed
   const nick = (name: string) => name.trim().replace(/ /g, '_').toLowerCase()
   if (addref && added && nick(addref[1]) === nick(added[1])) return 'confirmed'
   const map = /^!mp map (\d+)/.exec(command)
-  if (map && /^(?:Beatmap changed to:|Changed beatmap to)\s/i.test(text)) return new RegExp(`https://osu\\.ppy\\.sh/(?:b/|beatmaps/)${map[1]}(?:[^0-9]|$)`).test(text) ? 'confirmed' : null
+  if (map) {
+    const modern = /^Changed beatmap to (https?:\/\/[^\s]+)(?:\s|$)/i.exec(text)
+    const legacy = /^Beatmap changed to:\s+(.+)$/i.exec(text)
+    // Only the actual first link identifies the map. A later URL in its title
+    // must not confirm a different requested ID or a lookalike URL suffix.
+    const url = modern?.[1] ?? legacy?.[1].match(/https?:\/\/[^\s()[\]<>]+/i)?.[0]
+    const observed = url && /^https:\/\/osu\.ppy\.sh\/(?:b|beatmaps)\/([1-9]\d*)$/.exec(url)
+    if (observed?.[1] === map[1]) return 'confirmed'
+  }
   if (command === '!mp abort' && /^Aborted the match\.?$/i.test(text)) return 'confirmed'
   if (command === '!mp aborttimer' && /^(?:Countdown aborted|Aborted the match start timer)\.?$/i.test(text)) return 'confirmed'
   // Other response wordings are deliberately left unconfirmed until an exact

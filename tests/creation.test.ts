@@ -9,6 +9,7 @@ import { IrcSession } from '../src/main/irc.ts'
 import { Lines, matchName } from '../src/main/protocol.ts'
 import { SqliteCreationStore } from '../src/main/creation-store.ts'
 import type { CreationStore } from '../src/main/creation-store.ts'
+import type { OperationRecord } from '../src/shared/operation.ts'
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 async function until(predicate: () => boolean) {
@@ -125,6 +126,57 @@ test('unknown bot error/timeout locks creation; late confirmation cannot bind; l
     assert.throws(() => f.session.createRoom(old))
     assert.throws(() => f.session.createRoom({ ...input(f.session), reviewed: false }))
     assert.equal(f.sent.filter(l => l.includes('!mp make')).length, 1)
+  } finally { await f.close() }
+})
+
+test('website creation stays out of IRC operation history and is private before its first room message', async () => {
+  for (const source of ['manual', 'oclr'] as const) {
+    const f = await fixture(); const saved: OperationRecord[] = [], events: string[] = [], completions: any[] = []
+    f.session.setOperationStore({load: () => [], save: (_account, value) => saved.push(structuredClone(value)), clear() {}})
+    f.session.on('private-room', roomId => events.push(`private:${roomId}`))
+    f.session.on('private-conversation', name => events.push(`private:${name}`))
+    f.session.on('room-created', value => completions.push(value))
+    f.session.on('message', ({roomId}) => events.push(`message:${roomId}`))
+    try {
+      await login(f.session)
+      const intent = {...input(f.session), source: 'oclr'}
+      let dispatched = 0
+      if (source === 'manual') f.session.createRoom(intent)
+      else f.session.createWebsiteRoom(intent, () => {dispatched++})
+      assert.equal(dispatched, source === 'oclr' ? 1 : 0)
+      await until(() => f.sent.some(line => line.includes('!mp make')))
+      // Clearing website context while waiting must not remove the privacy fence.
+      if (source === 'oclr') f.session.clearWebsiteOperations()
+      f.peer().write(':Other PRIVMSG Example :Created the tournament match https://osu.ppy.sh/mp/9 測試\n')
+      await delay(10); assert.equal(completions.length, 0)
+      confirmed(f.peer()); await until(() => f.session.state.room?.referee === 'listed')
+      assert.deepEqual(completions, [{source, roomId: 9, requestId: intent.requestId, generation: f.session.sessionGeneration}])
+      if (source === 'oclr') {
+        assert.equal(saved.length, 0)
+        assert.equal(events[0], 'private:BanchoBot')
+        assert.ok(events.indexOf('private:9') >= 0 && events.indexOf('private:9') < events.indexOf('message:9'))
+      } else {
+        assert.equal(events.includes('private:9'), false)
+        assert.equal(events.includes('private:BanchoBot'), false)
+        assert.equal(saved.at(-1)?.source, 'manual', 'renderer input cannot spoof the source')
+        assert.equal(saved.at(-1)?.state, 'observed')
+      }
+      assert.equal(f.store.latest('Example')?.roomId, 9, 'minimal anti-replay guard remains durable for both sources')
+    } finally { await f.close() }
+  }
+})
+
+test('operation recovery write failure blocks creation before the dispatch boundary', async () => {
+  const f = await fixture(); let dispatched = 0
+  f.session.setOperationStore({load: () => [], save() {throw Error('synthetic disk full')}, clear() {}})
+  try {
+    await login(f.session)
+    assert.throws(() => f.session.createRoom(input(f.session)))
+    assert.equal(f.session.state.creation.status, 'blocked')
+    assert.throws(() => f.session.createWebsiteRoom(input(f.session), () => {dispatched++}))
+    assert.equal(dispatched, 0)
+    assert.equal(f.sent.some(line => line.includes('!mp make')), false)
+    assert.equal(f.store.latest('Example')?.status, 'pending', 'retain conservative recovery guard; never retry')
   } finally { await f.close() }
 })
 
