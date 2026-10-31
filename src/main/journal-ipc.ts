@@ -5,20 +5,23 @@ import { writeFile } from 'node:fs/promises'
 import type { EncryptedJournal } from './encrypted-journal.ts'
 import type { OclrSession } from './oclr.ts'
 import type { IrcSession } from './irc.ts'
+import { normalize } from './protocol.ts'
 
 /** IRC-only history. Never accepts renderer event bodies, account IDs or paths. */
 export function registerJournal(journal: EncryptedJournal | null, irc: IrcSession, trusted: (event: IpcMainInvokeEvent) => void, isQuitting: () => boolean, oclr: OclrSession, invalidate: () => void, locale: () => AppLocale = () => 'zh-Hant') {
   let account: string | null = null
   let generation = 0
   const privateRooms = new Set<string>()
-  const markPrivate = (roomId: number) => {
-    const room = `#mp_${roomId}`
-    if (!privateRooms.has(room)) {
-      privateRooms.add(room); generation++; invalidate()
+  const markPrivateScope = (room: string) => {
+    if (!privateRooms.has(normalize(room))) {
+      privateRooms.add(normalize(room)); generation++; invalidate()
       void journal?.clear(room).catch(() => {})
     }
   }
+  const markPrivate = (roomId: number) => markPrivateScope(`#mp_${roomId}`)
   oclr.on('private-room', markPrivate)
+  irc.on('private-room', markPrivate)
+  irc.on('private-conversation', markPrivateScope)
   oclr.on('state', value => {
     if (value.relay.roomId && ['connecting', 'connected'].includes(value.relay.status)) {
       markPrivate(value.relay.roomId)
@@ -40,7 +43,7 @@ export function registerJournal(journal: EncryptedJournal | null, irc: IrcSessio
   irc.on('message', ({ roomId, roomEpoch, message }) => {
     if (!account || !journal) return
     const room = irc.state.rooms.find(item => item.id === roomId && item.epoch === roomEpoch)
-    if (!room || privateRooms.has(room.channel)) return
+    if (!room || privateRooms.has(normalize(room.channel))) return
     void journal.append({ time: Date.parse(message.time), room: room.channel, text: `${message.sender}: ${message.text}` }).catch(() => {})
   })
   function scope(value: unknown) {
@@ -66,14 +69,14 @@ export function registerJournal(journal: EncryptedJournal | null, irc: IrcSessio
         const room = scope(input)
         if (!account || !journal) throw new Error('Unavailable')
         if (operation === 'clear') { invalidate(); await journal.clear(room); return { ok: true } }
-        let entries = (await journal.read(room)).filter(entry => !privateRooms.has(entry.room))
+        let entries = (await journal.read(room)).filter(entry => !privateRooms.has(normalize(entry.room)))
         if (expectedGeneration !== generation || journal.status !== 'saving') throw new Error('Unavailable')
         if (operation === 'read') return { ok: true, entries }
         const result = await dialog.showSaveDialog({ title: room ? localize(locale(), '匯出 {{v0}} 日誌（最多 1,000 則）', { v0: room }) : localize(locale(), '匯出本帳號日誌（最多 1,000 則）'), defaultPath: 'oclr-irc-history.json', filters: [{ name: 'JSON', extensions: ['json'] }] })
         if (result.canceled || !result.filePath) return { ok: true, cancelled: true }
         if (expectedGeneration !== generation) throw new Error('Session changed')
         // Re-read after the dialog: deletion/disable/expiry while it was open must win.
-        entries = (await journal.read(room)).filter(entry => !privateRooms.has(entry.room))
+        entries = (await journal.read(room)).filter(entry => !privateRooms.has(normalize(entry.room)))
         if (expectedGeneration !== generation || journal.status !== 'saving') throw new Error('Unavailable')
         await writeFile(result.filePath, JSON.stringify({ exportedAt: new Date().toISOString(), scope: room ?? 'account', entries }, null, 2), { mode: 0o600 })
         return { ok: true }

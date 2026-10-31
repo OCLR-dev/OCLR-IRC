@@ -275,3 +275,5 @@ OCLR 房名帶入：新建房間表單訂閱已選場次的唯讀 panel，優先
 2026-10-31 relay 修復：區分未送出與結果未知，顯示有限原因碼；空房 addref 無需地圖／Mods，精確 timer／addref 回覆同步解除待核對阻擋。舊 unknown 仍須人工核對、不重送。驗證範圍見 docs/m1/website-irc-relay.md。
 
 2026-10-31 使用者明確要求三平台版本發布：沿用既有 Release pipeline，補上發布前衝突／權限檢查、版本一致性及下載表，準備 v0.7.0 公開預覽版；不表示既有實機與 MVP gate 已完成。版本及 CI 證據見 [Release CI](release-ci.md)。
+
+2026-10-31 追加合成開發：網站 make 以實際送線邊界分類回執，Main 固定網站來源並在房間訊息前隔離日誌；原請求／世代關聯避免錯綁，儲存失敗鎖定且不重送。換圖回執拒絕曲名內另一個連結造成的誤確認。179 項核心測試及 Electron 合成驗證見 [本輪進度](m1/issue-progress-2026-10-31.md)；完整 CORE／LOG／LOBBY／OCLR 與 MVP 仍為 partial。

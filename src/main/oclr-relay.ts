@@ -28,8 +28,7 @@ export class OclrRelay {
   private receipts: Receipt[] = []
   private consumed = new Set<string>()
   private pending: {id: string; text: string; after: number; deadline: number} | null = null
-  private privateCreationGeneration: number | null = null
-  private creation: { id: string; requestId: string } | null = null
+  private creation: { id: string; requestId: string; generation: number; roomId: number | null } | null = null
   private timer: ReturnType<typeof setTimeout> | null = null
   private generation = 0
   private running = false
@@ -37,13 +36,9 @@ export class OclrRelay {
   private irc: IrcSession
   constructor(oclr: OclrSession, irc: IrcSession) {
     this.oclr = oclr; this.irc = irc
-    irc.on('state', () => {
-      this.refreshPairing()
-      const created = irc.state.creation
-      if (this.privateCreationGeneration === irc.sessionGeneration && ['created', 'blocked'].includes(created?.status) && created.roomId) {
-        this.privateCreationGeneration = null
-        this.oclr.emit('private-room', created.roomId)
-      }
+    irc.on('state', () => this.refreshPairing())
+    irc.on('room-created', (created: {source: string; requestId: string; generation: number; roomId: number}) => {
+      if (created.source === 'oclr' && this.creation?.requestId === created.requestId && this.creation.generation === created.generation) this.creation.roomId = created.roomId
     })
     irc.on('message', ({roomId, roomEpoch, message}: {roomId: number; roomEpoch: number; message: Message}) => {
       if (!this.pairingReady() || !this.sameRoom(this.irc.state) || !this.binding || roomId !== this.binding.roomId || roomEpoch !== this.binding.roomEpoch || !this.pending || message.kind !== 'bot' || normalize(message.sender) !== 'banchobot' || message.id <= this.pending.after) return
@@ -100,7 +95,7 @@ export class OclrRelay {
       const irc = this.irc.state, same = this.sameRoom(irc)
       if (this.pending && (!same || irc.connection !== 'online' || performance.now() >= this.pending.deadline)) { this.receipts.push({commandId: this.pending.id, status: 'unknown', reason: same && irc.connection === 'online' ? 'reply_timeout' : 'target_changed'}); this.pending = null }
       let createdRoomId: number | undefined
-      if (this.creation && irc.creation.status === 'created' && irc.creation.roomId === irc.room?.id && irc.room.joined && irc.room.binding === 'verified' && irc.room.referee === 'listed') {
+      if (this.creation && this.creation.generation === this.irc.sessionGeneration && this.creation.roomId === irc.creation.roomId && irc.creation.status === 'created' && irc.creation.roomId === irc.room?.id && irc.room.joined && irc.room.binding === 'verified' && irc.room.referee === 'listed') {
         createdRoomId = irc.room.id; binding.roomId = irc.room.id; binding.roomEpoch = irc.room.epoch
         this.oclr.updateRelay({status: 'connected', roomId: binding.roomId, error: null})
       }
@@ -122,15 +117,17 @@ export class OclrRelay {
         this.consumed.add(command.id)
         if (this.consumed.size > 2000) throw new Error('Relay session limit')
         if (binding.roomId === 0) {
+          let dispatched = false
           try {
             const current = this.irc.state
             const name = /^!mp make (.{1,200})$/u.exec(command.text)?.[1]
             if (!name || /[\p{Cc}\p{Cf}\u2028\u2029]/u.test(name) || command.target !== 'BanchoBot' || this.creation || !this.pairingReady() || this.oclr.state.panelState !== 'fresh' || current.room || current.creation.roomId !== null || current.creation.status !== 'unreviewed') throw new Error('Invalid creation')
-            this.creation = {id: command.id, requestId: current.creation.requestId}
-            this.privateCreationGeneration = this.irc.sessionGeneration
-            this.irc.createRoom({name, requestId: current.creation.requestId, reviewed: true})
+            this.irc.createWebsiteRoom({name, requestId: current.creation.requestId, reviewed: true}, () => {
+              dispatched = true
+              this.creation = {id: command.id, requestId: current.creation.requestId, generation: this.irc.sessionGeneration, roomId: null}
+            })
             this.receipts.push({commandId: command.id, status: 'sent'})
-          } catch { const status = ['awaiting', 'unknown', 'blocked'].includes(this.irc.state.creation.status) ? 'unknown' : 'failed'; this.creation = null; this.receipts.push({commandId: command.id, status, reason: status === 'unknown' ? 'reply_timeout' : 'invalid_command'}) }
+          } catch { if (dispatched) this.creation = null; this.receipts.push({commandId: command.id, status: dispatched ? 'unknown' : 'failed', reason: dispatched ? 'reply_timeout' : 'local_rejected'}) }
         } else if (!same || irc.connection !== 'online' || command.target !== `#mp_${binding.roomId}` || this.pending) this.receipts.push({commandId: command.id, status: 'failed', reason: this.pending ? 'pending_operation' : 'target_changed'})
         else {
           let reason: FailureReason = 'invalid_command'

@@ -5,13 +5,13 @@ import type { ContextLocalEvidence } from './context-gate.ts'
 import type { Snapshot, RoomTarget } from '../shared/types.ts'
 interface CreationPort {
   readonly state:Snapshot; readonly sessionGeneration:number
-  createRoom(input:{name:string;requestId:string;reviewed:boolean}):void
+  createWebsiteRoom(input:{name:string;requestId:string;reviewed:boolean},onDispatch?:()=>void):void
   relayRefresh(target:RoomTarget):void
   on(event:'state',listener:()=>void):unknown
   off(event:'state',listener:()=>void):unknown
 }
 export interface FixtureCreationPreview { token:string; fixtureId:string; fixtureLabel:string; ircUsername:string; name:string; command:string }
-interface Source { fixtureId:string; subjectId:number; status:'awaiting'|'created'|'unknown'; roomId:number|null }
+interface Source { fixtureId:string; subjectId:number; status:'awaiting'|'created'|'unknown'|'failed'; roomId:number|null }
 /** Candidate coordinator: instantiate only with authorized context and a journal privacy hook. No IPC registration. */
 export class FixtureCreation {
   private reader:ContextReader
@@ -55,8 +55,10 @@ export class FixtureCreation {
     const gate=checkContext(context,'create_lobby',this.local())
     if(this.closed||generation!==this.prepareGeneration||!gate.allowed||gate.fingerprint!==preview.fingerprint||preview.scope!==this.scope()||this.now()>=preview.deadline||this.irc.state.creation.requestId!==preview.requestId)throw new Error('場次、權限或開房狀態已變更，請重新核對。')
     this.source={fixtureId:context.fixture.id,subjectId:context.viewer.osuId,status:'awaiting',roomId:null};this.sourceScope=preview.scope;this.refreshed=false
-    this.pending={requestId:preview.requestId,generation:this.irc.sessionGeneration,seenAwaiting:false}
-    try{this.irc.createRoom({name:preview.value.name,requestId:preview.requestId,reviewed:true})}catch(error){if(this.source)this.source.status='unknown';this.pending=null;throw error}
+    let dispatched=false
+    try{this.irc.createWebsiteRoom({name:preview.value.name,requestId:preview.requestId,reviewed:true},()=>{
+      dispatched=true;this.pending={requestId:preview.requestId,generation:this.irc.sessionGeneration,seenAwaiting:true}
+    })}catch(error){if(this.source)this.source.status=dispatched?'unknown':'failed';this.pending=null;throw error}
     this.observe()
   }
   private observe=()=>{

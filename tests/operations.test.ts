@@ -15,6 +15,7 @@ test('same-room operation gate, scoped replies and review never imply causal suc
   ops.observe(1, 3, 2, 'Changed beatmap to https://osu.ppy.sh/b/75 Map')
   ops.observe(1, 4, 1, 'Changed beatmap to https://osu.ppy.sh/b/75 Map')
   ops.observe(1, 4, 2, 'Changed beatmap to https://osu.ppy.sh/b/76 Map')
+  ops.observe(1, 4, 2, 'Changed beatmap to https://osu.ppy.sh/b/76 Map https://osu.ppy.sh/b/75')
   assert.equal(ops.snapshot.records[0].state, 'awaiting')
   ops.observe(1, 4, 2, 'Changed beatmap to https://osu.ppy.sh/b/75 Map')
   assert.equal(ops.snapshot.records[0].state, 'observed')
