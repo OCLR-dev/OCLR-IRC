@@ -3,6 +3,16 @@ import type { DesktopAPI, Snapshot } from '../shared/types.ts'
 import type { OclrSnapshot } from '../shared/oclr-contracts.ts'
 
 const api: DesktopAPI = {
+  settings: {
+    snapshot: () => ipcRenderer.invoke('app:settings'),
+    update: input => ipcRenderer.invoke('app:settings-update', input),
+    onState: listener => {
+      const handler = (_event: Electron.IpcRendererEvent, state: import('../shared/preferences.ts').AppSettings) => listener(state)
+      ipcRenderer.on('app:settings-state', handler)
+      return () => ipcRenderer.removeListener('app:settings-state', handler)
+    },
+    openAboutLink: kind => ipcRenderer.invoke('app:about-link', kind)
+  },
   replaceManualPool: input => ipcRenderer.invoke('irc:manual-pool-replace', input),
   previewPoolEntry: input => ipcRenderer.invoke('irc:pool-entry-preview', input),
   previewRoomPlan: input => ipcRenderer.invoke('irc:room-plan-preview', input),

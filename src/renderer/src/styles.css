@@ -355,7 +355,7 @@ main { min-height: 0; overflow: auto; }
 }
 
 .account-pairing > div,
-.oclr-session[aria-label="網站 IRC 投影"] > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.website-projection > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
 .account-pairing { gap: 16px; flex-wrap: wrap; }
 .account-pairing [role="status"] { color: var(--muted); font-size: 13px; }
 .map-profile { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--field-border); }
@@ -419,3 +419,20 @@ main { min-height: 0; overflow: auto; }
 @media (max-width: 1000px) {
   .sidebar-note .button { font-size: 9px; letter-spacing: -.04em; white-space: nowrap; }
 }
+
+.sidebar-settings { margin-top: auto; padding-block: 16px; }
+.sidebar-settings .nav-item { width: 100%; }
+.settings-view { width: 100%; max-width: 880px; padding: 32px 40px; }
+.settings-view > h1 { margin-bottom: 24px; }
+.settings-view > .tabs { width: 100%; }
+.settings-section { padding: 24px 0; border-bottom: 1px solid var(--field-border); }
+.settings-section h2 { margin: 0 0 16px; font-size: 16px; }
+.settings-section p, .about-stack { color: var(--muted); font-size: 13px; margin-top: 10px; }
+.language-select { max-width: 320px; }
+.about-app { display: flex; align-items: center; gap: 20px; }
+.about-app h2 { font-size: 24px; margin: 0; }
+.about-details { display: grid; gap: 16px; padding: 24px 0; }
+.about-details > div { display: flex; gap: 24px; }
+.about-details dt { width: 100px; color: var(--muted); }
+.about-links { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 1000px) { .settings-view { padding: 24px; } .sidebar-settings { padding-block: 8px; } }
