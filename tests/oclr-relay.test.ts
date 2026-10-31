@@ -9,11 +9,11 @@ import { id, meta } from './fixtures/oclr.ts'
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 async function until(predicate: () => boolean) { for (let i = 0; i < 400; i++) { if (predicate()) return; await delay(10) } throw Error('Timed out') }
-function harness(receiptReasons = true) {
+function harness(receiptReasons = true, bpSync = false) {
   const requests: any[] = [], writes: any[] = []
-  const irc = Object.assign(new EventEmitter(), {sessionGeneration: 1, state: {connection: 'online', username: 'Ref_Name', creation: {status: 'unreviewed', requestId: id(80), roomId: null}, room: {id: 123, epoch: 1, joined: true, kind: 'match', binding: 'verified', referee: 'listed'}, messages: [] as any[]}, relayReady() {return true}, relayRefresh() {}, relayBlocked(): boolean {return false}, relaySend(input: unknown, onDispatch?: () => void) {onDispatch?.(); writes.push(input)}})
+  const irc = Object.assign(new EventEmitter(), {sessionGeneration: 1, state: {connection: 'online', username: 'Ref_Name', creation: {status: 'unreviewed', requestId: id(80), roomId: null}, room: {id: 123, epoch: 1, joined: true, kind: 'match', binding: 'verified', referee: 'listed'}, messages: [] as any[]}, relayNotice(input: unknown, onDispatch?: () => void) {onDispatch?.(); writes.push(input)}, relayReady() {return true}, relayRefresh() {}, relayBlocked(): boolean {return false}, relaySend(input: unknown, onDispatch?: () => void) {onDispatch?.(); writes.push(input)}})
   let command: any = null, fail = false
-  const oclr = Object.assign(new EventEmitter(), {sessionGeneration: 1, updatePairing(value: unknown) { this.state.pairing = value }, state: {pairing: null as any, subject: {osuId: 100, username: 'Ref Name'}, selectedFixtureId: id(101), panelState: 'fresh', relay: null as any}, updateRelay(state: unknown) {this.state.relay = state; (this as unknown as EventEmitter).emit('state')}, async relayRequest(_id: string, body: any) {requests.push(body); if (fail) throw Error('network failure'); return {value: {data: {...(receiptReasons ? {receiptReasons: true} : {}), connectionId: id(40), sequence: body.sequence ?? 0, command: body.action === 'sync' ? command : null}, meta: meta()}}}})
+  const oclr = Object.assign(new EventEmitter(), {sessionGeneration: 1, updatePairing(value: unknown) { this.state.pairing = value }, state: {pairing: null as any, subject: {osuId: 100, username: 'Ref Name'}, selectedFixtureId: id(101), panelState: 'fresh', relay: null as any}, updateRelay(state: unknown) {this.state.relay = state; (this as unknown as EventEmitter).emit('state')}, async relayRequest(_id: string, body: any) {requests.push(body); if (fail) throw Error('network failure'); return {value: {data: {...(receiptReasons ? {receiptReasons: true} : {}), ...(bpSync ? {bpSync: true} : {}), connectionId: id(40), sequence: body.sequence ?? 0, command: body.action === 'sync' ? command : null}, meta: meta()}}}})
   const relay = new OclrRelay(oclr as unknown as OclrSession, irc as unknown as IrcSession)
   relay.refreshPairing()
   relay.confirmPairing({ token: oclr.state.pairing.token, reviewed: true })
@@ -278,4 +278,30 @@ test('legacy website bind replies never receive unsupported diagnostic fields', 
     await until(() => f.requests.some(r => r.receipts?.length))
     assert.deepEqual(f.requests.flatMap(r => r.receipts ?? [])[0], {commandId: id(97), status: 'failed'})
   } finally {await f.relay.stop()}
+})
+
+
+test('BP notices use the bound chat route once, without waiting for a Bancho reply', async () => {
+  const f = harness(true, true)
+  try {
+    await f.relay.start()
+    const text = '[OCLR BP #2] BAN NM1 | Synthetic Team | https://osu.ppy.sh/b/10001'
+    f.command({id: id(98), text, target: '#mp_123'})
+    await until(() => f.writes.length === 1)
+    await until(() => f.requests.some(r => r.receipts?.some((receipt: any) => receipt.status === 'notified')))
+    assert.equal(f.writes[0].text, text)
+    assert.ok(f.requests.some(r => r.bpSync === true))
+    await delay(1200)
+    assert.equal(f.writes.length, 1)
+  } finally { await f.relay.stop() }
+})
+test('legacy servers never negotiate BP notices and malformed notice text remains rejected', async () => {
+  const f = harness(true, false)
+  try {
+    await f.relay.start()
+    f.command({id: id(99), text: '[OCLR BP #2] BAN NM1 | Synthetic | https://osu.ppy.sh/b/10001', target: '#mp_123'})
+    await until(() => f.requests.some(r => r.receipts?.some((receipt: any) => receipt.status === 'failed')))
+    assert.equal(f.writes.length, 0)
+    assert.ok(f.requests.every(r => r.bpSync === undefined))
+  } finally { await f.relay.stop() }
 })

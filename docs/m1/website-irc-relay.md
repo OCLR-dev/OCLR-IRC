@@ -84,3 +84,13 @@ relay 現會先檢查共同操作佇列，未核對的舊操作不再等 8 秒�
 bind 回應可附 receiptReasons:true；只有收到此能力的新桌面才送出 reason，舊網站不收到未知欄位。reason 限 pending_operation、room_checks、local_rejected、bancho_rejected、reply_timeout、invalid_command、target_changed；網站存入既有 recordError 的 relay: 前綴並使用三語言固定文案顯示，不轉傳原始例外、憑證或私人 log。舊客戶端仍可使用原回執。
 
 參考回覆格式：[bancho.js parser](https://github.com/ThePooN/bancho.js/blob/master/lib/Multiplayer/BanchoLobbyRegexes.js)。本輪以本機 TCP 模擬空房、操作阻擋與精確回覆，不操作截圖中的真實房間；真實權限或上線後效果需另驗收。
+
+## 2026-10-31：BP 自動通知與 Pick 換圖／Mods（網站 #621）
+
+網站保存 BP 後可排定自動同步：Ban 發送固定格式的 BP 通知；Pick／TB 依序通知、換圖與套用本輪已保存的 Mods／NF；撤回則通知修正。網站以保存事件 UUID 去重及伺服器生成內容，BP 保存與 IRC 結果獨立。網站更新需要 migration 0066；桌面更新以 bind 回應 `bpSync:true` 與 sync 請求 `bpSync:true` 協商能力，舊網站不收到新欄位，舊桌面不接收自動計畫。
+
+Main 僅讓固定 `[OCLR BP #數字]`、操作／圖池編號／隊名與官方譜面連結格式走 `relayNotice`，另核對當前房間 epoch、加入／History／裁判及帳號配對。通知沿用既有 chatText 的命令阻擋、UTF-8 長度與全連線節流，不放寬一般聊天成為命令入口，也不建立一筆會等待 Bancho 效果的 MP 操作。通知 handed-to-local-transport 以 `notified` 回報，不冒稱伺服器已收到或房間已變更。
+
+換圖／Mods 沿用原 MP 驗證、送前消耗 ID、共同操作阻擋及未知結果不重送。網站計畫只在上一筆成功後派送下一筆。新增有限 Mods 回覆比對：`Enabled ... / Disabled all mods, enabled/disabled FreeMod` 必須與原命令的 Mods 集合及 Freemod 完全一致；未知名稱、其他集合、其他房間或舊回覆不能確認。格式參考 [bancho.js 的 BanchoLobbyRegexes](https://github.com/ThePooN/bancho.js/blob/master/lib/Multiplayer/BanchoLobbyRegexes.js)。
+
+合成驗證包含網站隔離 DB 的計畫順序／去重／失敗停步及撤回，桌面 relay 不重送，以及真實 IrcSession 加本機 TCP 模擬 IRC 的通知送線／注入／epoch 邊界。未操作真實房間；此切片不建立 start/abort 自動化，不代表完整 MVP 或三平台實機驗收完成。
