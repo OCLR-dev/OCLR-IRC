@@ -54,6 +54,19 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     return off
   }, [])
   const [page, setPage] = useState<'account' | 'room' | 'oclr' | 'journal' | 'operations' | 'settings'>('account')
+  const [roomRequest, setRoomRequest] = useState<import('../../shared/website-room-join').WebsiteRoomJoinState | null>(null)
+  useEffect(() => {
+    const api = window.oclr?.websiteRoomJoin
+    if (!api) return
+    let arrived = false
+    const receive = (value: import('../../shared/website-room-join').WebsiteRoomJoinState | null) => {
+      setRoomRequest(value)
+      if (value) setPage(value.status === 'pending' ? 'account' : 'room')
+    }
+    const off = api.onState(value => { arrived = true; receive(value) })
+    void api.snapshot().then(value => { if (!arrived) receive(value) }).catch(() => {})
+    return off
+  }, [])
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -79,7 +92,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     void window.oclr.snapshot().then(next => { if (!eventArrived) setState(next) })
     return off
   }, [])
-  useEffect(() => { if (online) { setPage(current => current === 'account' ? launch ? 'oclr' : 'room' : current); setFormError(null) } }, [online])
+  useEffect(() => { if (online) { setPage(current => current === 'account' ? roomRequest ? 'room' : launch ? 'oclr' : 'room' : current); setFormError(null) } }, [online])
   async function login(event: React.FormEvent) {
     event.preventDefault()
     if (!window.oclr || busy || connecting) return
@@ -129,6 +142,11 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     <div className="workspace">
       {state.connection !== 'online' && state.username && <div className="reconnect-notice" role="status">{tr(statusText[state.connection])}{state.retryAttempt > 0 && tr(" · 第 {{v0}}/5 次重試", { v0: state.retryAttempt })}{state.retryAt && tr(" · {{v0}} 重試", { v0: new Date(state.retryAt).toLocaleTimeString(uiLocale()) })}{state.connection === 'error' && <Button size="sm" variant="ghost" onPress={() => { void window.oclr?.retry().then(result => { if (!result.ok) setFormError(result.error || '重試失敗') }).catch(() => setFormError('桌面服務無法回應。')) }}>{tr("重新連線")}</Button>}<Button size="sm" variant="ghost" onPress={() => void logout()}>{tr("停止並登出")}</Button></div>}
       <main>
+        {roomRequest && roomRequest.status !== 'joined' && <section className="oclr-session" aria-label={tr("重新加入房間")}>
+          <div><strong>#{`mp_${roomRequest.roomId}`}</strong><span role="status">{roomRequest.status === 'pending' ? tr("請先登入 osu! IRC。") : roomRequest.status === 'error' ? tr("未能加入房間。") : tr("正在加入房間…")}</span></div>
+          {roomRequest.status === 'error' && <Button onPress={() => void window.oclr?.websiteRoomJoin.retry(roomRequest.requestId).catch(() => setFormError('桌面服務無法回應。'))}>{tr("重新加入房間")}</Button>}
+          <Button variant="ghost" onPress={() => void window.oclr?.websiteRoomJoin.clear()}>{tr("關閉")}</Button>
+        </section>}
         {launch && (page === 'account' || page === 'oclr') && <section className="oclr-session" aria-label={tr("網站連接請求")}>
           <div><strong>{tr("網站連接請求")}</strong><span>{launch.fixtureId}</span><span role="status">{launch.status === 'ready' ? tr("場次已帶入，請啟用網站 IRC。") : launch.status === 'error' ? tr("無法帶入場次，請確認授權與本人指派後重試。") : launch.status === 'authorizing' ? tr("請在瀏覽器完成 OCLR 授權。") : launch.status === 'loading' ? tr("正在讀取場次…") : tr("請登入 IRC，再繼續連接此場次。")}</span></div>
           {!['loading', 'authorizing', 'ready'].includes(launch.status) && <Button onPress={() => { if (!online) setPage('account'); else { setPage('oclr'); void window.oclr?.websiteLaunch.continue(launch.requestId).catch(() => setFormError('桌面服務無法回應。')) } }}>{online ? tr("繼續連接") : tr("帳號連線")}</Button>}

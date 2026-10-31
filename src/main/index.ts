@@ -1,3 +1,4 @@
+import { WebsiteRoomJoin } from './website-room-join.ts'
 import { WebsiteLaunch } from './website-launch.ts'
 import { sameLocalPage } from './trusted-page.ts'
 import { SqliteOperationStore } from './operation-store.ts'
@@ -28,18 +29,19 @@ const irc = new IrcSession(undefined, {}, fetchBeatmapDuration)
 const oclr = new OclrSession({ origin: process.env.OCLR_SERVER_ORIGIN, version: app.getVersion(), platform: process.platform, openExternal: url => shell.openExternal(url), writeClipboard: text => clipboard.writeText(text) })
 const relay = new OclrRelay(oclr, irc)
 const fixtureInvites = new FixtureInvites(oclr, irc, relay)
+const websiteRoomJoin = new WebsiteRoomJoin(irc)
 const websiteLaunch = new WebsiteLaunch(oclr, () => relay.stop())
 let loginGeneration = 0
 let pendingSave: { username: string; password: string } | null = null
 let credentialError: string | null = null
-function logout() { loginGeneration++; pendingSave = null; irc.logout(quitting) }
+function logout() { websiteRoomJoin.clear(); loginGeneration++; pendingSave = null; irc.logout(quitting) }
 function snapshot() { return { ...irc.state, credentialError } }
 let window: BrowserWindow | null = null
 let background: DesktopBackground | null = null
 let quitting = false
 const primaryInstance = app.requestSingleInstanceLock()
 if (!primaryInstance) app.quit()
-function acceptLaunch(url: unknown) { if (primaryInstance && websiteLaunch.receive(url)) background?.show() }
+function acceptLaunch(url: unknown) { if (primaryInstance && (websiteRoomJoin.receive(url) || websiteLaunch.receive(url))) background?.show() }
 app.on('open-url', (event, url) => { event.preventDefault(); acceptLaunch(url) })
 app.on('second-instance', (_event, argv) => { for (const arg of argv ?? []) acceptLaunch(arg); background?.show() })
 for (const arg of process.argv) acceptLaunch(arg)
@@ -59,6 +61,10 @@ app.whenReady().then(() => {
   if (app.isPackaged && !process.env.OCLR_QA_TEMP && process.platform !== 'linux') {
     try { app.setAsDefaultProtocolClient('oclr-irc') } catch { /* OS registration failure must not prevent normal launch. */ }
   }
+  websiteRoomJoin.on('state', state => window?.webContents.send('app:website-room-join', state))
+  ipcMain.handle('app:website-room-join', event => { trusted(event); return websiteRoomJoin.state })
+  ipcMain.handle('app:website-room-join-clear', event => { trusted(event); websiteRoomJoin.clear() })
+  ipcMain.handle('app:website-room-join-retry', (event, id: unknown) => { trusted(event); websiteRoomJoin.retry(id) })
   websiteLaunch.on('state', state => window?.webContents.send('app:website-launch', state))
   ipcMain.handle('app:website-launch', event => { trusted(event); return websiteLaunch.state })
   ipcMain.handle('app:website-launch-clear', event => { trusted(event); websiteLaunch.clear() })
@@ -185,7 +191,7 @@ app.whenReady().then(() => {
   })
   ipcMain.handle('irc:logout', event => { trusted(event); logout() })
   powerMonitor.on('suspend', () => { void relay.stop(); irc.suspend() })
-  powerMonitor.on('suspend', () => { websiteLaunch.clear(); oclr.suspend() })
+  powerMonitor.on('suspend', () => { websiteRoomJoin.clear(); websiteLaunch.clear(); oclr.suspend() })
   powerMonitor.on('resume', () => irc.resume())
   ipcMain.handle('irc:retry', event => action(event, () => irc.retry()))
   ipcMain.handle('irc:open-conversation', (event, value: unknown) => action(event, () => irc.openConversation(value)))

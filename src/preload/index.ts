@@ -3,6 +3,16 @@ import type { DesktopAPI, Snapshot } from '../shared/types.ts'
 import type { OclrSnapshot } from '../shared/oclr-contracts.ts'
 
 const api: DesktopAPI = {
+  websiteRoomJoin: {
+    snapshot: () => ipcRenderer.invoke('app:website-room-join'),
+    retry: id => ipcRenderer.invoke('app:website-room-join-retry', id),
+    clear: () => ipcRenderer.invoke('app:website-room-join-clear'),
+    onState: listener => {
+      const handler = (_event: Electron.IpcRendererEvent, state: import('../shared/website-room-join.ts').WebsiteRoomJoinState | null) => listener(state)
+      ipcRenderer.on('app:website-room-join', handler)
+      return () => ipcRenderer.removeListener('app:website-room-join', handler)
+    }
+  },
   websiteLaunch: {
     snapshot: () => ipcRenderer.invoke('app:website-launch'),
     continue: id => ipcRenderer.invoke('app:website-launch-continue', id),
