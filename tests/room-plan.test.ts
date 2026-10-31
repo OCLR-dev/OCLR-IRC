@@ -19,7 +19,7 @@ async function fixture(mode='success') {
     if(line.includes(':!mp move ')){slot=4;if(mode==='external')color='Blue'}
     if(line.includes(':!mp team ')&&mode!=='wrong-team')color='Blue'
     if(line.endsWith(':!mp settings')&&!(mode==='timeout'&&name!=='Initial'))socket.write([
-      `Room name: ${name}, History: https://osu.ppy.sh/mp/9`, `Team mode: ${mode.startsWith('lineup')||mode==='wrong-team'||mode==='external'?'TeamVs':team}, Win condition: ScoreV2`, 'Players: 1', `Slot ${slot} Ready https://osu.ppy.sh/u/101 Synthetic [Host / Team ${color}]`
+      `Room name: ${name}, History: https://osu.ppy.sh/mp/9`, `Team mode: ${mode.startsWith('lineup')||mode==='wrong-team'||mode==='external'?'TeamVs':team}, Win condition: ScoreV2`, 'Players: 1', `Slot ${slot} Ready https://osu.ppy.sh/u/101 Synthetic [${mode==='individual'?'Host':`Host / Team ${color}`}]`
     ].map(body=>`:BanchoBot PRIVMSG #mp_9 :${body}\n`).join(''))
     if(line.endsWith(':!mp listrefs'))socket.write(':BanchoBot PRIVMSG #mp_9 :Match referees: Example\n')
   }})})
@@ -74,4 +74,20 @@ test('lineup builder rejects duplicate IDs, occupied slots and implicit policies
   assert.throws(()=>roomPlan({kind:'lineup',players:[{osuId:1,slot:2,team:'red'},{osuId:2,slot:1,team:'blue'}]},room))
   assert.throws(()=>roomPlan({kind:'lineup',players:[{osuId:1,slot:4,team:null}]},room))
   assert.deepEqual(roomPlan({kind:'lineup',players:[{osuId:1,slot:2,team:'red'},{osuId:2,slot:3,team:'blue'}]},room).steps.map(s=>s.command),['!mp move #2 3','!mp move #1 2'])
+})
+
+test('HeadToHead lineup plan moves once without team commands and rechecks actual observations', async () => {
+  const f = await fixture('individual')
+  try {
+    const plan = {kind:'lineup',players:[{osuId:101,slot:4,team:null}]}
+    assert.throws(() => f.session.previewRoomPlan({...f.target(),plan:{kind:'lineup',players:[{osuId:101,slot:4,team:'red'}]}}))
+    const preview = f.start(plan)
+    assert.deepEqual(preview.commands, ['!mp move #101 4'])
+    await until(() => f.session.state.roomPlan?.state === 'observed')
+    assert.equal(f.sent.filter(line => line.includes(':!mp move ')).length, 1)
+    assert.equal(f.sent.some(line => line.includes(':!mp team ')), false)
+    assert.equal(f.session.state.room!.slots[0].slot, 4)
+    assert.throws(() => f.session.executeRoomPlan({...f.target(),token:preview.token,reviewed:true,names:preview.names,policyReviewed:true}))
+    assert.throws(() => roomPlan(plan, {...f.session.state.room!, mode:null}))
+  } finally { await f.close() }
 })

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { manualRoster, compareLineup } from '../src/shared/lineup.ts'
 import type { Room } from '../src/shared/types.ts'
 const now = Date.now()
-const room = { joined: true, binding: 'verified', slotsVerified: true, syncState: 'partial', observedAt: new Date(now).toISOString(), slots: [{ osuId: 101, slot: 1, team: 'red', username: 'Observed literal' }] } as Room
+const room = { mode: 'TeamVs · ScoreV2', joined: true, binding: 'verified', slotsVerified: true, syncState: 'partial', observedAt: new Date(now).toISOString(), slots: [{ osuId: 101, slot: 1, team: 'red', username: 'Observed literal' }] } as Room
 const roster = [{ osuId: 101, name: 'Manual alias' }, { osuId: 102, name: 'Bench' }]
 test('manual roster validates stable unique IDs and literal bounded names', () => {
   assert.deepEqual(manualRoster(roster), roster)
@@ -23,4 +23,12 @@ test('stale, unknown and disconnected observations never report a matching lineu
     const result = compareLineup(roster, [{osuId:101,team:'red',slot:1}], {...room,...patch} as Room, now)
     assert.deepEqual(result, [{kind:'unknown'}])
   }
+})
+
+test('HeadToHead compares UID and slot without inventing a team, while unknown mode stays blocked', () => {
+  const individual = { ...room, mode: 'HeadToHead · Score', slots: [{...room.slots[0], team: null}] } as Room
+  assert.deepEqual(compareLineup(roster, [{osuId:101,team:null,slot:1}], individual, now), [])
+  assert.ok(compareLineup(roster, [{osuId:101,team:'red',slot:1}], individual, now).some(x => x.kind === 'policy'))
+  assert.ok(compareLineup(roster, [{osuId:101,team:null,slot:1}], {...individual, mode:null}, now).some(x => x.kind === 'unknown'))
+  assert.ok(compareLineup(roster, [{osuId:101,team:null,slot:1}], {...individual, mode:'HeadToHeadUnknown · Score'}, now).some(x => x.kind === 'unknown'))
 })
