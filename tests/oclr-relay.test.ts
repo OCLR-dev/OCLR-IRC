@@ -11,7 +11,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 async function until(predicate: () => boolean) { for (let i = 0; i < 400; i++) { if (predicate()) return; await delay(10) } throw Error('Timed out') }
 function harness() {
   const requests: any[] = [], writes: any[] = []
-  const irc = Object.assign(new EventEmitter(), {sessionGeneration: 1, state: {connection: 'online', username: 'Ref_Name', room: {id: 123, epoch: 1, joined: true, kind: 'match', binding: 'verified', referee: 'listed'}, messages: [] as any[]}, relayReady() {return true}, relayRefresh() {}, relaySend(input: unknown) {writes.push(input)}})
+  const irc = Object.assign(new EventEmitter(), {sessionGeneration: 1, state: {connection: 'online', username: 'Ref_Name', creation: {status: 'unreviewed', requestId: id(80), roomId: null}, room: {id: 123, epoch: 1, joined: true, kind: 'match', binding: 'verified', referee: 'listed'}, messages: [] as any[]}, relayReady() {return true}, relayRefresh() {}, relaySend(input: unknown) {writes.push(input)}})
   let command: any = null, fail = false
   const oclr = Object.assign(new EventEmitter(), {sessionGeneration: 1, updatePairing(value: unknown) { this.state.pairing = value }, state: {pairing: null as any, subject: {osuId: 100, username: 'Ref Name'}, selectedFixtureId: id(101), panelState: 'fresh', relay: null as any}, updateRelay(state: unknown) {this.state.relay = state; (this as unknown as EventEmitter).emit('state')}, async relayRequest(_id: string, body: any) {requests.push(body); if (fail) throw Error('network failure'); return {value: {data: {connectionId: id(40), sequence: body.sequence ?? 0, command: body.action === 'sync' ? command : null}, meta: meta()}}}})
   const relay = new OclrRelay(oclr as unknown as OclrSession, irc as unknown as IrcSession)
@@ -202,5 +202,48 @@ test('conflicting relay Mods produce a failure receipt without dispatch or autom
     await until(() => f.requests.filter(r => r.action === 'sync').length >= 3)
     assert.equal(f.writes.length, 0)
     assert.equal(f.requests.flatMap(r => r.receipts ?? []).filter(r => r.commandId === id(82)).length, 1)
+  } finally { await f.relay.stop() }
+})
+
+test('creation receiver sends make to BanchoBot once without an existing room, never room commands', async () => {
+  const f = harness(); const creates: unknown[] = []
+  f.irc.state.room = null as any
+  ;(f.irc as any).createRoom = (input: unknown) => { creates.push(input); f.irc.state.creation.status = 'awaiting' }
+  try {
+    await f.relay.start()
+    assert.equal(f.requests[0].roomId, 0)
+    f.command({id: id(90), text: '!mp map 42', target: 'BanchoBot'})
+    await until(() => f.requests.some(r => r.receipts?.some((v: any) => v.status === 'failed')))
+    assert.equal(creates.length, 0)
+    f.command({id: id(91), text: '!mp make Synthetic room', target: 'BanchoBot'})
+    await until(() => creates.length === 1)
+    await until(() => f.requests.some(r => r.receipts?.some((v: any) => v.status === 'sent')))
+    assert.equal(creates.length, 1)
+    assert.equal(f.writes.length, 0)
+    assert.deepEqual(creates[0], {name: 'Synthetic room', requestId: id(80), reviewed: true})
+    f.irc.state.creation.status = 'unknown'
+    await until(() => f.requests.some(r => r.receipts?.some((v: any) => v.status === 'unknown')))
+    assert.equal(creates.length, 1)
+  } finally { await f.relay.stop() }
+})
+
+test('observed created room becomes the relay target only after JOIN and referee checks', async () => {
+  const f = harness(); f.irc.state.room = null as any
+  ;(f.irc as any).createRoom = () => { f.irc.state.creation.status = 'awaiting' }
+  const privateIds: number[] = []; f.oclr.on('private-room', id => privateIds.push(id))
+  try {
+    await f.relay.start(); f.command({id: id(92), text: '!mp make Synthetic room', target: 'BanchoBot'})
+    await until(() => f.irc.state.creation.status === 'awaiting')
+    f.irc.state.creation = {status: 'created', requestId: id(81), roomId: 456} as any
+    f.irc.emit('state')
+    assert.deepEqual(privateIds, [456])
+    await until(() => f.requests.filter(r => r.action === 'sync').length >= 2)
+    assert.equal(f.requests.some(r => r.roomId === 456), false)
+    f.irc.state.room = {id: 456, epoch: 2, joined: true, kind: 'match', binding: 'verified', referee: 'listed'}
+    f.command(null)
+    await until(() => f.requests.some(r => r.roomId === 456))
+    f.command({id: id(93), text: '!mp map 42', target: '#mp_456'})
+    await until(() => f.writes.length === 1)
+    assert.equal(f.writes[0].roomId, 456)
   } finally { await f.relay.stop() }
 })
