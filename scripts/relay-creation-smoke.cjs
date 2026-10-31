@@ -86,8 +86,7 @@ async function main() {
   await until(() => js('(async () => (await window.oclr.website.snapshot()).fixtures.length === 2)()'))
   assert.equal((await js(`window.oclr.website.selectFixture(${JSON.stringify(fixtureId)})`)).ok, true)
   await until(() => js('(async () => (await window.oclr.website.snapshot()).panelState === "fresh")()'))
-  const pairing = (await js('window.oclr.website.snapshot()')).pairing
-  assert.equal((await js(`window.oclr.website.confirmPairing({token:${JSON.stringify(pairing.token)},reviewed:true})`)).ok, true)
+  assert.equal((await js('window.oclr.website.snapshot()')).pairing.status, 'nickname_matched')
   assert.equal((await js('window.oclr.website.startRelay()')).ok, true)
   await until(() => syncs.some(body => body.receipts.some(r => r.commandId === commandId && r.status === 'sent')))
   await until(() => syncs.length >= 3)

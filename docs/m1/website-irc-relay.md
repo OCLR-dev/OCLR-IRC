@@ -9,7 +9,7 @@
 1. `npm ci`，然後 `OCLR_SERVER_ORIGIN=http://localhost:3001 npm run dev`（網站亦須配置相同 APP_URL）。預設正式 origin 為 `https://oclr.org`；環境變數只由 Main 讀取，允許 HTTPS 或明確的 localhost／127.0.0.1 HTTP，不開放 Renderer 任意主機。
 2. 在「房間記錄」以本人 IRC 專用密碼登入，建立或加入 MP 房間，讀取完整設定和裁判名單。開房仍由本機操作。
 3. 在「連接 OCLR」選擇透過瀏覽器登入；在網站完成 osu! 登入，核對比對碼並同意四個 scope（原三個只讀 scope 加 `referee:relay`）。
-4. 選本人獲派場次，再按「將目前房間投影到網站」。IRC 使用者名稱須與 OCLR 帳號相符（空白與底線正規化），選中房間須有 History ID 觀測及裁判名單證據。
+4. 選本人獲派場次，再按「將目前房間投影到網站」。Main 會自動核對已登入 IRC 與 OCLR 帳號名稱（忽略大小寫、空格與底線等價），不需人工配對勾選；名稱須相符，選中房間須有 History ID 觀測及裁判名單證據。
 5. 網站執裁頁顯示同一房間的訊息；網站送出命令後，由本機核對房間、最新設定及裁判權限，才送往既有 IRC socket。
 6. 在本機停止投影、切換房間或場次、登出或休眠均停用轉送。同步失敗必須重新綁定；不會自動重送任何指令。
 
@@ -108,3 +108,13 @@ Main 提供固定來源的內部 createWebsiteRoom，relay 與候選 FixtureCrea
 換圖確認只解析回覆的實際第一個地圖連結，URL 必須是精確 osu! 譜面路徑；不同地圖的曲名附上目標連結、網址前綴／後綴或其他主機不能確認。現有兩種回覆格式與 Operations 共用此檢查。
 
 合成驗證：179 項核心測試、型別檢查及完整既有 Electron smoke 通過；追加 relay-creation-smoke 使用真實 Main／preload、模擬 HTTP／IRC 與隔離 profile，驗證去重、sent 回執、停止後晚到開房、settings／listrefs、操作記錄不落盤，以及可保存平台的日誌排除與一般日誌正向對照。Linux 仍只驗證 memory_only，不將其算成原生 provider 驗收。真實服務、逐場歷史重新驗權及三平台實機條件仍待完成。
+
+## 自動帳號核對（2026-11-01）
+
+依使用者要求取代人工核對。Main 只在 IRC 已收到成功登入、OCLR 已有授權 subject 時自動比對名稱；沿用 `normalize`，大小寫不敏感、每個空格與底線等價，不折疊多個空格、不移除其他符號或做 Unicode 相似字轉換。相符顯示「帳號名稱相符・已自動核對」並可由使用者連接網站 IRC；未登入／不符仍阻擋。移除配對 checkbox、人工確認 token／reviewed 與 preload／Main 確認 IPC；renderer 不能改寫配對。候選 context 檢查器同步移除 identityReviewed，仍要求有效 session、相同 subject ID 與成功 IRC 登入名稱相符；這不代表候選 context 已接入正式 HTTP／IPC。
+
+原始名稱、IRC／OCLR 登入世代或 OCLR subject ID 任一變更，Main 都停止舊 relay。即使新登入同名而自動配對，延遲 bind／sync 仍不能附著新 session，也不自動重啟投影或重送指令。房間／裁判檢查及其他房內操作確認不變。這是兩個成功登入名稱的比對，不宣稱 IRC 穩定 UID 證明，沒有新增外部身分查詢或網站變更。
+
+合成驗證：核心覆蓋空格／底線／大小寫、未登入、不符／近似名稱、世代及 subject 變更、晚到 bind／sync 不送出；Electron 使用實際 Main／preload／renderer 及本機 IRC，驗證無人工 checkbox／確認 bridge、重新登入自動比對及網站開房流程。真實 OAuth／Bancho、改名服務行為與跨平台實機驗收仍分開追蹤，不能由合成結果宣稱完成 #13。
+
+本機驗證：Node.js 24.22.2 型別檢查、196 項核心／契約測試與完整 11 組 Electron synthetic smoke 通過（含 900×640、relay 開房與逐人邀請）。本輪未操作真實 OAuth／Bancho，也未更新既有 Release 下載包。

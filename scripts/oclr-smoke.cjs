@@ -16,7 +16,7 @@ const fixtures = JSON.parse(fs.readFileSync('tests/fixtures/oclr-fixtures.json',
 const meta = fixtures.meta
 const nativeFetch = global.fetch
 const sent = [], requests = [], opened = [], errors = []
-let authRequest, unavailable = true, stale = false, revoked = false, panelGate = null
+let authRequest, unavailable = true, stale = false, revoked = false, panelGate = null, holdWelcome = false, welcome = null
 const access = 'oclr_desk_at_' + 'A'.repeat(43), refresh = 'oclr_desk_rt_' + 'D'.repeat(43)
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-OCLR-Desktop-Contract': '1.1.0', 'X-OCLR-Referee-Contract': '1.1.0', 'X-Request-Id': meta.requestId } })
 global.fetch = async (url, init = {}) => {
@@ -58,7 +58,11 @@ const server = net.createServer(socket => {
       const line = pending.slice(0, end); pending = pending.slice(end + 2)
       sent.push(line.startsWith('PASS ') ? 'PASS <redacted synthetic>' : line)
       if (line.startsWith('NICK ')) username = line.slice(5)
-      if (line.startsWith('USER ')) socket.write(`:server 001 ${username} :Welcome\n`)
+      if (line.startsWith('USER ')) {
+        const accepted = () => socket.write(`:server 001 ${username} :Welcome\n`)
+        if (holdWelcome) welcome = accepted
+        else accepted()
+      }
       if (line.startsWith('PING :')) socket.write(':server PONG server :' + line.slice(6) + '\n')
     }
   })
@@ -78,6 +82,8 @@ async function main() {
   await app.whenReady()
   await until(() => BrowserWindow.getAllWindows().length)
   const window = BrowserWindow.getAllWindows()[0]
+  // Keep HeroUI presence/animation completion deterministic when CI loses focus.
+  window.webContents.setBackgroundThrottling(false)
   await until(() => !window.webContents.isLoading())
   const js = code => window.webContents.executeJavaScript(code)
   await until(() => js('Boolean(window.oclr?.website)'))
@@ -97,22 +103,29 @@ async function main() {
   assert.equal(response.status, 200)
   await until(() => js('document.querySelectorAll(".oclr-fixture").length === 2'))
   await until(() => js('document.querySelector(".account-pairing")?.textContent.includes("暱稱不符")'))
-  assert.equal((await js('window.oclr.website.confirmPairing({token:"forged",reviewed:true})')).ok, false)
+  assert.equal(await js('typeof window.oclr.website.confirmPairing'), 'undefined')
   assert.equal((await js('window.oclr.website.startRelay()')).ok, false)
   await js('window.oclr.logout()')
+  holdWelcome = true
   await js('window.oclr.login({username:"Synthetic_Referee",password:"SYNTHETIC_ONLY"})')
+  await until(() => Boolean(welcome))
+  assert.equal((await js('window.oclr.snapshot()')).connection, 'connecting')
+  assert.equal((await js('window.oclr.website.snapshot()')).pairing.status, 'unknown')
+  assert.equal((await js('window.oclr.website.startRelay()')).ok, false)
+  holdWelcome = false; welcome(); welcome = null
   await until(() => js('(async () => (await window.oclr.snapshot()).connection === "online")()'))
-  await until(() => js('document.querySelector(".account-pairing")?.textContent.includes("待人工核對")'))
-  await js('document.querySelector(".account-pairing input[type=checkbox]").click()')
-  await until(() => js('(async () => (await window.oclr.website.snapshot()).pairing.reviewed)()'))
-  const oldPairing = (await js('window.oclr.website.snapshot()')).pairing.token
+  await until(() => js('document.querySelector(".account-pairing")?.textContent.includes("已自動核對")'))
+  assert.equal(await js('Boolean(document.querySelector(".account-pairing input[type=checkbox]"))'), false)
+  assert.equal((await js('window.oclr.website.snapshot()')).pairing.status, 'nickname_matched')
+  await js('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
+  fs.writeFileSync(path.join(output, 'oclr-automatic-pairing-synthetic.png'), (await window.webContents.capturePage()).toPNG())
   await js('window.oclr.logout()')
   await until(() => js('document.querySelector(".account-pairing")?.textContent.includes("尚未配對")'))
-  await js('window.oclr.login({username:"Synthetic_Referee",password:"SYNTHETIC_ONLY"})')
-  await until(() => js('document.querySelector(".account-pairing")?.textContent.includes("待人工核對")'))
-  assert.equal((await js(`window.oclr.website.confirmPairing({token:${JSON.stringify(oldPairing)},reviewed:true})`)).ok, false)
-  await js('document.querySelector(".account-pairing input[type=checkbox]").click()')
-  await until(() => js('(async () => (await window.oclr.website.snapshot()).pairing.reviewed)()'))
+  assert.equal((await js('window.oclr.website.startRelay()')).ok, false)
+  await js('window.oclr.login({username:"synthetic_referee",password:"SYNTHETIC_ONLY"})')
+  await until(() => js('document.querySelector(".account-pairing")?.textContent.includes("已自動核對")'))
+  assert.equal((await js('window.oclr.website.snapshot()')).pairing.status, 'nickname_matched')
+  assert.equal(await js('Boolean(document.querySelector(".account-pairing input[type=checkbox]"))'), false)
   await js('document.querySelector(".oclr-fixture").click()')
   await until(() => js('Boolean(document.querySelector(".oclr-settings"))'))
   await until(() => js(`!document.querySelector('button[aria-label="複製 make"]').disabled`))
@@ -209,7 +222,7 @@ async function main() {
   assert.ok(!sent.some(line => line.includes('!mp')))
   assert.deepEqual(errors, [])
   const report = { evidence: 'synthetic-oclr-desktop-integration', source: 'OCLR-website PR409@1abbab1ddd981025249af727d748e70e23b9096b', platform: process.platform, arch: process.arch, electron: process.versions.electron, recordedAt: new Date().toISOString(),
-    passed: ['nickname mismatch blocks relay, explicit checkbox confirms matching nickname, relogin rejects stale review', 'undeployed HTML endpoint fails closed without opening browser', 'browser authorization comparison code', 'real one-shot 127.0.0.1 callback and S256 exchange', 'assigned fixtures and native preparation panel', 'Main-only constrained clipboard copy', 'pool preview uses shared website Mods builder', 'remote metadata renders as escaped text', '900x640 has no horizontal overflow', 'review URL opens fixed OCLR origin', 'renderer reload preserves Main session', 'no tokens/state/unexpected response fields in renderer snapshot', 'close-to-background preserves OCLR session and restore', 'stale panel disables copying', 'logout clears OCLR data while IRC remains connected', 'no referee business writes or IRC commands sent', 'no renderer console errors'],
+    passed: ['automatic case/space/underscore pairing requires own 001, mismatch blocks relay, no confirmation checkbox/bridge, relogin pairs automatically', 'undeployed HTML endpoint fails closed without opening browser', 'browser authorization comparison code', 'real one-shot 127.0.0.1 callback and S256 exchange', 'assigned fixtures and native preparation panel', 'Main-only constrained clipboard copy', 'pool preview uses shared website Mods builder', 'remote metadata renders as escaped text', '900x640 has no horizontal overflow', 'review URL opens fixed OCLR origin', 'renderer reload preserves Main session', 'no tokens/state/unexpected response fields in renderer snapshot', 'close-to-background preserves OCLR session and restore', 'stale panel disables copying', 'logout clears OCLR data while IRC remains connected', 'no referee business writes or IRC commands sent', 'no renderer console errors'],
     limitation: 'OCLR HTTPS API, browser approval, identities and IRC are synthetic. No real website authorization/deployment, production data, live IRC command or true IME acceptance.', requests }
   fs.writeFileSync(path.join(output, 'oclr-smoke.json'), JSON.stringify(report, null, 2) + '\n')
   console.log(JSON.stringify(report, null, 2)); app.exit(0)

@@ -60,7 +60,7 @@ export function FixtureRoster({website, state, onConnect, onOperations}: {websit
   const workspace = website.panel?.workspace
   const sourceKey = useMemo(() => JSON.stringify([website.subject, workspace]), [website.subject, workspace])
   const fresh = website.status === 'connected' && website.panelState === 'fresh'
-  const linked = website.relay.status === 'connected' && website.relay.roomId === state.room?.id && state.room?.joined && website.pairing.reviewed
+  const linked = website.relay.status === 'connected' && website.relay.roomId === state.room?.id && state.room?.joined && website.pairing.status === 'nickname_matched'
   const unreviewed = state.operations?.records.some(record => record.roomId === state.room?.id && (record.state === 'awaiting' || record.state === 'unknown' && !record.reviewed))
   function clear() {setPreview(null); setConfirmName(''); setReviewed(false)}
   useEffect(() => {generation.current++; clear(); setMessage('')}, [sourceKey, state.room?.id, state.room?.epoch, state.connection])

@@ -5,7 +5,7 @@ import { mapProfile } from '../shared/map-profile.ts'
 import { matchName, normalize } from './protocol.ts'
 import type { Room } from '../shared/types.ts'
 export interface ContextLocalEvidence {
-  sessionActive:boolean; ircOnline:boolean; fresh:boolean; subjectId:number; ircUsername:string; identityReviewed:boolean; connectionGeneration:number
+  sessionActive:boolean; ircOnline:boolean; fresh:boolean; subjectId:number; ircUsername:string; connectionGeneration:number
   room:Room|null; roomAgeMs:number|null; permissionAgeMs:number|null; noLocalLobbyReference:boolean; recoveryReviewed:boolean
   entryId:string|null; lineup:{osuId:number;teamId:string;slot:number}[]; teamColours:{teamId:string;colour:'red'|'blue'}[]
   lineupChanged:boolean; policyReviewed:boolean; individualModsReviewed:boolean; confirmationFingerprint:string|null
@@ -56,7 +56,7 @@ export function checkContext(context:ContextSnapshot,intent:ContextIntent,local:
   const expectedMods=entry?[...entry.profile.roomMods,...(entry.profile.freemod?['Freemod']:[])].map(normalize).sort().join(','):null
   const fingerprint=createHash('sha256').update(JSON.stringify({intent,contextRevision:context.contextRevision,sourceVersions:context.sourceVersions,subject:context.viewer.osuId,generation:local.connectionGeneration,room:room?{id:room.id,epoch:room.epoch,map:room.beatmap?.id,mods:room.mods,slots:room.slots}:null,pool:context.pool?.revision,entry:local.entryId,lineup:local.lineup,colours,policy:rules?.revision})).digest('hex')
   const evidence:Record<string,boolean>={
-    identity_match:local.ircOnline&&local.subjectId===context.viewer.osuId&&local.identityReviewed&&normalize(local.ircUsername)===normalize(context.viewer.username),
+    identity_match:local.ircOnline&&local.subjectId===context.viewer.osuId&&normalize(local.ircUsername)===normalize(context.viewer.username),
     no_local_lobby_reference:local.noLocalLobbyReference&&local.recoveryReviewed,
     room_binding:Boolean(room?.joined&&room.kind==='match'&&room.binding==='verified'&&(context.lobby.binding?.state!=='bound'||context.lobby.binding.roomId===room.id)),room_permission:room?.referee==='listed'&&local.permissionAgeMs!==null&&Number.isFinite(local.permissionAgeMs)&&local.permissionAgeMs>=0&&local.permissionAgeMs<60000,
     room_snapshot:Boolean(room?.slotsVerified&&['complete','partial'].includes(room.syncState)&&local.roomAgeMs!==null&&Number.isFinite(local.roomAgeMs)&&local.roomAgeMs>=0&&local.roomAgeMs<10000),

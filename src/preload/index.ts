@@ -44,7 +44,6 @@ const api: DesktopAPI = {
   runInBackground: () => ipcRenderer.invoke('app:background'),
   quit: () => ipcRenderer.invoke('app:quit'),
   website: {
-    confirmPairing: input => ipcRenderer.invoke('oclr:pairing-confirm', input),
     startRelay: () => ipcRenderer.invoke('oclr:relay-start'),
     stopRelay: () => ipcRenderer.invoke('oclr:relay-stop'),
     snapshot: () => ipcRenderer.invoke('oclr:snapshot'),

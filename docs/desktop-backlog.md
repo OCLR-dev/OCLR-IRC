@@ -202,16 +202,16 @@ P0 表示完成既有 MVP 的必要工作，不表示所有項目當下可開始
 
 優先級：P0。對應既有任務：INT-01／02／PAIR-01／PANEL-R。
 
-**現況與缺口**：桌面已有瀏覽器／PKCE 登入、記憶體 token、本人場次與 panel 合成測試；仍缺正式服務驗證與 D05 IRC／OCLR 配對。這是本地盤點，未重新斷言網站當日是否已部署端點。
+**現況與缺口**：桌面已有瀏覽器／PKCE 登入、記憶體 token、本人場次與 panel 合成測試；Main 已有 D05 IRC／OCLR 自動名稱配對；正式服務驗證仍待完成。這是本地盤點，未重新斷言網站當日是否已部署端點。
 
-**設計**：與網站維護者核對部署版本和 read scopes，不修改網站 repository。加入 identity state：unknown／nickname_matched／mismatch，綁定 IRC login generation、OCLR subject 與人工核對；nickname_matched 不標成 UID 證明。配對不符時唯讀仍可依權限使用，但停用衍生變更。正式聯調驗證帳號、指派、撤權、refresh、期限與 loopback；不以 cookie 或新 host 開關繞過。
+**設計**：與網站維護者核對部署版本和 read scopes，不修改網站 repository。加入 identity state：unknown／nickname_matched／mismatch，由 Main 自動比對成功登入的 IRC 與 OCLR subject 名稱，綁定雙方 login generation、原始名稱與 subject ID；nickname_matched 不標成 UID 證明。配對不符時唯讀仍可依權限使用，但停用衍生變更。正式聯調驗證帳號、指派、撤權、refresh、期限與 loopback；不以 cookie 或新 host 開關繞過。
 
 **依賴**：網站提供 AUTH 與本人 fixtures／panel 正式契約；L02 用於關聯歷史驗權。
 
 **驗收**：
 
 - [ ] 記錄可用正式 endpoint、contractVersion 與測試環境；網站缺口只列 external blocker，桌面可先做 fixtures。
-- [ ] 改名、空格／底線、登出切帳號、晚到回覆、同名但未人工核對均有測試，確認綁定變更即失效。
+- [ ] 改名、空格／底線、登出切帳號、晚到回覆、同名自動配對、未登入不能配對均有測試，確認綁定變更即失效。
 - [ ] 本人指派限制包含 Admin，403／撤權清私人資料；IRC 登入與 OCLR 登入互不冒充。
 
 ### L10 · 完整 context adapter、MP 綁定與 OCLR 衍生執行
@@ -340,7 +340,7 @@ IRC-only 日誌已接入 Main，預設開啟、偏好持久化、最近 1,000 �
 
 純函式與 Electron 合成測試驗證搜尋／模板不送出、IME／輸入焦點 guard、兩平台修飾鍵及注入拒絕。Windows／Linux 與 macOS 真實 IME、螢幕閱讀器操作尚待實機驗收，#12 不由合成證據宣稱完整完成。
 
-### L09 人工帳號配對（2026-10-30）
+### L09 人工帳號配對（2026-10-30；2026-11-01 改為自動）
 
 新增 Main 管理的 unknown／nickname_matched／mismatch 與一次身分範圍核對 token。比較沿用 IRC 空格／底線正規化，綁定原始暱稱、IRC 連線世代、OCLR subject ID／名稱及授權世代；即使同名重新登入，也需重新人工確認。配對失效會停止 relay；bind／sync 晚到回覆及送線前均重新檢查，不重送命令。網站唯讀查閱仍由原授權檢查決定。
 
@@ -377,3 +377,7 @@ Profile 區分 roomMods、freemod、individualModsPolicy、revision、ruleset；
 2026-10-31 網站 #621 配套：已實作有限 BP 通知接收及能力協商、精確 Mods 回覆比對；網站管理順序與保存事件去重。本機合成驗證可用，未宣稱真實房間或完整 MVP 驗收。詳見 [網站 IRC 投影](m1/website-irc-relay.md)。
 
 2026-10-31 剩餘 issue 續作：網站 make 的 failed／unknown 改依本筆送線邊界，Main 固定來源與可信完成事件；停止投影後晚到開房仍在第一則房間訊息前隔離日誌，網站操作不寫入 IRC-only 操作歷史。換圖確認只接受實際連結的精確 ID，曲名中的其他連結不能解除操作阻擋。型別、179 項核心與 Electron 合成回歸已驗證；外部契約與真實服務／實機阻礙見 [更新表](m1/issue-progress-2026-10-31.md)。
+
+### L09 自動帳號配對（2026-11-01）
+
+使用者明確要求取代人工勾選。Main 在 IRC 已成功登入且 OCLR 有有效授權 subject 時，自動以大小寫不敏感、空格＝底線比對名稱；相符即 nickname_matched，不符／未知仍阻擋投影。移除人工配對 token、reviewed 與確認 IPC。登入世代、原始名稱或 subject ID 變更仍停止舊 relay，晚到 bind／sync 不能接到新登入；重新同名登入只恢復配對，不自動恢復投影或重送指令。這是名稱比對，不是 IRC UID 證明；其他房內操作的確認維持原範圍。合成驗證及剩餘實機範圍見 [網站 IRC 投影](m1/website-irc-relay.md#自動帳號核對2026-11-01)。

@@ -10,7 +10,7 @@ const fixture=()=>JSON.parse(readFileSync(new URL('./fixtures/oclr-context.json'
 const context=()=>contextSchema.parse(fixture()).data
 function local():ContextLocalEvidence {
   const c=context(),lineup=c.teams.flatMap((s,index)=>s.team!.roster.map((p,i)=>({osuId:p.osuId,teamId:s.team!.id,slot:index*2+i+1})))
-  return {sessionActive:true,ircOnline:true,fresh:true,subjectId:c.viewer.osuId,ircUsername:c.viewer.username,identityReviewed:true,connectionGeneration:1,noLocalLobbyReference:true,recoveryReviewed:true,entryId:c.pool!.entries[0].id,lineup,teamColours:[],lineupChanged:false,policyReviewed:false,individualModsReviewed:false,confirmationFingerprint:null,roomAgeMs:0,permissionAgeMs:0,
+  return {sessionActive:true,ircOnline:true,fresh:true,subjectId:c.viewer.osuId,ircUsername:c.viewer.username,connectionGeneration:1,noLocalLobbyReference:true,recoveryReviewed:true,entryId:c.pool!.entries[0].id,lineup,teamColours:[],lineupChanged:false,policyReviewed:false,individualModsReviewed:false,confirmationFingerprint:null,roomAgeMs:0,permissionAgeMs:0,
     room:{id:9,epoch:1,channel:'#mp_9',kind:'match',joined:true,binding:'verified',referee:'listed',name:'Synthetic',mode:'TeamVs · ScoreV2',players:4,members:[],syncState:'complete',observedAt:new Date().toISOString(),slotsVerified:true,phase:'idle',beatmap:{id:c.pool!.entries[0].beatmapId,title:'Synthetic'},mods:['NF','HD'],slots:lineup.map(p=>({slot:p.slot,osuId:p.osuId,username:'Synthetic',status:'Ready',team:p.slot<=2?'red':'blue',host:false}))}}
 }
 test('candidate context validates complete draft and rejects mixed identities, permissions and links',()=>{
@@ -21,11 +21,20 @@ test('create never requires nonexistent room; omitted/unknown checks cannot bypa
   const c=context(),evidence={...local(),room:null,roomAgeMs:null,permissionAgeMs:null}
   assert.equal(checkContext(c,'create_lobby',evidence).allowed,true)
   c.requiredLocalChecks.create_lobby=[]
-  assert.equal(checkContext(c,'create_lobby',{...evidence,identityReviewed:false}).allowed,false)
+  assert.equal(checkContext(c,'create_lobby',{...evidence,ircUsername:'Other_Referee'}).allowed,false)
   c.requiredLocalChecks.create_lobby=['future_check']
   assert.ok(checkContext(c,'create_lobby',evidence).reasons.includes('LOCAL_CHECK:future_check'))
   assert.equal(checkContext(context(),'create_lobby',{...evidence,recoveryReviewed:false}).allowed,false)
   assert.equal(checkContext(context(),'create_lobby',{...evidence,ircOnline:false}).allowed,false)
+})
+test('context identity matching is automatic and uses the same osu! name equivalence',()=>{
+  const c=context(),evidence={...local(),room:null,roomAgeMs:null,permissionAgeMs:null}
+  for(const name of [c.viewer.username.toLowerCase().replaceAll(' ','_'),c.viewer.username.toUpperCase().replaceAll('_',' ')]){
+    assert.equal(checkContext(c,'create_lobby',{...evidence,ircUsername:name}).allowed,true)
+  }
+  for(const changed of [{...evidence,ircUsername:'Other_Referee'},{...evidence,subjectId:c.viewer.osuId+1},{...evidence,ircOnline:false},{...evidence,sessionActive:false}]){
+    assert.equal(checkContext(c,'create_lobby',changed).allowed,false)
+  }
 })
 test('Start requires verified map/mods, eligible exact lineup, colours, fresh room and explicit policies',()=>{
   const c=context(),evidence=local();assert.equal(checkContext(c,'start_game',evidence).allowed,true)
