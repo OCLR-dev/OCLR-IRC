@@ -15,10 +15,13 @@ import { PlayerSlots } from './player-slots'
 declare global { interface Window { oclr?: DesktopAPI } }
 const initial: Snapshot = { creation: { status: 'unreviewed', requestId: '', roomId: null, message: null }, retryAttempt: 0, retryAt: null, connection: 'offline', username: '', room: null, pending: null, error: null, messages: [], rooms: [], leavingChannels: [], messageStartIndex: 1 }
 const statusText = { offline: '未連線', connecting: '正在連線', online: '已連線', error: '連線失敗', reconnecting: '正在重連', suspended: '休眠暫停' }
-function Icon({ name }: { name: 'connect' | 'room' | 'arrow' | 'logout' | 'key' | 'eye' | 'menu' }) {
+function Icon({ name }: { name: 'connect' | 'room' | 'trophy' | 'document' | 'history' | 'arrow' | 'logout' | 'key' | 'eye' | 'menu' }) {
   const paths = {
     connect: <><path d="M8 7V3m8 4V3M6 7h12v4a6 6 0 0 1-12 0V7Zm6 10v4" /></>,
     room: <><path d="M4 5h16v12H9l-5 4V5Z" /><path d="M8 9h8M8 13h5" /></>,
+    trophy: <><path d="M7 3h10v5a5 5 0 0 1-10 0V3ZM7 5H3v2a4 4 0 0 0 4 4m10-6h4v2a4 4 0 0 1-4 4" /><path d="M12 13v5m-4 3h8m-7-3h6v3H9v-3Z" /></>,
+    document: <><path d="M14 3H5v18h14V8l-5-5ZM14 3v5h5" /><path d="M8 12h8M8 16h6" /></>,
+    history: <><path d="M3 11a9 9 0 1 1 2.4 6.1M3 4v7h7" /><path d="M12 7v5l3 2" /></>,
     arrow: <path d="M5 12h14m-6-6 6 6-6 6" />,
     menu: <path d="M4 6h16M4 12h16M4 18h16" />,
     logout: <><path d="M9 4H4v16h5m5-13 5 5-5 5m-5-5h14" /></>,
@@ -97,11 +100,11 @@ function App() {
       <div className="brand"><span className="brand-symbol">O</span><div><strong>OCLR</strong><span>IRC</span></div></div>
       <div className="workspace-label">裁判工作台 <span>01</span></div>
       <nav aria-label="主要導覽">
-        <button className={page === 'account' ? 'nav-item selected' : 'nav-item'} onClick={() => setPage('account')}><Icon name="connect" /><span className="nav-label">帳號連線</span><span className={`tiny-dot ${online ? 'active' : ''}`} /></button>
-        <button className={page === 'room' ? 'nav-item selected' : 'nav-item'} disabled={!online && !state.rooms.length} onClick={() => setPage('room')}><Icon name="room" /><span className="nav-label">房間記錄</span></button>
-        <button className={page === 'oclr' ? 'nav-item selected' : 'nav-item'} onClick={() => setPage('oclr')}><Icon name="connect" /><span className="nav-label">OCLR 場次</span></button>
-        <button className={page === 'journal' ? 'nav-item selected' : 'nav-item'} onClick={() => setPage('journal')}><Icon name="room" /><span className="nav-label">本機日誌</span></button>
-        <button className={page === 'operations' ? 'nav-item selected' : 'nav-item'} onClick={() => setPage('operations')}><Icon name="room" /><span className="nav-label">操作記錄</span></button>
+        <button className={page === 'account' ? 'nav-item selected' : 'nav-item'} title="帳號連線" aria-current={page === 'account' ? 'page' : undefined} onClick={() => setPage('account')}><Icon name="connect" /><span className="nav-label">帳號連線</span><span className={`tiny-dot ${online ? 'active' : ''}`} /></button>
+        <button className={page === 'room' ? 'nav-item selected' : 'nav-item'} title="房間記錄" aria-current={page === 'room' ? 'page' : undefined} disabled={!online && !state.rooms.length} onClick={() => setPage('room')}><Icon name="room" /><span className="nav-label">房間記錄</span></button>
+        <button className={page === 'oclr' ? 'nav-item selected' : 'nav-item'} title="OCLR 場次" aria-current={page === 'oclr' ? 'page' : undefined} onClick={() => setPage('oclr')}><Icon name="trophy" /><span className="nav-label">OCLR 場次</span></button>
+        <button className={page === 'journal' ? 'nav-item selected' : 'nav-item'} title="本機日誌" aria-current={page === 'journal' ? 'page' : undefined} onClick={() => setPage('journal')}><Icon name="document" /><span className="nav-label">本機日誌</span></button>
+        <button className={page === 'operations' ? 'nav-item selected' : 'nav-item'} title="操作記錄" aria-current={page === 'operations' ? 'page' : undefined} onClick={() => setPage('operations')}><Icon name="history" /><span className="nav-label">操作記錄</span></button>
       </nav>
       <div className="sidebar-note"><span className="small-label">背景執行</span><Button variant="ghost" size="sm" isDisabled={!desktop} onPress={() => void runInBackground()}>轉入背景</Button><Button variant="ghost" size="sm" isDisabled={!desktop} onPress={() => { void window.oclr?.quit().catch(() => setFormError('無法退出程式。')) }}>退出程式</Button></div>
       <div className="sidebar-footer"><span className={`status-dot ${online ? 'online' : connecting ? 'connecting' : ''}`} /><div><strong>{online ? state.username : 'osu! IRC'}</strong><span>{statusText[state.connection]}</span></div>{state.username && <Button isIconOnly variant="ghost" aria-label="登出 IRC" onPress={() => void logout()}><Icon name="logout" /></Button>}</div>

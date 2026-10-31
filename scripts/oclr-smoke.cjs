@@ -178,8 +178,10 @@ async function main() {
   await until(() => opened.length === 2)
   assert.equal(opened[1], fixtures.data.items[0].reviewUrl)
   const beforeReload = requests.filter(r => r.path.endsWith('/auth/exchange')).length
-  window.webContents.reload(); await delay(300)
-  await until(() => js('Boolean(window.oclr?.website)'))
+  const rendererReloaded = new Promise(resolve => window.webContents.once('did-finish-load', resolve))
+  window.webContents.reload()
+  await rendererReloaded
+  await until(() => js('Boolean(window.oclr?.website && document.querySelector("nav button"))'))
   await js(`Array.from(document.querySelectorAll('nav button')).find(b => b.textContent.includes('OCLR 場次')).click()`)
   await until(() => js('Boolean(document.querySelector(".oclr-settings"))'))
   assert.equal(requests.filter(r => r.path.endsWith('/auth/exchange')).length, beforeReload)
