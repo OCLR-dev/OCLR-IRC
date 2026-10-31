@@ -119,11 +119,12 @@ export class OclrRelay {
         if (this.consumed.size > 2000) throw new Error('Relay session limit')
         if (binding.roomId === 0) {
           try {
+            const current = this.irc.state
             const name = /^!mp make (.{1,200})$/u.exec(command.text)?.[1]
-            if (!name || /[\p{Cc}\p{Cf}\u2028\u2029]/u.test(name) || command.target !== 'BanchoBot' || this.creation || !this.pairingReady() || this.oclr.state.panelState !== 'fresh' || irc.creation.roomId !== null || irc.creation.status !== 'unreviewed') throw new Error('Invalid creation')
-            this.creation = {id: command.id, requestId: irc.creation.requestId}
+            if (!name || /[\p{Cc}\p{Cf}\u2028\u2029]/u.test(name) || command.target !== 'BanchoBot' || this.creation || !this.pairingReady() || this.oclr.state.panelState !== 'fresh' || current.room || current.creation.roomId !== null || current.creation.status !== 'unreviewed') throw new Error('Invalid creation')
+            this.creation = {id: command.id, requestId: current.creation.requestId}
             this.privateCreationGeneration = this.irc.sessionGeneration
-            this.irc.createRoom({name, requestId: irc.creation.requestId, reviewed: true})
+            this.irc.createRoom({name, requestId: current.creation.requestId, reviewed: true})
             this.receipts.push({commandId: command.id, status: 'sent'})
           } catch { const status = ['awaiting', 'unknown', 'blocked'].includes(this.irc.state.creation.status) ? 'unknown' : 'failed'; this.creation = null; this.receipts.push({commandId: command.id, status}) }
         } else if (!same || irc.connection !== 'online' || command.target !== `#mp_${binding.roomId}` || this.pending) this.receipts.push({commandId: command.id, status: 'failed'})
