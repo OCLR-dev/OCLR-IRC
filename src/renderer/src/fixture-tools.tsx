@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Input, Label, Spinner, TextField } from '@heroui/react'
 import { emptyOclrState } from '../../shared/oclr-state'
 import { fixtureInviteSource, type FixtureInvitePreview } from '../../shared/fixture-tools'
@@ -57,7 +57,8 @@ export function FixturePool({website}: {website: OclrSnapshot}) {
 export function FixtureRoster({website, state, onConnect, onOperations}: {website: OclrSnapshot; state: Snapshot; onConnect: () => void; onOperations: () => void}) {
   const [preview, setPreview] = useState<FixtureInvitePreview | null>(null), [confirmName, setConfirmName] = useState(''), [reviewed, setReviewed] = useState(false), [busy, setBusy] = useState(false), [message, setMessage] = useState('')
   const generation = useRef(0)
-  const workspace = website.panel?.workspace, sourceKey = JSON.stringify([website.subject, workspace])
+  const workspace = website.panel?.workspace
+  const sourceKey = useMemo(() => JSON.stringify([website.subject, workspace]), [website.subject, workspace])
   const fresh = website.status === 'connected' && website.panelState === 'fresh'
   const linked = website.relay.status === 'connected' && website.relay.roomId === state.room?.id && state.room?.joined && website.pairing.reviewed
   const unreviewed = state.operations?.records.some(record => record.roomId === state.room?.id && (record.state === 'awaiting' || record.state === 'unknown' && !record.reviewed))
@@ -87,7 +88,7 @@ export function FixtureRoster({website, state, onConnect, onOperations}: {websit
         const known = state.room?.slotsVerified && ['complete', 'partial'].includes(state.room.syncState)
         const present = known && state.room?.slots.some(slot => slot.osuId === player.osuId)
         let sourceError = ''
-        if (fresh) try {fixtureInviteSource(website, team.id, player.osuId)} catch (error) {sourceError = error instanceof Error ? error.message : '無法預覽。'}
+        if (fresh) try {fixtureInviteSource(website, team.id, player.osuId, false)} catch (error) {sourceError = error instanceof Error ? error.message : '無法預覽。'}
         return <div className="fixture-player" key={player.osuId}><div><strong>{player.username}</strong><span>#{player.osuId} · {present ? tr("已在房內") : known ? tr("未到場") : tr("到場狀態未知")}</span>{sourceError && <span className="fixture-source-error">{tr(sourceError)}</span>}</div><Button size="sm" variant="secondary" aria-label={tr("邀請 {{v0}}", {v0: player.username})} isDisabled={!fresh || !linked || busy || Boolean(preview) || Boolean(present) || Boolean(unreviewed) || Boolean(sourceError)} onPress={() => void prepare(team.id, player.osuId)}>{tr("邀請")}</Button></div>
       })}</section>)}
     </>}
