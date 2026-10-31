@@ -1,4 +1,5 @@
-name: Desktop release
+name: OCLR IRC release
+run-name: OCLR IRC release · ${{ github.ref_name }}${{ inputs.dry_run && ' · dry-run' || '' }}
 
 on:
   push:
@@ -38,6 +39,11 @@ jobs:
           REQUIRE_SIGNED_MAC: ${{ github.event_name == 'push' || inputs.sign_macos }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
         run: node scripts/prepare-release.cjs validate
+      - name: Refuse an existing release before building
+        if: github.event_name == 'push' || !inputs.dry_run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/prepare-release.cjs check-remote
   build:
     needs: validate
     permissions:
@@ -117,3 +123,5 @@ jobs:
             release-assets/*.zip release-assets/*.tar.gz \
             release-assets/SHA256SUMS.txt release-assets/build-info.json
           gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
+          echo "### Published OCLR IRC $RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://github.com/$GITHUB_REPOSITORY/releases/tag/$RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"

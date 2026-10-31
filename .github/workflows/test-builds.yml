@@ -33,6 +33,7 @@ on:
       - 'electron.vite.config.ts'
       - 'tsconfig.json'
       - '.github/workflows/test-builds.yml'
+      - '.github/workflows/release.yml'
       - '.github/workflows/macos-signed.yml'
       - '.github/actions/**'
   pull_request:
@@ -44,6 +45,7 @@ on:
       - 'electron.vite.config.ts'
       - 'tsconfig.json'
       - '.github/workflows/test-builds.yml'
+      - '.github/workflows/release.yml'
       - '.github/workflows/macos-signed.yml'
       - '.github/actions/**'
 

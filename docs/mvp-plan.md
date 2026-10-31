@@ -273,3 +273,5 @@ OCLR 房名帶入：新建房間表單訂閱已選場次的唯讀 panel，優先
 2026-10-31 網頁喚起增量：加入 oclr-irc scheme、待登入場次帶入與封裝註冊；本機確認及權限檢查不變，三平台 OS／真實服務驗收仍另列。見 docs/m1/website-irc-relay.md。
 
 2026-10-31 relay 修復：區分未送出與結果未知，顯示有限原因碼；空房 addref 無需地圖／Mods，精確 timer／addref 回覆同步解除待核對阻擋。舊 unknown 仍須人工核對、不重送。驗證範圍見 docs/m1/website-irc-relay.md。
+
+2026-10-31 使用者明確要求三平台版本發布：沿用既有 Release pipeline，補上發布前衝突／權限檢查、版本一致性及下載表，準備 v0.7.0 公開預覽版；不表示既有實機與 MVP gate 已完成。版本及 CI 證據見 [Release CI](release-ci.md)。
