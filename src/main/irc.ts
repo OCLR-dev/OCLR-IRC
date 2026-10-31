@@ -71,6 +71,7 @@ export class IrcSession extends EventEmitter {
   private creationStore: CreationStore | null = null
   private previousCreationId: string | null = null
   private creationName: string | null = null
+  private creationSource: 'manual' | 'oclr' = 'manual'
   private mpPreview: { token: string; command: string; view: RoomView; fingerprint: string; deadline: number } | null = null
   private durationLookup: (id: number) => Promise<number | null>
   private durationRequests = new WeakMap<RoomView, string>()
@@ -368,7 +369,10 @@ export class IrcSession extends EventEmitter {
     this.creation = { ...this.creation, status: 'unknown', message: [message, this.creation.message?.startsWith('BanchoBot：') ? this.creation.message : null].filter(Boolean).join(' ') }
     this.publish()
   }
-  createRoom(input: unknown) {
+  createRoom(input: unknown) { this.createRoomIntent(input, 'manual') }
+  /** Main-only website entry point; the renderer cannot choose an operation source. */
+  createWebsiteRoom(input: unknown, onDispatch?: () => void) { this.createRoomIntent(input, 'oclr', onDispatch) }
+  private createRoomIntent(input: unknown, source: 'manual' | 'oclr', onDispatch?: () => void) {
     if (this.connection !== 'online') throw new Error('請先登入 osu! IRC。')
     if (!input || typeof input !== 'object') throw new Error('無效的開房請求。')
     const { name: raw, requestId, reviewed } = input as Record<string, unknown>
@@ -380,17 +384,18 @@ export class IrcSession extends EventEmitter {
     try {
       if (!this.creationStore) throw new Error('No recovery store')
       this.creationStore.begin(this.username, this.creation.requestId, this.previousCreationId)
+      this.creationOperation = this.operations.begin(source, 'make', null, 0, this.generation, '!mp make')
     } catch {
       this.creation = { ...this.creation, status: 'blocked', message: '無法保存開房記錄，或其他視窗已開房。本次指令未送出，請重新登入後核對。' }
       this.publish(); throw new Error(this.creation.message!)
     }
-    this.creationOperation = this.operations.begin('manual', 'make', null, 0, this.generation, '!mp make')
     this.creationJoins.clear()
     this.creationName = name
+    this.creationSource = source
     this.creation = { ...this.creation, status: 'awaiting', roomId: null, message: null }
     this.lastQueryAt = Date.now()
     // Persist before any socket write. A write error is ambiguous, never an invitation to retry.
-    try { this.send(`PRIVMSG BanchoBot :!mp make ${name}`) }
+    try { onDispatch?.(); this.send(`PRIVMSG BanchoBot :!mp make ${name}`) }
     catch { this.creationUnknown('開房傳送未能確認，結果不明。請核對既有房間，再重新連線。'); throw new Error(this.creation.message!) }
     const generation = this.generation
     this.creationTimer = setTimeout(() => {
@@ -411,6 +416,9 @@ export class IrcSession extends EventEmitter {
     this.creation = { status: 'created', requestId: randomUUID(), roomId: id, message: `已建立比賽房間 ${id}。` }
     try { this.creationStore!.complete(this.username, operationId, id); this.previousCreationId = operationId }
     catch { this.creation = { ...this.creation, status: 'blocked', message: `房間 ${id} 已建立，但防重送記錄更新失敗；禁止再次開房，請核對後重新登入。` } }
+    // Quarantine before any room message, even if relay/context was stopped in flight.
+    if (this.creationSource === 'oclr') this.emit('private-room', id)
+    this.emit('room-created', { roomId: id, requestId: operationId, generation: this.generation, source: this.creationSource })
     if (this.creationOperation) this.operations.finish(this.creationOperation, 'observed', id)
     this.creationOperation = null
     this.join(String(id))

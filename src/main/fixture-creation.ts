@@ -5,7 +5,7 @@ import type { ContextLocalEvidence } from './context-gate.ts'
 import type { Snapshot, RoomTarget } from '../shared/types.ts'
 interface CreationPort {
   readonly state:Snapshot; readonly sessionGeneration:number
-  createRoom(input:{name:string;requestId:string;reviewed:boolean}):void
+  createWebsiteRoom(input:{name:string;requestId:string;reviewed:boolean}):void
   relayRefresh(target:RoomTarget):void
   on(event:'state',listener:()=>void):unknown
   off(event:'state',listener:()=>void):unknown
@@ -56,7 +56,7 @@ export class FixtureCreation {
     if(this.closed||generation!==this.prepareGeneration||!gate.allowed||gate.fingerprint!==preview.fingerprint||preview.scope!==this.scope()||this.now()>=preview.deadline||this.irc.state.creation.requestId!==preview.requestId)throw new Error('場次、權限或開房狀態已變更，請重新核對。')
     this.source={fixtureId:context.fixture.id,subjectId:context.viewer.osuId,status:'awaiting',roomId:null};this.sourceScope=preview.scope;this.refreshed=false
     this.pending={requestId:preview.requestId,generation:this.irc.sessionGeneration,seenAwaiting:false}
-    try{this.irc.createRoom({name:preview.value.name,requestId:preview.requestId,reviewed:true})}catch(error){if(this.source)this.source.status='unknown';this.pending=null;throw error}
+    try{this.irc.createWebsiteRoom({name:preview.value.name,requestId:preview.requestId,reviewed:true})}catch(error){if(this.source)this.source.status='unknown';this.pending=null;throw error}
     this.observe()
   }
   private observe=()=>{

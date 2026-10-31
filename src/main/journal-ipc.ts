@@ -19,6 +19,7 @@ export function registerJournal(journal: EncryptedJournal | null, irc: IrcSessio
     }
   }
   oclr.on('private-room', markPrivate)
+  irc.on('private-room', markPrivate)
   oclr.on('state', value => {
     if (value.relay.roomId && ['connecting', 'connected'].includes(value.relay.status)) {
       markPrivate(value.relay.roomId)

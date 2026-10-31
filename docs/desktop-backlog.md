@@ -373,3 +373,5 @@ Profile 區分 roomMods、freemod、individualModsPolicy、revision、ruleset；
 2026-10-31 網頁喚起增量：加入 oclr-irc scheme、待登入場次帶入與封裝註冊；本機確認及權限檢查不變，三平台 OS／真實服務驗收仍另列。見 docs/m1/website-irc-relay.md。
 
 2026-10-31 relay 修復：區分未送出與結果未知，顯示有限原因碼；空房 addref 無需地圖／Mods，精確 timer／addref 回覆同步解除待核對阻擋。舊 unknown 仍須人工核對、不重送。驗證範圍見 docs/m1/website-irc-relay.md。
+
+2026-10-31 剩餘 issue 續作：網站 make 的 failed／unknown 改依本筆送線邊界，Main 固定來源與可信完成事件；停止投影後晚到開房仍在第一則房間訊息前隔離日誌，網站操作不寫入 IRC-only 操作歷史。換圖確認只接受實際連結的精確 ID，曲名中的其他連結不能解除操作阻擋。型別、179 項核心與 Electron 合成回歸已驗證；外部契約與真實服務／實機阻礙見 [更新表](m1/issue-progress-2026-10-31.md)。
