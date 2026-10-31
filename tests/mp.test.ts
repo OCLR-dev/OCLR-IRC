@@ -357,6 +357,7 @@ test('empty room relay can add referees without a map and blocks pending operati
     assert.equal(f.sent.filter(line => line.endsWith(':!mp timer 30')).length, 0)
     f.peer().write(':BanchoBot PRIVMSG #mp_9 :Added SyntheticRef to the match referees\n')
     await until(() => !f.session.relayBlocked(f.target(), '!mp timer 30'))
+    f.session.relayRefresh(f.target())
     await until(() => f.session.relayReady(f.target(), '!mp timer 30'))
     f.session.relaySend({...f.target(), text: '!mp timer 30'}, () => attempted++)
     await until(() => f.sent.includes('PRIVMSG #mp_9 :!mp timer 30'))
