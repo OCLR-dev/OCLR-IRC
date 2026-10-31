@@ -5,7 +5,7 @@
 ## 觸發與輸出
 
 - 推送既有版本 tag `v<package.json version>` 時自動執行；package-lock 版本也必須一致。版本不符立即停止，不代為建立、移動或覆寫 tag。
-- GitHub Actions → Desktop release → Run workflow：預設 `dry_run=true`，可從 main 執行完整測試、打包、跨平台成品校驗與彙整，但跳過發布。
+- GitHub Actions → OCLR IRC release → Run workflow：預設 `dry_run=true`，可從 main 執行完整測試、打包、跨平台成品校驗與彙整，但跳過發布。
 - 手動正式執行必須選擇已存在的版本 tag，取消 dry_run；從 main 取消 dry_run 會被驗證拒絕。
 - Windows x64 ZIP、Linux x64 tar.gz、macOS arm64 ZIP、合併 SHA256SUMS.txt 及 build-info.json 成為 GitHub Release assets。直接從 Releases 下載，不受 Actions artifacts 的 30 天保留期限限制。
 
@@ -33,3 +33,15 @@
 2026-10-28 Apple CI 整合：Release 預設 sign_macos=true；dry-run 才能選擇略過正式簽章。正式發布缺少公證 macOS 成品時停止，Windows／Linux 仍為未簽章測試版。
 
 Apple 正式簽章實測已於 [dry-run 40620456501](https://github.com/OCLR-dev/OCLR-ref-tools/actions/runs/40620456501) 通過，包含 notarized macOS 與三平台成品校驗；publish 仍為 skipped。完整證據及下載見 [Apple CI 紀錄](apple-signing-ci.md)。
+
+## 2026-10-31 三平台公開版本
+
+使用者本次明確要求發布三平台版本。以目前尚未發布的套件版本 `0.7.0` 準備首個 `v0.7.0` 公開預覽版，這是版本發布授權，不代表 M1／完整 MVP 已驗收，也不覆寫既有版本。
+
+- Release workflow 名稱為 **OCLR IRC release**，維持版本 tag 自動觸發、手動 dry-run、三平台共用打包與正式 macOS 簽章／公證要求。
+- 新增發布前遠端檢查：同名 Release 已存在、權限／網路／服務錯誤都停止；只有 API 回覆不存在才繼續，避免重複跑完昂貴的建置後才發現衝突。不修改 GitHub 或 Apple 憑證。
+- 版本驗證同時核對 package.json、package-lock 頂層與根套件版本。Release workflow 本身的變更也會觸發三平台 PR／main CI。
+- 自動產生中英三平台下載表、校驗碼與建置資訊連結，以及可攜式啟動方式。最後 publish job 提供公開版本網址。
+- 實際發布的提交、CI、公證與資產結果以 GitHub Release 及對應 Actions run 為準；準備這份文件本身不代表發布成功。
+
+一般操作：先在 main 完成對應版本與測試，再建立未使用的 `v<version>` tag，核對指向的完整提交，僅推送這個 tag。CI 完成後至 [Releases](https://github.com/OCLR-dev/OCLR-IRC/releases) 下載；不要將同名 tag 移到其他提交。修正已發布版本需增加版本號。

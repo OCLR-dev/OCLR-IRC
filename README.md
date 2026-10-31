@@ -32,6 +32,8 @@ IRC 密碼與連線由本機管理。啟用投影會把綁定房間的訊息及�
 
 ## 下載測試版
 
+已發布的三平台版本請前往 [GitHub Releases](https://github.com/OCLR-dev/OCLR-IRC/releases)。每個版本會提供 Windows x64 ZIP、Linux x64 tar.gz、macOS Apple Silicon arm64 ZIP、SHA256SUMS.txt 及建置資訊；預覽版不代表完整 MVP 驗收完成。
+
 前往 [Desktop test builds](https://github.com/OCLR-dev/OCLR-IRC/actions/workflows/test-builds.yml)，選擇所需提交且已成功的執行紀錄，登入 GitHub 後從 **Artifacts** 下載對應平台的 `OCLR-IRC-*` 檔案。Artifacts 保留 30 天，過期後需重新打包。
 
 | 平台 | CI 打包架構 |
