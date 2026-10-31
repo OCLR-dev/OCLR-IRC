@@ -1,3 +1,4 @@
+import { WebsiteLaunch } from './website-launch.ts'
 import { sameLocalPage } from './trusted-page.ts'
 import { SqliteOperationStore } from './operation-store.ts'
 import { EncryptedJournal } from './encrypted-journal.ts'
@@ -25,6 +26,7 @@ app.setName('OCLR IRC')
 const irc = new IrcSession(undefined, {}, fetchBeatmapDuration)
 const oclr = new OclrSession({ origin: process.env.OCLR_SERVER_ORIGIN, version: app.getVersion(), platform: process.platform, openExternal: url => shell.openExternal(url), writeClipboard: text => clipboard.writeText(text) })
 const relay = new OclrRelay(oclr, irc)
+const websiteLaunch = new WebsiteLaunch(oclr, () => relay.stop())
 let loginGeneration = 0
 let pendingSave: { username: string; password: string } | null = null
 let credentialError: string | null = null
@@ -35,7 +37,10 @@ let background: DesktopBackground | null = null
 let quitting = false
 const primaryInstance = app.requestSingleInstanceLock()
 if (!primaryInstance) app.quit()
-app.on('second-instance', () => background?.show())
+function acceptLaunch(url: unknown) { if (primaryInstance && websiteLaunch.receive(url)) background?.show() }
+app.on('open-url', (event, url) => { event.preventDefault(); acceptLaunch(url) })
+app.on('second-instance', (_event, argv) => { for (const arg of argv ?? []) acceptLaunch(arg); background?.show() })
+for (const arg of process.argv) acceptLaunch(arg)
 const productionURL = pathToFileURL(join(__dirname, '../renderer/index.html')).href
 const devURL = process.env.ELECTRON_RENDERER_URL
 function trusted(event: Electron.IpcMainInvokeEvent) {
@@ -49,6 +54,13 @@ function action(event: Electron.IpcMainInvokeEvent, fn: () => void) {
 }
 app.whenReady().then(() => {
   if (!primaryInstance) return
+  if (app.isPackaged && !process.env.OCLR_QA_TEMP && process.platform !== 'linux') {
+    try { app.setAsDefaultProtocolClient('oclr-irc') } catch { /* OS registration failure must not prevent normal launch. */ }
+  }
+  websiteLaunch.on('state', state => window?.webContents.send('app:website-launch', state))
+  ipcMain.handle('app:website-launch', event => { trusted(event); return websiteLaunch.state })
+  ipcMain.handle('app:website-launch-clear', event => { trusted(event); websiteLaunch.clear() })
+  ipcMain.handle('app:website-launch-continue', (event, id: unknown) => { trusted(event); return websiteLaunch.continue(id) })
   const preferences = new PreferencesStore(join(app.getPath('userData'), 'preferences.json'))
   const settingsSnapshot = () => ({ preferences: preferences.get(), locale: resolveLocale(preferences.get().language, app.getPreferredSystemLanguages()), version: app.getVersion(), platform: process.platform })
   let lastLocale = settingsSnapshot().locale
@@ -112,8 +124,8 @@ app.whenReady().then(() => {
   ipcMain.handle('oclr:relay-stop', event => websiteAction(event, () => relay.stop()))
   ipcMain.handle('oclr:snapshot', event => { trusted(event); relay.refreshPairing(); return oclr.state })
   ipcMain.handle('oclr:login', event => websiteAction(event, () => oclr.login()))
-  ipcMain.handle('oclr:cancel-login', event => websiteAction(event, () => oclr.cancelLogin()))
-  ipcMain.handle('oclr:logout', event => websiteAction(event, () => oclr.logout()))
+  ipcMain.handle('oclr:cancel-login', event => websiteAction(event, () => { websiteLaunch.clear(); oclr.cancelLogin() }))
+  ipcMain.handle('oclr:logout', event => websiteAction(event, () => { websiteLaunch.clear(); return oclr.logout() }))
   ipcMain.handle('oclr:fixtures', event => websiteAction(event, () => oclr.loadFixtures()))
   ipcMain.handle('oclr:more-fixtures', event => websiteAction(event, () => oclr.loadFixtures(true)))
   ipcMain.handle('oclr:select-fixture', (event, id: unknown) => websiteAction(event, () => oclr.selectFixture(id)))
@@ -162,7 +174,7 @@ app.whenReady().then(() => {
   })
   ipcMain.handle('irc:logout', event => { trusted(event); logout() })
   powerMonitor.on('suspend', () => { void relay.stop(); irc.suspend() })
-  powerMonitor.on('suspend', () => oclr.suspend())
+  powerMonitor.on('suspend', () => { websiteLaunch.clear(); oclr.suspend() })
   powerMonitor.on('resume', () => irc.resume())
   ipcMain.handle('irc:retry', event => action(event, () => irc.retry()))
   ipcMain.handle('irc:open-conversation', (event, value: unknown) => action(event, () => irc.openConversation(value)))

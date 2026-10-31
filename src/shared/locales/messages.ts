@@ -1,5 +1,13 @@
 // Application-authored text only. Interpolation values and external content remain literal.
 export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
+  "網站連接請求": {"zh-Hans": "网站连接请求", "en": "Website connection request"},
+  "場次已帶入，請核對帳號並啟用網站 IRC。": {"zh-Hans": "场次已带入，请核对账号并启用网站 IRC。", "en": "Match selected. Review your accounts and enable website IRC."},
+  "無法帶入場次，請確認授權與本人指派後重試。": {"zh-Hans": "无法带入场次，请确认授权与本人指派后重试。", "en": "Unable to select the match. Check authorization and your assignment, then retry."},
+  "請在瀏覽器完成 OCLR 授權。": {"zh-Hans": "请在浏览器完成 OCLR 授权。", "en": "Complete OCLR authorization in your browser."},
+  "正在讀取場次…": {"zh-Hans": "正在读取场次…", "en": "Loading match…"},
+  "請登入 IRC，再繼續連接此場次。": {"zh-Hans": "请登录 IRC，再继续连接此场次。", "en": "Sign in to IRC, then continue connecting this match."},
+  "繼續連接": {"zh-Hans": "继续连接", "en": "Continue connecting"},
+
   "等待網站開房指令": {"zh-Hans": "等待网站开房指令", "en": "Waiting for a room creation command from the website"},
   "連接網站 IRC": {"zh-Hans": "连接网站 IRC", "en": "Connect website IRC"},
   " · {{v0}} 勝": {

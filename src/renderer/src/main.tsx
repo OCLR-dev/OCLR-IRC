@@ -41,6 +41,16 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   function applySettings(value: AppSettings) { setSettings(value); void changeLocale(value.locale) }
   useEffect(() => window.oclr?.settings.onState(applySettings), [])
   const [state, setState] = useState(initial)
+  const [launch, setLaunch] = useState<import('../../shared/website-launch').WebsiteLaunchState | null>(null)
+  useEffect(() => {
+    const api = window.oclr?.websiteLaunch
+    if (!api) return
+    let arrived = false
+    const receive = (value: import('../../shared/website-launch').WebsiteLaunchState | null) => { setLaunch(value); if (value) setPage('oclr') }
+    const off = api.onState(value => { arrived = true; receive(value) })
+    void api.snapshot().then(value => { if (!arrived) receive(value) }).catch(() => {})
+    return off
+  }, [])
   const [page, setPage] = useState<'account' | 'room' | 'oclr' | 'journal' | 'operations' | 'settings'>('account')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -67,7 +77,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     void window.oclr.snapshot().then(next => { if (!eventArrived) setState(next) })
     return off
   }, [])
-  useEffect(() => { if (online) { setPage(current => current === 'account' ? 'room' : current); setFormError(null) } }, [online])
+  useEffect(() => { if (online) { setPage(current => current === 'account' ? launch ? 'oclr' : 'room' : current); setFormError(null) } }, [online])
   async function login(event: React.FormEvent) {
     event.preventDefault()
     if (!window.oclr || busy || connecting) return
@@ -118,6 +128,11 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       <header className="topbar"><div><span>{tr("工作台")}</span><span className="breadcrumb-slash">/</span><strong>{page === 'settings' ? tr("設定") : page === 'operations' ? tr("操作記錄") : page === 'journal' ? tr("本機日誌") : page === 'account' ? tr("帳號連線") : page === 'oclr' ? tr("OCLR 場次") : tr("房間記錄")}</strong></div><span className="version">v{settings.version} <span>PREVIEW</span></span></header>
       {state.connection !== 'online' && state.username && <div className="reconnect-notice" role="status">{tr(statusText[state.connection])}{state.retryAttempt > 0 && tr(" · 第 {{v0}}/5 次重試", { v0: state.retryAttempt })}{state.retryAt && tr(" · {{v0}} 重試", { v0: new Date(state.retryAt).toLocaleTimeString(uiLocale()) })}{state.connection === 'error' && <Button size="sm" variant="ghost" onPress={() => { void window.oclr?.retry().then(result => { if (!result.ok) setFormError(result.error || '重試失敗') }).catch(() => setFormError('桌面服務無法回應。')) }}>{tr("重新連線")}</Button>}<Button size="sm" variant="ghost" onPress={() => void logout()}>{tr("停止並登出")}</Button></div>}
       <main>
+        {launch && (page === 'account' || page === 'oclr') && <section className="oclr-session" aria-label={tr("網站連接請求")}>
+          <div><strong>{tr("網站連接請求")}</strong><span>{launch.fixtureId}</span><span role="status">{launch.status === 'ready' ? tr("場次已帶入，請核對帳號並啟用網站 IRC。") : launch.status === 'error' ? tr("無法帶入場次，請確認授權與本人指派後重試。") : launch.status === 'authorizing' ? tr("請在瀏覽器完成 OCLR 授權。") : launch.status === 'loading' ? tr("正在讀取場次…") : tr("請登入 IRC，再繼續連接此場次。")}</span></div>
+          {!['loading', 'authorizing', 'ready'].includes(launch.status) && <Button onPress={() => { if (!online) setPage('account'); else { setPage('oclr'); void window.oclr?.websiteLaunch.continue(launch.requestId).catch(() => setFormError('桌面服務無法回應。')) } }}>{online ? tr("繼續連接") : tr("帳號連線")}</Button>}
+          <Button variant="ghost" onPress={() => void window.oclr?.websiteLaunch.clear()}>{tr("關閉")}</Button>
+        </section>}
         {page === 'settings' ? <SettingsView settings={settings} onChange={applySettings} /> : page === 'operations' ? <OperationsView key={state.username} state={state} /> : page === 'journal' ? <JournalView key={state.username} /> : page === 'oclr' ? <OclrView /> : page === 'account' ? <div className="account-view enter">
           <section className="login-section">
             <div className="section-kicker">ACCOUNT CONNECTION</div>

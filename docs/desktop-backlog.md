@@ -369,3 +369,5 @@ Windows／Linux 新增與 macOS 共用的成品壓縮包 SHA256、內外 build i
 Profile 區分 roomMods、freemod、individualModsPolicy、revision、ruleset；NF 可選，未知 FM policy 拒絕。此版 ruleset 明確為 current，未提供無可靠觀測的模式切換；正式 OCLR entry／圖池契約、個人 Mods 真實觀測與完整房間初始化仍為後續。合成案例不代表真實 Bancho／FM 驗收。
 
 2026-10-31 使用者追加修復：網站直接開房接收與 panel exPlayersPerTeam 相容已加入，見 [relay 說明](m1/website-irc-relay.md)。完整 context 與真實 Bancho／跨平台驗收仍為 partial。
+
+2026-10-31 網頁喚起增量：加入 oclr-irc scheme、待登入場次帶入與封裝註冊；本機確認及權限檢查不變，三平台 OS／真實服務驗收仍另列。見 docs/m1/website-irc-relay.md。

@@ -43,6 +43,12 @@ export interface Snapshot {
 export interface JournalEntry { time: number; room: string; text: string }
 export interface JournalState { enabled: boolean; status: 'saving' | 'memory_only' | 'failed'; account: string | null }
 export interface DesktopAPI {
+  websiteLaunch: {
+    snapshot(): Promise<import('./website-launch.ts').WebsiteLaunchState | null>
+    continue(requestId: string): Promise<void>
+    clear(): Promise<void>
+    onState(listener: (state: import('./website-launch.ts').WebsiteLaunchState | null) => void): () => void
+  }
   settings: {
     snapshot(): Promise<AppSettings>
     update(input: AppPreferences): Promise<{ ok: boolean; settings?: AppSettings; error?: string }>

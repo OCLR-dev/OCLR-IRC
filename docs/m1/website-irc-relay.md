@@ -62,3 +62,13 @@ relay 現在要求綁定房間仍為已加入的比賽房間。離開或被移�
 Main 使用原有 createRoom 的送前持久化、節流、可信 BanchoBot 回覆與 JOIN 流程，消耗 command ID 後不重送。已建立的房間立即排除 IRC journal；只有加入、History 與 listrefs 核對完成，才在下一筆 sync 帶正整數 `roomId`，將同一接收連線轉為房間投影。網站只允許原 roomId 0 且有已派送 make 的連線進行這項轉換；既有房間不能切換為另一房號。開房 receipt 保守標記 unknown，實際房間由本機與投影核對，不捏造 Bancho 回覆證據。
 
 此修改需網站與桌面一起更新；不部署、不進行真實 Bancho 操作。契約相容修復保留 unknown enum、身份及權限拒絕；不以 cookie 替代桌面 token。
+
+## 網頁喚起桌面程式（2026-10-31）
+
+網站執裁頁可透過 `oclr-irc://connect?fixture=<UUID>` 喚起 OCLR IRC；此 URI 僅帶場次 UUID，無 token、密碼、命令、網站主機或房號。不信任來源網站，也不因收到連結自動登入或啟用 relay。Main 嚴格解析完整 URI，拒絕額外／重複參數、控制字元、encoded payload、片段與未知路徑；不回顯無效原文。
+
+冷啟動 argv、macOS `open-url`、Windows／Linux `second-instance` 共用同一解析器。新請求顯示在桌面並留記憶體最多 10 分鐘。登入 IRC 後按「繼續連接」，必要時開始既有 PKCE 瀏覽器授權，再重新讀取本人場次（含分頁）與面板。只有被指派且面板有效時才能帶入；使用者仍須核對兩個登入並按既有「連接網站 IRC」。連結不直接開房或送出任何 IRC 命令。重複同場連結不重開授權；更換請求、取消、登出、休眠及身分世代變動隔離舊回應。確認切換時先停止舊 relay，不把新場次接到原投影。
+
+macOS 打包在 Info.plist 註冊 URL scheme（Packager protocols）；Windows 封裝版本首次啟動以 Electron API 註冊。Linux portable 解壓至固定位置後，在該目錄執行 `./install-protocol.sh`（需桌面環境的 xdg-utils，不用 sudo），建立使用者 desktop entry 與 scheme 關聯。移動 Linux 目錄後需重跑安裝。macOS／Linux 開發模式不承諾系統 URL 關聯，請使用封裝成品；網頁保留下載提示，不以計時推定啟動或登入成功。此註冊不處理 PKCE callback，原 loopback state 驗證保持不變。
+
+合成測試使用隔離 profile、fake HTTP／IRC 和注入的 OS 事件；不等同三平台瀏覽器協定提示、真實授權或 Bancho 驗收。
