@@ -7,7 +7,7 @@
 | Issue | 修正與驗證範圍 |
 | --- | --- |
 | #10／#15 | main 的 [Linux run 41075991727](https://github.com/OCLR-dev/OCLR-IRC/actions/runs/41075991727) 在圖池計畫已 observed 後立即預覽 Start，仍可能碰到全連線節流。測試改等待實際可預覽條件，只重試明確節流錯誤，其他錯誤立即失敗；生產節流不變。 |
-| #40 | 同來源 stale→fresh 不清空自訂房名或核對；stale 期間阻擋 submit。真正來源、帳號或場次變更仍作廢。Electron 延遲 HTTP 回覆回歸驗證 stale 提交不產生 make。 |
+| #40 | 同來源 stale→fresh 或同登入授權續期不清空自訂房名或核對；尚未重新可用前阻擋 submit。真正來源、帳號或場次變更仍作廢。Electron 延遲 HTTP 回覆回歸驗證 stale 提交不產生 make。 |
 | #9 | 已核對 HeadToHead 依 UID／槽位核對手動陣容，移位計畫不產生 team；分隊模式仍要求隊色，未知模式不可執行。Main／合成 IRC 及 UI 覆蓋單次送出、讀回與原確認限制。 |
 | #10 | relay 與手動入口共用重複／互斥 Mods 檢查；非法組合不能進入操作追蹤或寫線，回傳 failed，不重試相同 command ID。 |
 

@@ -38,6 +38,10 @@ test('only an unchanged cached source may retain a draft while freshness is unav
     assert.equal(roomNameSourcePending({ ...pending, status: 'disconnected' }, source), false)
     assert.equal(roomNameSourcePending({ ...pending, panel: null }, source), false)
   }
+  const refreshing = { ...state, status: 'refreshing' as const }
+  assert.equal(roomNameSourcePending(refreshing, source), true)
+  assert.equal(roomNameSource(refreshing), null, 'authorization refresh retains a disabled draft, never a submit source')
+  assert.equal(roomNameSourcePending({ ...refreshing, subject: { ...subject, osuId: 999 } }, source), false)
   state.panel.workspace.defaultSettings!.roomName = 'Changed source'
   assert.equal(roomNameSourcePending({ ...state, panelState: 'stale' }, source), false)
 })
