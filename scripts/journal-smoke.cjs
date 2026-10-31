@@ -6,6 +6,7 @@ const net = require('node:net')
 const assert = require('node:assert/strict')
 app.disableHardwareAcceleration()
 app.setPath('userData', process.env.OCLR_QA_TEMP)
+require('./mock-system-locale.cjs')
 safeStorage.isAsyncEncryptionAvailable = async () => true
 safeStorage.encryptStringAsync = async value => Buffer.from(value)
 safeStorage.decryptStringAsync = async value => ({ result: value.toString(), shouldReEncrypt: false })

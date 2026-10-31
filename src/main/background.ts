@@ -22,19 +22,22 @@ export class DesktopBackground {
   private tray: Tray | null = null
   private getWindow: () => BrowserWindow | null
   private foreground: (value: boolean) => void
-  constructor(getWindow: () => BrowserWindow | null, foreground: (value: boolean) => void, quit: () => void) {
+  constructor(getWindow: () => BrowserWindow | null, foreground: (value: boolean) => void) {
     this.getWindow = getWindow; this.foreground = foreground
     try {
       this.tray = new Tray(trayIcon())
       this.tray.setToolTip('OCLR IRC')
       this.tray.setContextMenu(Menu.buildFromTemplate([
-        { label: '開啟 OCLR IRC', click: () => this.show() },
-        { type: 'separator' },
-        { label: '退出程式', click: quit }
+        { label: '開啟 OCLR IRC', click: () => this.show() }
       ]))
       this.tray.on('click', () => this.show())
       this.tray.on('double-click', () => this.show())
     } catch { this.tray?.destroy(); this.tray = null }
+  }
+  setLocale(locale: string) {
+    this.tray?.setContextMenu(Menu.buildFromTemplate([
+      { label: locale === 'en' ? 'Open OCLR IRC' : locale === 'zh-Hans' ? '打开 OCLR IRC' : '開啟 OCLR IRC', click: () => this.show() }
+    ]))
   }
   hide() {
     const window = this.getWindow()

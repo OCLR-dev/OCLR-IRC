@@ -1,3 +1,4 @@
+import { tr } from './i18n'
 import { useEffect, useState } from 'react'
 import { Button, TextField, Input, Label } from '@heroui/react'
 import { WorkspaceCheckbox, WorkspaceSelect } from './controls'
@@ -46,16 +47,16 @@ export function MapProfileControls({ state }: { state: Snapshot }) {
     if (!window.oclr || !plan) return
     try { const result = await window.oclr.cancelProfile({ id: plan.id }); if (!result.ok) setError(result.error ?? '停止失敗。') } catch { setError('桌面服務無法回應。') }
   }
-  return <details className="map-profile profile-controls"><summary>連續換圖與 Mods</summary>
-    <WorkspaceSelect label="手動圖池槽位" value={entryId ? `pool:${entryId}` : 'manual'} disabled={busy || Boolean(active) || Boolean(preview)} onChange={id => { setEntryId(id === 'manual' ? '' : id.slice(5)); if (id === 'manual') setLabel('') }} options={[{value:'manual',label:'手動設定'}, ...(pool?.entries ?? []).map(item => ({value:`pool:${item.id}`,label:`${item.label}${item.error ? ' · 設定無效' : ''}`}))]} />
-    <TextField name="poolLabel" value={label} onChange={setLabel} isDisabled={busy || Boolean(active) || Boolean(preview)}><Label>圖池槽位名稱</Label><Input /></TextField>
+  return <details className="map-profile profile-controls"><summary>{tr("連續換圖與 Mods")}</summary>
+    <WorkspaceSelect label={tr("手動圖池槽位")} value={entryId ? `pool:${entryId}` : 'manual'} disabled={busy || Boolean(active) || Boolean(preview)} onChange={id => { setEntryId(id === 'manual' ? '' : id.slice(5)); if (id === 'manual') setLabel('') }} options={[{value:'manual',label:tr("手動設定")}, ...(pool?.entries ?? []).map(item => ({value:`pool:${item.id}`,label:`${item.label}${item.error ? tr(" · 設定無效") : ''}`}))]} />
+    <TextField name="poolLabel" value={label} onChange={setLabel} isDisabled={busy || Boolean(active) || Boolean(preview)}><Label>{tr("圖池槽位名稱")}</Label><Input /></TextField>
     <TextField name="profileMap" value={map} onChange={setMap} isDisabled={busy || Boolean(active) || Boolean(preview)}><Label>Beatmap ID</Label><Input inputMode="numeric" /></TextField>
     <div className="mp-mods">{MP_MODS.filter(mod => mod !== 'Freemod').map(mod => <WorkspaceCheckbox key={mod} selected={mods.includes(mod)} disabled={busy || Boolean(active) || Boolean(preview)} onChange={selected => setMods(selected ? [...mods, mod] : mods.filter(m => m !== mod))}>{mod}</WorkspaceCheckbox>)}</div>
     <WorkspaceCheckbox selected={freemod} disabled={busy || Boolean(active) || Boolean(preview)} onChange={setFreemod}>Freemod</WorkspaceCheckbox>
-    <div className="pool-actions"><Button size="sm" variant="secondary" isDisabled={busy || Boolean(active) || Boolean(preview) || !label.trim()} onPress={() => void save()}>保存圖池槽位</Button>{entryId && <Button size="sm" variant="ghost" isDisabled={busy || Boolean(active) || Boolean(preview)} onPress={() => void save(true)}>移除槽位</Button>}</div>
-    {entry?.error && <p role="alert">{entry.error}</p>}
-    {preview ? <div className="mp-confirm profile-confirm"><strong>{preview.channel}</strong>{preview.commands.map(command => <code key={command}>{command}</code>)}<WorkspaceCheckbox selected={reviewed} onChange={setReviewed}>我已核對房間、選圖與完整 Mods</WorkspaceCheckbox>{preview.freemod && <WorkspaceCheckbox selected={individual} onChange={setIndividual}>我已確認本次 Freemod 個人 Mods 規則</WorkspaceCheckbox>}<Button size="sm" variant="danger" isDisabled={!reviewed || preview.freemod && !individual || busy} onPress={() => void execute()}>開始套用</Button><Button size="sm" variant="ghost" onPress={() => setPreview(null)}>取消預覽</Button></div> : <Button size="sm" variant="secondary" isDisabled={busy || Boolean(active) || !state.room?.joined || !entryMatches} onPress={() => void prepare()}>預覽選圖計畫</Button>}
-    {plan && <div className="profile-progress" role="status">{plan.steps.map((step, i) => <p key={i}>{i + 1}. {step.command} · {labels[step.state]}</p>)}{active && <Button size="sm" variant="danger" onPress={() => void cancel()}>停止後續步驟</Button>}</div>}
-    {error && <p role="alert">{error}</p>}
+    <div className="pool-actions"><Button size="sm" variant="secondary" isDisabled={busy || Boolean(active) || Boolean(preview) || !label.trim()} onPress={() => void save()}>{tr("保存圖池槽位")}</Button>{entryId && <Button size="sm" variant="ghost" isDisabled={busy || Boolean(active) || Boolean(preview)} onPress={() => void save(true)}>{tr("移除槽位")}</Button>}</div>
+    {entry?.error && <p role="alert">{tr(entry.error)}</p>}
+    {preview ? <div className="mp-confirm profile-confirm"><strong>{preview.channel}</strong>{preview.commands.map(command => <code key={command}>{command}</code>)}<WorkspaceCheckbox selected={reviewed} onChange={setReviewed}>{tr("我已核對房間、選圖與完整 Mods")}</WorkspaceCheckbox>{preview.freemod && <WorkspaceCheckbox selected={individual} onChange={setIndividual}>{tr("我已確認本次 Freemod 個人 Mods 規則")}</WorkspaceCheckbox>}<Button size="sm" variant="danger" isDisabled={!reviewed || preview.freemod && !individual || busy} onPress={() => void execute()}>{tr("開始套用")}</Button><Button size="sm" variant="ghost" onPress={() => setPreview(null)}>{tr("取消預覽")}</Button></div> : <Button size="sm" variant="secondary" isDisabled={busy || Boolean(active) || !state.room?.joined || !entryMatches} onPress={() => void prepare()}>{tr("預覽選圖計畫")}</Button>}
+    {plan && <div className="profile-progress" role="status">{plan.steps.map((step, i) => <p key={i}>{i + 1}. {step.command} · {tr(labels[step.state])}</p>)}{active && <Button size="sm" variant="danger" onPress={() => void cancel()}>{tr("停止後續步驟")}</Button>}</div>}
+    {error && <p role="alert">{tr(error)}</p>}
   </details>
 }

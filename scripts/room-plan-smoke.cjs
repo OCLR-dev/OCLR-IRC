@@ -9,6 +9,7 @@ const assert = require('node:assert/strict')
 // Keep the renderer sandbox enabled; avoid platform GPU capture failures.
 app.disableHardwareAcceleration()
 app.setPath('userData', process.env.OCLR_QA_TEMP)
+require('./mock-system-locale.cjs')
 const output = path.resolve('artifacts')
 fs.mkdirSync(output, { recursive: true })
 const sent = []

@@ -6,6 +6,7 @@ import type { OperationRecord } from './operation.ts'
 import type { Countdown } from './countdown.ts'
 import type { MpIntent, MpPreview } from './mp-command.ts'
 import type { OclrSnapshot } from './oclr-contracts.ts'
+import type { AppPreferences, AppSettings } from './preferences.ts'
 
 export type Connection = 'offline' | 'connecting' | 'online' | 'error' | 'reconnecting' | 'suspended'
 export interface Message { id: number; time: string; sender: string; text: string; kind: 'system' | 'bot' | 'chat' | 'self'; delivery?: 'sent' | 'unconfirmed' }
@@ -42,6 +43,12 @@ export interface Snapshot {
 export interface JournalEntry { time: number; room: string; text: string }
 export interface JournalState { enabled: boolean; status: 'saving' | 'memory_only' | 'failed'; account: string | null }
 export interface DesktopAPI {
+  settings: {
+    snapshot(): Promise<AppSettings>
+    update(input: AppPreferences): Promise<{ ok: boolean; settings?: AppSettings; error?: string }>
+    onState(listener: (state: AppSettings) => void): () => void
+    openAboutLink(kind: 'repository' | 'license' | 'notices'): Promise<{ ok: boolean; error?: string }>
+  }
   replaceManualPool(input: ManualPoolUpdate): Promise<{ok: boolean; error?: string}>
   previewPoolEntry(input: RoomTarget & {revision: string; entryId: string}): Promise<{ok: boolean; preview?: MapPlanPreview; error?: string}>
   previewRoomPlan(input: RoomTarget & { plan: RoomPlanInput }): Promise<{ok: boolean; preview?: RoomPlanPreview; error?: string}>

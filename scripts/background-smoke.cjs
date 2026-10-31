@@ -4,7 +4,8 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const net = require('node:net')
 if (process.env.CI && process.platform === 'linux') app.disableHardwareAcceleration()
-app.setPath('userData', process.env.OCLR_QA_TEMP)
+app.setPath('userData', require('node:path').join(process.env.OCLR_QA_TEMP, 'background'))
+require('./mock-system-locale.cjs')
 let trayMenu, peer, welcomes = 0
 const handlers = new Map(), sent = []
 const handle = ipcMain.handle.bind(ipcMain)
@@ -76,11 +77,12 @@ async function main() {
   })
   app.on('will-quit', () => {
     fs.mkdirSync('artifacts', { recursive: true })
-    const report = { evidence: 'synthetic-native-background', platform: process.platform, arch: process.arch, recordedAt: new Date().toISOString(), trayConstructed: Boolean(trayMenu), passed: ['close retains native window and authenticated IRC', 'IRC PING/PONG works while hidden/minimized', 'activate restores original window', 'explicit background IPC', 'tray open or Linux fallback restores window', 'second-instance event restores one window without relogin', 'quit clears IRC authentication and bypasses close-to-background', 'no match commands sent'], limitation: 'Synthetic IRC; second-instance event is injected. Headless Linux checks minimize requests, not window-manager handling. CI tray construction does not prove physical system indicator visibility or OS shutdown/desktop-session behavior.' }
+    const report = { evidence: 'synthetic-native-background', platform: process.platform, arch: process.arch, recordedAt: new Date().toISOString(), trayConstructed: Boolean(trayMenu), passed: ['close retains native window and authenticated IRC', 'IRC PING/PONG works while hidden/minimized', 'activate restores original window', 'explicit background IPC', 'tray open or Linux fallback restores window', 'second-instance event restores one window without relogin', 'quit clears IRC authentication and bypasses close-to-background', 'close with background disabled quits and clears authentication', 'no custom quit menu item', 'no match commands sent'], limitation: 'Synthetic IRC; second-instance event is injected. Headless Linux checks minimize requests, not window-manager handling. CI tray construction does not prove physical system indicator visibility or OS shutdown/desktop-session behavior.' }
     fs.writeFileSync('artifacts/background-smoke.json', JSON.stringify(report, null, 2) + '\n')
     console.log(JSON.stringify(report))
   })
-  if (trayMenu) trayMenu.items.find(item => item.label === '退出程式').click(undefined, window, {})
-  else await js('window.oclr.quit()')
+  assert.ok(!trayMenu || !trayMenu.items.some(item => item.label === '退出程式'))
+  assert.equal((await js('window.oclr.settings.update({closeToBackground:false,language:"zh-Hant"})')).ok, true)
+  window.close()
 }
 main().catch(error => { console.error(error.stack); app.exit(1) })
