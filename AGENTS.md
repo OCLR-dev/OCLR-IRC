@@ -55,6 +55,7 @@
 - 桌面 OCLR 授權與 IRC 登入是兩個獨立 session。保留系統瀏覽器、PKCE、loopback state 驗證、Main 記憶體 token、single-flight refresh 與舊回應隔離。
 - 不以網站 cookie、mock 登入或放寬 schema 冒充正式 API 已可用；測試替身只從測試端注入，不新增生產環境任意 API host 開關。
 - PR409 panel 是唯讀投影與命令預覽／複製，不能替代完整 context、allowedIntents、帳號配對、圖池及出賽政策。手動 IRC 快捷操作不代表 OCLR 衍生執行已開放。
+- 2026-10-31 使用者另授權房內工具同步圖池／兩隊名單及逐人邀請。此有限入口須由 Main 重讀本人指派及 panel、核對配對與 relay 的相同房間／epoch，按 UID 選擇來源，再人工核對名稱與確認；不得擴大成任意 panel 指令、正式 lineup 或批次自動執行。網站來源的操作與私人房間維持記憶體／日誌排除邊界。
 - `src/shared/oclr-website/` 為固定來源的共享程式；更新時核對來源版本、相容性與授權，不引入網站 DB／cookie／伺服器依賴。契約變更同步相關 fixtures、測試及 schema 匯出。
 - PASS、IRC 密碼、OAuth code／verifier／token、Apple 憑證或私鑰不得進入日誌、截圖、提交或 CI 產物。不要重用聊天歷史中的秘密。
 - IRC 日誌預設開啟，安全 provider 可用時加密保存七天；Linux 仍僅記憶體。OCLR context 與本登入曾投影的房間不寫入 IRC-only 日誌，逐場歷史重新驗權未完成前不得放行。另有可選加密 IRC 憑證與最小開房記錄；開房恢復 schema 2 已按 IRC 暱稱雜湊隔離，舊版無歸屬記錄只保留未知結果，不顯示房號或指派給登入者。完整 LOG-01（OCLR 歷史／場次恢復／實機 provider）仍未完成，不得回退明文。

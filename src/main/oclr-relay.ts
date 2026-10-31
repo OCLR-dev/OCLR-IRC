@@ -61,6 +61,11 @@ export class OclrRelay {
     }
   }
   confirmPairing(input: unknown) { this.refreshPairing(); this.identity.confirm(input); this.oclr.updatePairing(this.identity.state) }
+  localBinding(target: {roomId: number; roomEpoch: number}) {
+    const binding = this.binding
+    if (!this.pairingReady() || !binding || binding.roomId !== target.roomId || binding.roomEpoch !== target.roomEpoch || !this.sameRoom(this.irc.state) || this.pending || this.creation) throw new OclrError('RELAY_LOCAL_NOT_READY')
+    return JSON.stringify([this.generation, binding.subjectId, binding.fixtureId, binding.connectionId, binding.roomId, binding.roomEpoch])
+  }
   private pairingReady() { this.refreshPairing(); return this.identity.ready }
   private sameRoom(state: Snapshot) { const b = this.binding; return !!b && (b.roomId === 0 ? state.connection === 'online' && normalize(state.username) === b.username : state.room?.joined === true && state.room.kind === 'match' && state.room.id === b.roomId && state.room.epoch === b.roomEpoch && normalize(state.username) === b.username) }
   async start() {

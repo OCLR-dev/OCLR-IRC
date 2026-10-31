@@ -13,8 +13,9 @@ import { credentials } from './protocol.ts'
 import { messageLink } from './links.ts'
 import { SqliteCreationStore } from './creation-store.ts'
 import { OclrRelay } from './oclr-relay.ts'
+import { FixtureInvites } from './fixture-invites.ts'
 import { OclrSession } from './oclr.ts'
-import { publicOclrError } from './oclr-http.ts'
+import { OclrError, publicOclrError } from './oclr-http.ts'
 import { DesktopBackground } from './background.ts'
 import { PreferencesStore } from './preferences-store.ts'
 import { resolveLocale } from '../shared/preferences.ts'
@@ -26,6 +27,7 @@ app.setName('OCLR IRC')
 const irc = new IrcSession(undefined, {}, fetchBeatmapDuration)
 const oclr = new OclrSession({ origin: process.env.OCLR_SERVER_ORIGIN, version: app.getVersion(), platform: process.platform, openExternal: url => shell.openExternal(url), writeClipboard: text => clipboard.writeText(text) })
 const relay = new OclrRelay(oclr, irc)
+const fixtureInvites = new FixtureInvites(oclr, irc, relay)
 const websiteLaunch = new WebsiteLaunch(oclr, () => relay.stop())
 let loginGeneration = 0
 let pendingSave: { username: string; password: string } | null = null
@@ -132,6 +134,16 @@ app.whenReady().then(() => {
   ipcMain.handle('oclr:panel', event => websiteAction(event, () => oclr.readPanel()))
   ipcMain.handle('oclr:select-map', (event, id: unknown) => websiteAction(event, () => oclr.selectMap(id)))
   ipcMain.handle('oclr:copy-command', (event, input: unknown) => websiteAction(event, () => oclr.copyCommand(input)))
+  ipcMain.handle('oclr:invite-preview', async (event, input: unknown) => {
+    trusted(event)
+    try { return {ok: true, preview: await fixtureInvites.prepare(input)} }
+    catch (error) { return {ok: false, error: !(error instanceof OclrError) && error instanceof Error && error.name === 'Error' ? error.message : publicOclrError(error)} }
+  })
+  ipcMain.handle('oclr:invite-execute', async (event, input: unknown) => {
+    trusted(event)
+    try { await fixtureInvites.execute(input); return {ok: true} }
+    catch (error) { return {ok: false, error: !(error instanceof OclrError) && error instanceof Error && error.name === 'Error' ? error.message : publicOclrError(error)} }
+  })
   ipcMain.handle('oclr:open-review', (event, id: unknown) => websiteAction(event, () => oclr.openReview(id)))
   irc.on('authenticated', () => {
     const generation = loginGeneration

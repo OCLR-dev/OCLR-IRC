@@ -24,6 +24,21 @@ test('relay allowlist rejects raw IRC, secret commands and line injection', () =
   for (const value of ['!mp map 42 0', '!mp invite Player_Name', '!mp timer 30', '!mp start 5', '!mp abort', '!mp mods NF HD']) assert.equal(relayCommand(value), value)
   for (const value of ['PASS secret', '!mp password secret', '!mp make Test', '!mp map 42\r\nQUIT', '!mp invite player with space', '!mp start 0', '!mp map 4\u202e']) assert.throws(() => relayCommand(value))
 })
+test('local fixture actions require the exact active reviewed binding and no remote command in flight', async () => {
+  const f = harness()
+  try {
+    assert.throws(() => f.relay.localBinding({roomId: 123, roomEpoch: 1}))
+    await f.relay.start()
+    assert.ok(f.relay.localBinding({roomId: 123, roomEpoch: 1}))
+    assert.throws(() => f.relay.localBinding({roomId: 999, roomEpoch: 1}))
+    assert.throws(() => f.relay.localBinding({roomId: 123, roomEpoch: 2}))
+    f.command({id: id(120), text: '!mp map 42', target: '#mp_123'})
+    await until(() => f.writes.length === 1)
+    assert.throws(() => f.relay.localBinding({roomId: 123, roomEpoch: 1}))
+    await f.relay.stop()
+    assert.throws(() => f.relay.localBinding({roomId: 123, roomEpoch: 1}))
+  } finally {await f.relay.stop()}
+})
 test('only exact supported Bancho reply confirms, never an unrelated map or socket write', () => {
   assert.equal(relayReply('!mp map 42 0', 'Beatmap changed to: Song (https://osu.ppy.sh/b/42)'), 'confirmed')
   assert.equal(relayReply('!mp map 42 0', 'Beatmap changed to: Song (https://osu.ppy.sh/b/420)'), null)

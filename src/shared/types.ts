@@ -91,6 +91,8 @@ export interface DesktopAPI {
     refreshPanel(): Promise<{ ok: boolean; error?: string }>
     selectMap(id: string): Promise<{ ok: boolean; error?: string }>
     copyCommand(input: { previewId: string; commandId: string }): Promise<{ ok: boolean; error?: string }>
+    previewInvite(input: RoomTarget & {previewId: string; teamId: string; osuId: number}): Promise<{ok: boolean; preview?: import('./fixture-tools.ts').FixtureInvitePreview; error?: string}>
+    executeInvite(input: RoomTarget & {token: string; reviewed: boolean; playerName: string}): Promise<{ok: boolean; error?: string}>
     openReview(id: string): Promise<{ ok: boolean; error?: string }>
     onState(listener: (state: OclrSnapshot) => void): () => void
   }
