@@ -1,4 +1,4 @@
-import { roomNameSource } from '../../shared/room-name-source'
+import { roomNameSource, roomNameSourcePending } from '../../shared/room-name-source'
 import { WorkspaceCheckbox } from './controls'
 import React, { useEffect, useRef, useState } from 'react'
 import { Button, Input, Label, Spinner, TextField } from '@heroui/react'
@@ -9,6 +9,7 @@ export function CreateRoom({ state, onClose }: { state: Snapshot; onClose: () =>
   const sourceRef = useRef<ReturnType<typeof roomNameSource>>(null)
   const [sourceLoading, setSourceLoading] = useState(true)
   const [sourceError, setSourceError] = useState(false)
+  const [sourcePending, setSourcePending] = useState(false)
   const [reviewed, setReviewed] = useState(false)
   // A form opened on a previous connection must never submit on a new one.
   const [requestId] = useState(state.creation.requestId)
@@ -18,7 +19,7 @@ export function CreateRoom({ state, onClose }: { state: Snapshot; onClose: () =>
   const waiting = state.creation.status === 'awaiting'
   const blocked = ['blocked', 'unknown'].includes(state.creation.status)
   const stale = requestId !== state.creation.requestId
-  const disabled = state.connection !== 'online' || waiting || blocked || busy || stale || sourceLoading || sourceError
+  const disabled = state.connection !== 'online' || waiting || blocked || busy || stale || sourceLoading || sourceError || sourcePending
   useEffect(() => { if (submitted && state.creation.status === 'created') onClose() }, [submitted, state.creation.status, onClose])
   useEffect(() => {
     const api = window.oclr?.website
@@ -27,6 +28,10 @@ export function CreateRoom({ state, onClose }: { state: Snapshot; onClose: () =>
     const accept = (value: Parameters<typeof roomNameSource>[0]) => {
       if (!alive) return
       const next = roomNameSource(value), previous = sourceRef.current
+      if (roomNameSourcePending(value, previous)) {
+        setSourcePending(true); setSourceLoading(false); setSourceError(false); return
+      }
+      setSourcePending(false)
       if (next?.key !== previous?.key) {
         setName(next?.name ?? ''); setReviewed(false)
         setError(previous ? '場次資料已變更，請重新核對房名。' : null)
@@ -57,6 +62,7 @@ export function CreateRoom({ state, onClose }: { state: Snapshot; onClose: () =>
     <div className="create-room-heading"><h2>新建比賽房間</h2><Button type="button" size="sm" variant="ghost" onPress={onClose}>{waiting ? '隱藏' : '取消'}</Button></div>
     {source && <p className="create-room-help" data-room-name-source>房名來源：{source.label}</p>}
     {sourceLoading && <p role="status">正在讀取場次房名…</p>}
+    {sourcePending && <p role="status">場次資料待更新，暫時無法開房。</p>}
     {sourceError && <p role="alert">無法讀取場次，請關閉並重新開啟。</p>}
     <TextField name="matchName" value={name} onChange={value => { setName(value); setReviewed(false) }} isRequired isDisabled={disabled} className="field">
       <Label>比賽房間名稱</Label><Input autoFocus placeholder="例如 OCLR: (Team A) vs (Team B)" />

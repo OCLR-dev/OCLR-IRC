@@ -1,4 +1,10 @@
 import type { Room } from './types.ts'
+/** Only known room modes determine whether a manual lineup needs team colors. */
+export function lineupMode(room: Pick<Room, 'mode'>) {
+  if (/^(?:TeamVs|TagTeamVs) · (?:Score|Accuracy|Combo|ScoreV2)$/.test(room.mode ?? '')) return 'teams'
+  if (/^HeadToHead · (?:Score|Accuracy|Combo|ScoreV2)$/.test(room.mode ?? '')) return 'individual'
+  return 'unknown'
+}
 export interface ManualRosterEntry { osuId: number; name: string }
 export interface LineupSelection { osuId: number; team: 'red' | 'blue' | null; slot: number | null }
 export type LineupDifference = { kind: 'unknown' | 'empty' | 'duplicate' | 'unlisted' | 'missing' | 'bench' | 'team' | 'slot' | 'conflict' | 'policy'; osuId?: number }
@@ -13,23 +19,23 @@ export function manualRoster(input: unknown): ManualRosterEntry[] {
 }
 /** Comparison only. A matching manual lineup never authorizes Start or a substitution. */
 export function compareLineup(roster: ManualRosterEntry[], selection: LineupSelection[], room: Room, now = Date.now()): LineupDifference[] {
-  const issues: LineupDifference[] = [], ids = new Set<number>(), slots = new Set<number>()
+  const issues: LineupDifference[] = [], ids = new Set<number>(), slots = new Set<number>(), mode = lineupMode(room)
   if (!selection.length) issues.push({ kind: 'empty' })
   for (const player of selection) {
     if (ids.has(player.osuId)) issues.push({ kind: 'duplicate', osuId: player.osuId })
     ids.add(player.osuId)
     if (!roster.some(entry => entry.osuId === player.osuId)) issues.push({ kind: 'unlisted', osuId: player.osuId })
-    if (player.team !== 'red' && player.team !== 'blue' || !Number.isInteger(player.slot) || player.slot! < 1 || player.slot! > 16) issues.push({ kind: 'policy', osuId: player.osuId })
+    if ((mode === 'individual' ? player.team !== null : player.team !== 'red' && player.team !== 'blue') || !Number.isInteger(player.slot) || player.slot! < 1 || player.slot! > 16) issues.push({ kind: 'policy', osuId: player.osuId })
     if (player.slot !== null && slots.has(player.slot)) issues.push({ kind: 'conflict', osuId: player.osuId })
     if (player.slot !== null) slots.add(player.slot)
   }
   const age = now - Date.parse(room.observedAt ?? '')
-  if (!room.joined || room.binding !== 'verified' || !room.slotsVerified || !['complete', 'partial'].includes(room.syncState) || !Number.isFinite(age) || age < 0 || age >= 10000) return [...issues, { kind: 'unknown' }]
+  if (mode === 'unknown' || !room.joined || room.binding !== 'verified' || !room.slotsVerified || !['complete', 'partial'].includes(room.syncState) || !Number.isFinite(age) || age < 0 || age >= 10000) return [...issues, { kind: 'unknown' }]
   for (const player of selection) {
     const actual = room.slots.find(slot => slot.osuId === player.osuId)
     if (!actual) issues.push({ kind: 'missing', osuId: player.osuId })
     else {
-      if (player.team !== null && actual.team !== player.team) issues.push({ kind: 'team', osuId: player.osuId })
+      if (mode === 'teams' && player.team !== null && actual.team !== player.team) issues.push({ kind: 'team', osuId: player.osuId })
       if (player.slot !== null && actual.slot !== player.slot) issues.push({ kind: 'slot', osuId: player.osuId })
     }
   }

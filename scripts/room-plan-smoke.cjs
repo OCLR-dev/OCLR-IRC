@@ -13,7 +13,7 @@ const output = path.resolve('artifacts')
 fs.mkdirSync(output, { recursive: true })
 const sent = []
 let username = ''
-let playing = false
+let playing = false, individualSlots = false
 let roomName = 'SYNTHETIC QA ROOM', teamMode = 'HeadToHead', playerSlot = 1, playerTeam = 'Red'
 let peer
 const opened = []
@@ -35,11 +35,11 @@ const server = net.createServer(socket => {
       if (line.startsWith('PRIVMSG BanchoBot :!mp make ')) socket.write(`:BanchoBot PRIVMSG ${username} :Created the tournament match https://osu.ppy.sh/mp/900000003 ${line.slice('PRIVMSG BanchoBot :!mp make '.length)}\n`)
       if (line.includes(':!mp name ')) roomName = line.split(':!mp name ')[1]
       if (line.includes(':!mp set ')) teamMode = 'TeamVs'
-      if (line.includes(':!mp move #101 2')) playerSlot = 2
+      if (/:!mp move #101 (\d+)$/.test(line)) playerSlot = Number(/:!mp move #101 (\d+)$/.exec(line)[1])
       if (line.includes(':!mp team #101 blue')) playerTeam = 'Blue'
       const channel = line.split(' ')[1]
       const id = channel?.replace('#mp_', '')
-      if (line.endsWith(':!mp settings')) socket.write(`:BanchoBot PRIVMSG ${channel} :Room name: ${roomName}, History: https://osu.ppy.sh/mp/${id}\n:BanchoBot PRIVMSG ${channel} :Beatmap: https://osu.ppy.sh/b/123 Synthetic Artist - Map\n:BanchoBot PRIVMSG ${channel} :Team mode: ${teamMode}, Win condition: ScoreV2\n:BanchoBot PRIVMSG ${channel} :Active mods: None\n:BanchoBot PRIVMSG ${channel} :Players: 2\n:BanchoBot PRIVMSG ${channel} :Slot ${playerSlot} ${playing ? 'Playing' : 'Ready'} https://osu.ppy.sh/u/101 Synthetic Red [Host / Team ${playerTeam}]\n:BanchoBot PRIVMSG ${channel} :Slot 4 Not Ready https://osu.ppy.sh/u/102 Synthetic Blue [Team Blue]\n`)
+      if (line.endsWith(':!mp settings')) socket.write(`:BanchoBot PRIVMSG ${channel} :Room name: ${roomName}, History: https://osu.ppy.sh/mp/${id}\n:BanchoBot PRIVMSG ${channel} :Beatmap: https://osu.ppy.sh/b/123 Synthetic Artist - Map\n:BanchoBot PRIVMSG ${channel} :Team mode: ${teamMode}, Win condition: ScoreV2\n:BanchoBot PRIVMSG ${channel} :Active mods: None\n:BanchoBot PRIVMSG ${channel} :Players: 2\n:BanchoBot PRIVMSG ${channel} :Slot ${playerSlot} ${playing ? 'Playing' : 'Ready'} https://osu.ppy.sh/u/101 Synthetic Red [${teamMode === 'HeadToHead' && individualSlots ? 'Host' : `Host / Team ${playerTeam}` }]\n:BanchoBot PRIVMSG ${channel} :Slot 4 Not Ready https://osu.ppy.sh/u/102 Synthetic Blue${teamMode === 'HeadToHead' && individualSlots ? '' : ' [Team Blue]'}\n`)
       if (line.endsWith(':!mp listrefs')) socket.write(`:BanchoBot PRIVMSG ${channel} :Match referees:\n:BanchoBot PRIVMSG ${channel} :${username}\n`)
     }
   })
@@ -130,10 +130,25 @@ async function main() {
   await js('Array.from(document.querySelectorAll(".manual-lineup .room-plan-confirm button")).find(b=>b.textContent==="執行逐步計畫").click()')
   await until(()=>js('(async()=>(await window.oclr.snapshot()).roomPlan?.steps[0].command === "!mp move #101 2" && (await window.oclr.snapshot()).roomPlan.state === "observed")()'),150)
   assert.deepEqual(sent.filter(line=>/:!mp (move|team) /.test(line)),['PRIVMSG #mp_900000001 :!mp move #101 2','PRIVMSG #mp_900000001 :!mp team #101 blue'])
+  // Switching to a known individual mode removes team choices and sends only move.
+  teamMode = 'HeadToHead'; individualSlots = true
+  await refresh()
+  await until(()=>js(`!document.querySelector('.manual-lineup button[aria-label="Synthetic Red 隊伍"]')`))
+  await choose('Synthetic Red 槽位','3')
+  await js('Array.from(document.querySelectorAll(".manual-lineup button")).find(b=>b.textContent==="預覽陣容計畫").click()')
+  await until(()=>js('Boolean(document.querySelector(".manual-lineup .room-plan-confirm"))'))
+  assert.equal(await js('document.querySelector(".manual-lineup .room-plan-confirm").textContent.includes("!mp team")'), false)
+  await js('document.querySelectorAll(".manual-lineup .room-plan-confirm input[type=checkbox]").forEach(e=>e.click())')
+  await js(`(() => {const e=document.querySelector('.manual-lineup .room-plan-confirm input:not([type=checkbox])');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'Synthetic Red');e.dispatchEvent(new Event('input',{bubbles:true}))})()`)
+  await until(()=>js('Array.from(document.querySelectorAll(".manual-lineup .room-plan-confirm button")).find(b=>b.textContent==="執行逐步計畫").disabled === false'))
+  await js('Array.from(document.querySelectorAll(".manual-lineup .room-plan-confirm button")).find(b=>b.textContent==="執行逐步計畫").click()')
+  await until(()=>js('(async()=>(await window.oclr.snapshot()).roomPlan?.steps[0].command === "!mp move #101 3" && (await window.oclr.snapshot()).roomPlan.state === "observed")()'),150)
+  assert.equal(sent.filter(line=>line.includes(':!mp team ')).length, 1)
+  assert.equal(sent.filter(line=>line.includes(':!mp move #101 3')).length, 1)
   window.setContentSize(900,640);await delay(200)
   assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'),true)
   fs.writeFileSync(path.join(output,'room-plan-synthetic.png'),(await capture()).toPNG())
   assert.deepEqual(errors,[])
-  console.log(JSON.stringify({evidence:'synthetic-room-lineup-plans',passed:['room name then rules UI','lineup names and policy confirmations','ordered move then team observations','900x640 composer'],sent}));app.exit(0)
+  console.log(JSON.stringify({evidence:'synthetic-room-lineup-plans',passed:['room name then rules UI','lineup names and policy confirmations','ordered move then team observations','HeadToHead move without team commands','900x640 composer'],sent}));app.exit(0)
 }
 main().catch(error=>{console.error(error.stack);app.exit(1)})

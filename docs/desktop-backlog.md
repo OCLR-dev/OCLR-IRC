@@ -4,6 +4,10 @@
 
 「本地端」指 Electron 桌面程式的 Main／Preload／Renderer／本機儲存與交付，不新增 localhost HTTP 管理服務；現有 loopback 僅供授權 callback。網站 API 仍由另一邊開發。
 
+## 2026-10-31 持續開發與驗收阻礙
+
+本輪修正 #10 的 main Linux 測試競態、#40 同來源刷新清空開房草稿、#9 HeadToHead 被迫分隊，以及 #10 relay 未拒絕重複／互斥 Mods。逐項證據與其餘現存 issue 阻礙見 [本輪紀錄](m1/issue-progress-2026-10-31.md)。下節是前一輪歷史 checkpoint，不替代新提交的實際 CI。
+
 ## 2026-10-30 合成開發更新
 
 PR #45–#51 已合併：房間／陣容逐步計畫、手動圖池、心跳測試修復、候選 context 讀取與 gate、操作搜尋導覽、候選場次開房協調器及禁止操作原因。最新功能驗證為型別檢查、144 項核心測試與完整 Electron smoke 通過；所有測試均為 synthetic。#44 CI 已確認通過；#46 原 Linux run 因心跳誤判失敗，#47 修復後三平台通過，不能將 #46 原 run 改稱成功。#45、#48、#49 及 #50 合併提交的三平台 CI 已確認通過。#51 的 CI 另見 GitHub 最新 run，不將本地結果替代 CI。

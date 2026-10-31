@@ -190,3 +190,17 @@ test('membership lost during HTTP response cannot dispatch a newly received comm
     assert.ok(f.requests.some(r => r.action === 'disconnect'))
   } finally { await f.relay.stop() }
 })
+
+test('conflicting relay Mods produce a failure receipt without dispatch or automatic replay', async () => {
+  for (const text of ['!mp mods HD HD', '!mp mods EZ HR', '!mp mods DT HT', '!mp mods DT NC', '!mp mods NF SD', '!mp mods SD PF']) assert.throws(() => relayCommand(text))
+  for (const text of ['!mp mods None', '!mp mods HD HR', '!mp mods NF NC Freemod', '!mp mods FI SO MR 4K']) assert.equal(relayCommand(text), text)
+  const f = harness()
+  try {
+    await f.relay.start(); f.command({id:id(82),text:'!mp mods DT HT',target:'#mp_123'})
+    await until(() => f.requests.some(r => r.receipts?.some((receipt:any) => receipt.commandId === id(82) && receipt.status === 'failed')))
+    assert.equal(f.writes.length, 0)
+    await until(() => f.requests.filter(r => r.action === 'sync').length >= 3)
+    assert.equal(f.writes.length, 0)
+    assert.equal(f.requests.flatMap(r => r.receipts ?? []).filter(r => r.commandId === id(82)).length, 1)
+  } finally { await f.relay.stop() }
+})
