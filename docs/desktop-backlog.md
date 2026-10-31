@@ -381,3 +381,5 @@ Profile 區分 roomMods、freemod、individualModsPolicy、revision、ruleset；
 ### L09 自動帳號配對（2026-11-01）
 
 使用者明確要求取代人工勾選。Main 在 IRC 已成功登入且 OCLR 有有效授權 subject 時，自動以大小寫不敏感、空格＝底線比對名稱；相符即 nickname_matched，不符／未知仍阻擋投影。移除人工配對 token、reviewed 與確認 IPC。登入世代、原始名稱或 subject ID 變更仍停止舊 relay，晚到 bind／sync 不能接到新登入；重新同名登入只恢復配對，不自動恢復投影或重送指令。這是名稱比對，不是 IRC UID 證明；其他房內操作的確認維持原範圍。合成驗證及剩餘實機範圍見 [網站 IRC 投影](m1/website-irc-relay.md#自動帳號核對2026-11-01)。
+
+2026-11-01 房間導覽增量：網頁重新加入按鈕透過固定 join URI 喚起並加入 MP 房間，已加入僅切回原分頁、離線待登入、失敗不自動重送；沿用普通 JOIN 核對並排除網站導入房間的 IRC-only 日誌。此項不改變 #13 的 OCLR 真實授權／三平台驗收狀態；見 docs/m1/website-irc-relay.md。

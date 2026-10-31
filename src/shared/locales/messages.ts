@@ -1,5 +1,6 @@
 // Application-authored text only. Interpolation values and external content remain literal.
 export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
+  "重新加入房間": {"zh-Hans": "重新加入房间", "en": "Rejoin room"},
   "帳號名稱相符・已自動核對": {"zh-Hans": "帐号名称相符・已自动核对", "en": "Account names match · Automatically checked"},
   "圖池": {"zh-Hans": "图池", "en": "Pool"},
   "場次來源": {"zh-Hans": "场次来源", "en": "Match source"},

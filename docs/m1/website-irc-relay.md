@@ -118,3 +118,12 @@ Main 提供固定來源的內部 createWebsiteRoom，relay 與候選 FixtureCrea
 合成驗證：核心覆蓋空格／底線／大小寫、未登入、不符／近似名稱、世代及 subject 變更、晚到 bind／sync 不送出；Electron 使用實際 Main／preload／renderer 及本機 IRC，驗證無人工 checkbox／確認 bridge、重新登入自動比對及網站開房流程。真實 OAuth／Bancho、改名服務行為與跨平台實機驗收仍分開追蹤，不能由合成結果宣稱完成 #13。
 
 本機驗證：Node.js 24.22.2 型別檢查、196 項核心／契約測試與完整 11 組 Electron synthetic smoke 通過（含 900×640、relay 開房與逐人邀請）。本輪未操作真實 OAuth／Bancho，也未更新既有 Release 下載包。
+
+
+## 網頁重新加入房間（2026-11-01）
+
+房間資訊旁的「重新加入房間」使用 `oclr-irc://join?room=<正整數 MP ID>`。Main 只接受完整固定格式及安全整數，拒絕額外參數、帳密、主機、控制字元與指令。這是一般 IRC 房間導覽，與帶入本人場次的 connect 入口分開：不登入 OCLR、不切換授權場次、不啟用 relay，也不送出 make／start／其他房內變更。
+
+已有 IRC 登入時，沿用一般 join 的節流、分頁上限、離開中拒絕與房間核對。已加入或正在加入的房間只選取原分頁；新房間等待真實 JOIN 觀測後才顯示已加入。未登入時請求留記憶體最多十分鐘，顯示帳號畫面，成功登入後加入。登出、休眠、取消、登入世代改變會清除待處理請求；失敗不自動重試，只接受使用者再點連結或重試。關閉提示不會退出已開始加入的房間。網站導入的房間在加入前即排除 IRC-only 日誌。
+
+冷啟動 argv、open-url、second-instance 共用此 Main 路徑。需更新兩端與安裝新版桌面程式；瀏覽器仍可能要求允許開啟本機 App。合成測試涵蓋解析、延後登入、去重、取消、世代隔離、失敗與真實 Main/preload/renderer 的本機 IRC；不代表真實 Bancho 或三平台 OS 協定提示驗收。
