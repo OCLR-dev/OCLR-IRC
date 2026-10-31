@@ -92,6 +92,10 @@ async function main() {
   assert.equal((await js('window.oclr.website.snapshot()')).relay.status, 'off')
   peer.write(`:Player PRIVMSG #mp_${roomId} :SYNTHETIC_PRIVATE_RELAY_HISTORY\n`)
   await until(() => js('(async () => (await window.oclr.snapshot()).messages.some(m => m.text === "SYNTHETIC_PRIVATE_RELAY_HISTORY"))()'))
+  // Once the intent is closed, a duplicate reply becomes ordinary private Bot chat.
+  // It must stay private even when IRC varies the sender's case.
+  peer.write(`:BaNcHoBoT PRIVMSG ${username} :Created the tournament match https://osu.ppy.sh/mp/${roomId} ${name}\n`)
+  await until(() => js('(async () => (await window.oclr.snapshot()).rooms.some(r => r.channel === "BaNcHoBoT"))()'))
   // Positive control: ordinary IRC history still works with the synthetic provider.
   assert.equal((await js('window.oclr.openConversation({kind:"channel",name:"#public-control"})')).ok, true)
   await until(() => js('(async () => (await window.oclr.snapshot()).room?.channel === "#public-control" && (await window.oclr.snapshot()).room.joined)()'))
@@ -101,6 +105,7 @@ async function main() {
     const history = await js('window.oclr.journal.read()')
     assert.equal(history.ok, true)
     assert.equal(history.entries.some(e => e.room === `#mp_${roomId}`), false)
+    assert.equal(history.entries.some(e => e.room.toLowerCase() === 'banchobot'), false)
   } else assert.equal((await js('window.oclr.journal.status()')).status, 'memory_only')
   const db = new DatabaseSync(path.join(profile, 'operation-recovery.sqlite'), {readOnly: true})
   try { assert.equal(db.prepare('SELECT COUNT(*) AS count FROM operations').get().count, 0) } finally { db.close() }

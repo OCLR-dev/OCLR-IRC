@@ -395,7 +395,12 @@ export class IrcSession extends EventEmitter {
     this.creation = { ...this.creation, status: 'awaiting', roomId: null, message: null }
     this.lastQueryAt = Date.now()
     // Persist before any socket write. A write error is ambiguous, never an invitation to retry.
-    try { onDispatch?.(); this.send(`PRIVMSG BanchoBot :!mp make ${name}`) }
+    try {
+      // Late/duplicate creation replies become private Bot chat after the intent
+      // closes; they still contain website-derived names and must stay private.
+      if (source === 'oclr') this.emit('private-conversation', 'BanchoBot')
+      onDispatch?.(); this.send(`PRIVMSG BanchoBot :!mp make ${name}`)
+    }
     catch { this.creationUnknown('開房傳送未能確認，結果不明。請核對既有房間，再重新連線。'); throw new Error(this.creation.message!) }
     const generation = this.generation
     this.creationTimer = setTimeout(() => {

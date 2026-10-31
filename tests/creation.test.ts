@@ -134,6 +134,7 @@ test('website creation stays out of IRC operation history and is private before 
     const f = await fixture(); const saved: OperationRecord[] = [], events: string[] = [], completions: any[] = []
     f.session.setOperationStore({load: () => [], save: (_account, value) => saved.push(structuredClone(value)), clear() {}})
     f.session.on('private-room', roomId => events.push(`private:${roomId}`))
+    f.session.on('private-conversation', name => events.push(`private:${name}`))
     f.session.on('room-created', value => completions.push(value))
     f.session.on('message', ({roomId}) => events.push(`message:${roomId}`))
     try {
@@ -152,9 +153,11 @@ test('website creation stays out of IRC operation history and is private before 
       assert.deepEqual(completions, [{source, roomId: 9, requestId: intent.requestId, generation: f.session.sessionGeneration}])
       if (source === 'oclr') {
         assert.equal(saved.length, 0)
+        assert.equal(events[0], 'private:BanchoBot')
         assert.ok(events.indexOf('private:9') >= 0 && events.indexOf('private:9') < events.indexOf('message:9'))
       } else {
         assert.equal(events.includes('private:9'), false)
+        assert.equal(events.includes('private:BanchoBot'), false)
         assert.equal(saved.at(-1)?.source, 'manual', 'renderer input cannot spoof the source')
         assert.equal(saved.at(-1)?.state, 'observed')
       }

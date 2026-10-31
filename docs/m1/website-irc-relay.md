@@ -93,6 +93,8 @@ Main 提供固定來源的內部 createWebsiteRoom，relay 與候選 FixtureCrea
 
 可信且匹配本次房名的開房回覆在產生第一則房間訊息前觸發 Main 隱私事件；即使停止 relay／清除網站操作上下文，仍排除該房間 IRC-only 日誌。relay 以原 requestId、IRC generation 與來源核對 Main 的完成事件，JOIN／History／listrefs 通過後才轉換投影房號；其他來源、舊世代與另一筆開房不能被誤綁。這不新增完整 context 的生產入口。
 
+網站 make 嘗試送出前亦將本次 IRC 登入的 BanchoBot 私訊列為不保存：逾時或重複的開房回覆會成為一般 Bot 私訊，仍可能包含場次房名，不能因此落盤。排除比對使用 IRC 名稱正規化，大小寫差異不能繞過；其他一般聊天保存不受影響。候選 FixtureCreation 同樣只在送線邊界建立 pending，送前儲存拒絕為 failed，已嘗試傳送才可能 unknown。
+
 換圖確認只解析回覆的實際第一個地圖連結，URL 必須是精確 osu! 譜面路徑；不同地圖的曲名附上目標連結、網址前綴／後綴或其他主機不能確認。現有兩種回覆格式與 Operations 共用此檢查。
 
 合成驗證：179 項核心測試、型別檢查及完整既有 Electron smoke 通過；追加 relay-creation-smoke 使用真實 Main／preload、模擬 HTTP／IRC 與隔離 profile，驗證去重、sent 回執、停止後晚到開房、settings／listrefs、操作記錄不落盤，以及可保存平台的日誌排除與一般日誌正向對照。Linux 仍只驗證 memory_only，不將其算成原生 provider 驗收。真實服務、逐場歷史重新驗權及三平台實機條件仍待完成。

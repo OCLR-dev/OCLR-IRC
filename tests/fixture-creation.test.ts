@@ -56,6 +56,7 @@ test('changed context, expired preview, identity mismatch and unavailable persis
     if(mode==='dispose')f.controller.dispose()
     await assert.rejects(f.controller.execute({token:preview.token,reviewed:true}))
     assert.equal(f.sent.some(line=>line.includes(':!mp make ')),false)
+    if(mode==='storage')assert.equal(f.controller.state?.status,'failed')
   }finally{await f.close()}}
 })
 test('timeout stays unknown without replay; context change clears source but still quarantines a late-created room',async()=>{

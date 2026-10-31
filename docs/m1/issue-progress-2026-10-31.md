@@ -37,7 +37,7 @@
 - 已重新檢視全部 15 個未關閉 issue 及最新留言；沒有把僅需真實驗收的項目當成尚無程式實作。
 - PR #63 主線 CI [41180319281](https://github.com/OCLR-dev/OCLR-IRC/actions/runs/41180319281) 與 PR #64 主線 CI [41183121228](https://github.com/OCLR-dev/OCLR-IRC/actions/runs/41183121228) 均已成功，取代留言中當時的 pending 狀態。
 - v0.7.0 已由 main 700d44d6 發布為公開預覽版，[Release CI 41200564718](https://github.com/OCLR-dev/OCLR-IRC/actions/runs/41200564718) 成功；三平台成品與公開 metadata／checksums 已核對。macOS 為 Developer ID／公證，Windows／Linux 未簽章；不等於實機與 MVP 驗收。
-- 本輪 #2／#6／#40：修復網站開房的送線分類、來源落盤隔離、第一則房間訊息前的日誌排除與精確完成關聯；補上操作儲存失敗的鎖定。停止投影不解除晚到房間的隱私保護。換圖回執不再因曲名包含另一個譜面 URL 而誤確認。
+- 本輪 #2／#6／#40：修復網站開房的送線分類、來源落盤隔離、第一則房間訊息前的日誌排除與精確完成關聯；補上操作儲存失敗的鎖定。停止投影不解除晚到房間的隱私保護；同登入的 BanchoBot 私訊也排除保存，避免逾時／重複回覆洩漏場次房名，包含大小寫差異回歸。候選控制器的送前拒絕亦明確 failed。換圖回執不再因曲名包含另一個譜面 URL 而誤確認。
 - 型別檢查、179 項核心合成測試、完整既有 Electron smoke 及新增的網站開房 Electron 測試通過；後者包括重複命令不重送、停止後完成與 settings／listrefs、網站操作 SQLite 零落盤，以及非 Linux 的一般日誌正向對照／私人房間排除。測試不使用真實帳號、房間或原生憑證。
 
 本輪不部署網站、不操作真實 Bancho、不新增 release tag；上表外部條件仍分別保留，未宣稱完整 issue／milestone 完成。
