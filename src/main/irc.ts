@@ -726,7 +726,12 @@ export class IrcSession extends EventEmitter {
     finally { this.publish() }
   }
   relayBlocked(input: RoomTarget, text: string) { return !/^!mp (?:abort|aborttimer)$/.test(text) && this.operations.hasUnreviewed(this.target(input).room.id) }
-  relayReady(input: RoomTarget, text?: string) { try { const command = text === undefined ? '' : relayCommand(text); this.mpReady(this.target(input), command, /^!mp (?:addref|invite|set) /.test(command)); return true } catch { return false } }
+  relayReady(input: RoomTarget, text?: string) {
+    // A still-fresh snapshot is not ready if queued reads are about to replace
+    // it. Fence both the queue and its scheduled pump before creating a preview.
+    if (this.work.length || this.workTimer) return false
+    try { const command = text === undefined ? '' : relayCommand(text); this.mpReady(this.target(input), command, /^!mp (?:addref|invite|set) /.test(command)); return true } catch { return false }
+  }
   relayRefresh(input: RoomTarget) {
     const view = this.target(input)
     if (this.connection !== 'online' || !view.room.joined || view.room.kind !== 'match' || this.selected !== view.room.id) throw new Error('請先加入並選取比賽房間。')
