@@ -371,3 +371,5 @@ Profile 區分 roomMods、freemod、individualModsPolicy、revision、ruleset；
 2026-10-31 使用者追加修復：網站直接開房接收與 panel exPlayersPerTeam 相容已加入，見 [relay 說明](m1/website-irc-relay.md)。完整 context 與真實 Bancho／跨平台驗收仍為 partial。
 
 2026-10-31 網頁喚起增量：加入 oclr-irc scheme、待登入場次帶入與封裝註冊；本機確認及權限檢查不變，三平台 OS／真實服務驗收仍另列。見 docs/m1/website-irc-relay.md。
+
+2026-10-31 relay 修復：區分未送出與結果未知，顯示有限原因碼；空房 addref 無需地圖／Mods，精確 timer／addref 回覆同步解除待核對阻擋。舊 unknown 仍須人工核對、不重送。驗證範圍見 docs/m1/website-irc-relay.md。

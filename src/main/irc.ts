@@ -703,16 +703,17 @@ export class IrcSession extends EventEmitter {
     catch (error) { this.operations.finish(operationId, 'unknown'); throw error }
     finally { this.publish() }
   }
-  relayReady(input: RoomTarget, text?: string) { try { this.mpReady(this.target(input), text === undefined ? '' : relayCommand(text)); return true } catch { return false } }
+  relayBlocked(input: RoomTarget, text: string) { return !/^!mp (?:abort|aborttimer)$/.test(text) && this.operations.hasUnreviewed(this.target(input).room.id) }
+  relayReady(input: RoomTarget, text?: string) { try { const command = text === undefined ? '' : relayCommand(text); this.mpReady(this.target(input), command, /^!mp (?:addref|invite|set) /.test(command)); return true } catch { return false } }
   relayRefresh(input: RoomTarget) {
     const view = this.target(input)
     if (this.connection !== 'online' || !view.room.joined || view.room.kind !== 'match' || this.selected !== view.room.id) throw new Error('請先加入並選取比賽房間。')
     this.enqueue(view, 'settings'); this.enqueue(view, 'listrefs')
   }
-  relaySend(input: RoomTarget & { text: string }) {
+  relaySend(input: RoomTarget & { text: string }, onDispatch?: () => void) {
     const view = this.target(input)
     const text = relayCommand(input.text)
-    this.mpReady(view, text)
+    this.mpReady(view, text, /^!mp (?:addref|invite|set) /.test(text))
     if (/^!mp (?:map|mods|set|start)\b/.test(text) && view.room.startCountdown && ['active', 'unknown'].includes(view.room.startCountdown.status)) throw new Error('開賽倒數待取消或核對。')
     if (/^!mp (?:map|mods|set|start)\b/.test(text) && (view.room.phase === 'playing' || view.room.slots.some(slot => /^playing$/i.test(slot.status)))) throw new Error('比賽進行中，請先核對或中止比賽。')
     if (/^!mp (?:abort|aborttimer)$/.test(text)) { this.mapPlan?.cancel(); this.roomPlan?.cancel() }
@@ -720,6 +721,7 @@ export class IrcSession extends EventEmitter {
     this.lastQueryAt = Date.now()
     this.clearFresh(view); view.room.syncState = 'stale'
     this.note(view, text, 'self', this.username, 'unconfirmed')
+    onDispatch?.()
     try { this.send(`PRIVMSG ${view.room.channel} :${text}`) }
     catch (error) { this.operations.finish(operationId, 'unknown'); throw error }
     finally { this.enqueue(view, 'settings'); this.enqueue(view, 'listrefs'); this.publish() }

@@ -9,11 +9,11 @@ import { id, meta } from './fixtures/oclr.ts'
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 async function until(predicate: () => boolean) { for (let i = 0; i < 400; i++) { if (predicate()) return; await delay(10) } throw Error('Timed out') }
-function harness() {
+function harness(receiptReasons = true) {
   const requests: any[] = [], writes: any[] = []
-  const irc = Object.assign(new EventEmitter(), {sessionGeneration: 1, state: {connection: 'online', username: 'Ref_Name', creation: {status: 'unreviewed', requestId: id(80), roomId: null}, room: {id: 123, epoch: 1, joined: true, kind: 'match', binding: 'verified', referee: 'listed'}, messages: [] as any[]}, relayReady() {return true}, relayRefresh() {}, relaySend(input: unknown) {writes.push(input)}})
+  const irc = Object.assign(new EventEmitter(), {sessionGeneration: 1, state: {connection: 'online', username: 'Ref_Name', creation: {status: 'unreviewed', requestId: id(80), roomId: null}, room: {id: 123, epoch: 1, joined: true, kind: 'match', binding: 'verified', referee: 'listed'}, messages: [] as any[]}, relayReady() {return true}, relayRefresh() {}, relayBlocked(): boolean {return false}, relaySend(input: unknown, onDispatch?: () => void) {onDispatch?.(); writes.push(input)}})
   let command: any = null, fail = false
-  const oclr = Object.assign(new EventEmitter(), {sessionGeneration: 1, updatePairing(value: unknown) { this.state.pairing = value }, state: {pairing: null as any, subject: {osuId: 100, username: 'Ref Name'}, selectedFixtureId: id(101), panelState: 'fresh', relay: null as any}, updateRelay(state: unknown) {this.state.relay = state; (this as unknown as EventEmitter).emit('state')}, async relayRequest(_id: string, body: any) {requests.push(body); if (fail) throw Error('network failure'); return {value: {data: {connectionId: id(40), sequence: body.sequence ?? 0, command: body.action === 'sync' ? command : null}, meta: meta()}}}})
+  const oclr = Object.assign(new EventEmitter(), {sessionGeneration: 1, updatePairing(value: unknown) { this.state.pairing = value }, state: {pairing: null as any, subject: {osuId: 100, username: 'Ref Name'}, selectedFixtureId: id(101), panelState: 'fresh', relay: null as any}, updateRelay(state: unknown) {this.state.relay = state; (this as unknown as EventEmitter).emit('state')}, async relayRequest(_id: string, body: any) {requests.push(body); if (fail) throw Error('network failure'); return {value: {data: {...(receiptReasons ? {receiptReasons: true} : {}), connectionId: id(40), sequence: body.sequence ?? 0, command: body.action === 'sync' ? command : null}, meta: meta()}}}})
   const relay = new OclrRelay(oclr as unknown as OclrSession, irc as unknown as IrcSession)
   relay.refreshPairing()
   relay.confirmPairing({ token: oclr.state.pairing.token, reviewed: true })
@@ -246,4 +246,36 @@ test('observed created room becomes the relay target only after JOIN and referee
     await until(() => f.writes.length === 1)
     assert.equal(f.writes[0].roomId, 456)
   } finally { await f.relay.stop() }
+})
+
+test('local pre-dispatch rejection reports failed with its reason, while a socket attempt stays unknown', async () => {
+  for (const attempted of [false, true]) {
+    const f = harness()
+    f.irc.relaySend = ((_input: unknown, dispatch?: () => void) => {if (attempted) dispatch?.(); throw Error('synthetic failure')}) as any
+    try {
+      await f.relay.start(); f.command({id: id(95), text: '!mp timer 30', target: '#mp_123'})
+      await until(() => f.requests.some(r => r.receipts?.length))
+      const receipt = f.requests.flatMap(r => r.receipts ?? [])[0]
+      assert.equal(receipt.status, attempted ? 'unknown' : 'failed')
+      assert.equal(f.writes.length, 0)
+    } finally {await f.relay.stop()}
+  }
+})
+test('unreviewed operations are rejected before refreshing or attempting a socket write', async () => {
+  const f = harness(); f.irc.relayBlocked = () => true
+  try {
+    await f.relay.start(); f.command({id: id(96), text: '!mp timer 30', target: '#mp_123'})
+    await until(() => f.requests.some(r => r.receipts?.length))
+    assert.equal(f.requests.flatMap(r => r.receipts ?? [])[0].reason, 'pending_operation')
+    assert.equal(f.writes.length, 0)
+  } finally {await f.relay.stop()}
+})
+
+test('legacy website bind replies never receive unsupported diagnostic fields', async () => {
+  const f = harness(false); f.irc.relayBlocked = () => true
+  try {
+    await f.relay.start(); f.command({id: id(97), text: '!mp timer 30', target: '#mp_123'})
+    await until(() => f.requests.some(r => r.receipts?.length))
+    assert.deepEqual(f.requests.flatMap(r => r.receipts ?? [])[0], {commandId: id(97), status: 'failed'})
+  } finally {await f.relay.stop()}
 })

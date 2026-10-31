@@ -339,3 +339,31 @@ test('Main rejects conflicting website Mods before operation tracking or wire wr
     assert.equal(f.sent.some(line => line.includes(':!mp mods ')), false)
   } finally { await f.close() }
 })
+
+test('empty room relay can add referees without a map and blocks pending operations before dispatch', async () => {
+  const f = await fixture(true)
+  try {
+    await f.refresh()
+    assert.equal(f.session.relayReady(f.target(), '!mp addref SyntheticRef'), true)
+    assert.equal(f.session.relayReady(f.target(), '!mp start 5'), false)
+    let attempted = 0
+    f.session.relaySend({...f.target(), text: '!mp addref SyntheticRef'}, () => attempted++)
+    await until(() => f.sent.includes('PRIVMSG #mp_9 :!mp addref SyntheticRef'))
+    assert.equal(attempted, 1)
+    assert.equal(f.session.relayBlocked(f.target(), '!mp timer 30'), true)
+    await until(() => f.session.relayReady(f.target(), '!mp timer 30'))
+    assert.throws(() => f.session.relaySend({...f.target(), text: '!mp timer 30'}, () => attempted++))
+    assert.equal(attempted, 1)
+    assert.equal(f.sent.filter(line => line.endsWith(':!mp timer 30')).length, 0)
+    f.peer().write(':BanchoBot PRIVMSG #mp_9 :Added SyntheticRef to the match referees\n')
+    await until(() => !f.session.relayBlocked(f.target(), '!mp timer 30'))
+    f.session.relayRefresh(f.target())
+    await until(() => f.session.relayReady(f.target(), '!mp timer 30'))
+    f.session.relaySend({...f.target(), text: '!mp timer 30'}, () => attempted++)
+    await until(() => f.sent.includes('PRIVMSG #mp_9 :!mp timer 30'))
+    f.peer().write(':BanchoBot PRIVMSG #mp_9 :Countdown ends in 30 seconds\n')
+    await until(() => !f.session.relayBlocked(f.target(), '!mp addref Other'))
+    assert.equal(attempted, 2)
+    assert.equal(f.session.state.operations!.records.every(r => r.state === 'observed'), true)
+  } finally {await f.close()}
+})

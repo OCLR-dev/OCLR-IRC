@@ -29,11 +29,12 @@ export class Operations {
     try { this.store?.save(this.account, record) }
     catch { this.failed = true; throw new Error('操作恢復記錄保存失敗，請先檢查本機儲存。') }
   }
+  hasUnreviewed(roomId: number | null) { return this.records.some(r => r.roomId === roomId && (r.state === 'awaiting' || r.state === 'unknown' && !r.reviewed)) }
   begin(source: OperationRecord['source'], kind: string, roomId: number | null, roomEpoch: number, generation: number, command: string, deadlineMs = this.deadlineMs) {
     if (!this.account) throw new Error('請先登入。')
     const emergency = kind === 'abort' || kind === 'aborttimer'
     if (emergency && roomId !== null) this.interrupt(roomId)
-    if (!emergency && this.records.some(r => r.roomId === roomId && (r.state === 'awaiting' || r.state === 'unknown' && !r.reviewed))) throw new Error('此房間有待核對操作，請先在操作記錄核對結果。')
+    if (!emergency && this.hasUnreviewed(roomId)) throw new Error('此房間有待核對操作，請先在操作記錄核對結果。')
     if (this.records.filter(r => r.state === 'awaiting' || r.state === 'unknown' && !r.reviewed).length >= 100) throw new Error('待核對操作過多，請先核對歷史記錄。')
     const record: OperationRecord = { id: randomUUID(), source, kind, roomId, roomEpoch, state: 'awaiting', createdAt: Date.now(), reviewed: false }
     this.save(record) // Must succeed before socket write.

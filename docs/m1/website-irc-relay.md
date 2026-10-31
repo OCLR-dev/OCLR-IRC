@@ -72,3 +72,15 @@ Main 使用原有 createRoom 的送前持久化、節流、可信 BanchoBot 回�
 macOS 打包在 Info.plist 註冊 URL scheme（Packager protocols）；Windows 封裝版本首次啟動以 Electron API 註冊。Linux portable 解壓至固定位置後，在該目錄執行 `./install-protocol.sh`（需桌面環境的 xdg-utils，不用 sudo），建立使用者 desktop entry 與 scheme 關聯。移動 Linux 目錄後需重跑安裝。macOS／Linux 開發模式不承諾系統 URL 關聯，請使用封裝成品；網頁保留下載提示，不以計時推定啟動或登入成功。此註冊不處理 PKCE callback，原 loopback state 驗證保持不變。
 
 合成測試使用隔離 profile、fake HTTP／IRC 和注入的 OS 事件；不等同三平台瀏覽器協定提示、真實授權或 Bancho 驗收。
+
+## 2026-10-31：計時／新增裁判回執與未送出診斷
+
+本次使用者確認網站 timer 顯示 unknown 時房間沒有開始倒數。修正 Main 在派送前就設 pending 的錯誤：只有通過所有本機檢查、operation begin 與送前記錄，進入 socket write 邊界才建立待回覆狀態。未送出拒絕為 failed，socket write 的模糊結果仍為 unknown，不重送。
+
+relay 現會先檢查共同操作佇列，未核對的舊操作不再等 8 秒或冒稱已送出；網站可看到「先至本機操作記錄核對」等具體原因。既有 unknown 不會自動清除或重送，需人工核對。addref／invite／set 使用房間層最低觀測，不要求與這些命令無關的 beatmap／Mods；仍需 History、模式、Players／槽位、近期 settings 與本人 listrefs。網站角色不授予 Bancho 房主權限。
+
+新增 timer 與 addref 的有限回覆確認：timer 必須是送出後同房 BanchoBot 的原請求秒數（支援分鐘＋秒），後續不同秒數 tick／Countdown finished 不確認；addref 必須是相同正規化目標名稱的 Added ... to the match referees。Operations 與 relay 共用比對，觀測到對應回覆後解除該筆阻擋；不宣稱可排除外部裁判剛好做同操作。網站仍核對 sender／target／新 message ID／投影證據。
+
+bind 回應可附 receiptReasons:true；只有收到此能力的新桌面才送出 reason，舊網站不收到未知欄位。reason 限 pending_operation、room_checks、local_rejected、bancho_rejected、reply_timeout、invalid_command、target_changed；網站存入既有 recordError 的 relay: 前綴並使用三語言固定文案顯示，不轉傳原始例外、憑證或私人 log。舊客戶端仍可使用原回執。
+
+參考回覆格式：[bancho.js parser](https://github.com/ThePooN/bancho.js/blob/master/lib/Multiplayer/BanchoLobbyRegexes.js)。本輪以本機 TCP 模擬空房、操作阻擋與精確回覆，不操作截圖中的真實房間；真實權限或上線後效果需另驗收。

@@ -75,3 +75,19 @@ test('step deadlines can extend only active plans and never revive interrupted r
   ops.interrupt();assert.equal(ops.extend(id,100),false)
   assert.equal(ops.snapshot.records[0].state,'unknown');ops.logout()
 })
+
+test('matching timer and added-referee replies release the single-step gate; countdown ticks and other users do not', () => {
+  const ops = new Operations(() => {}); ops.authenticate('Synthetic')
+  try {
+    ops.begin('oclr', 'timer', 1, 2, 3, '!mp timer 30')
+    ops.observe(1, 2, 3, 'Countdown ends in 20 seconds')
+    assert.equal(ops.hasUnreviewed(1), true)
+    ops.observe(1, 2, 3, 'Countdown ends in 30 seconds')
+    assert.equal(ops.hasUnreviewed(1), false)
+    ops.begin('oclr', 'addref', 1, 2, 3, '!mp addref Ref_Name')
+    ops.observe(1, 2, 3, 'Added Other to the match referees')
+    assert.equal(ops.hasUnreviewed(1), true)
+    ops.observe(1, 2, 3, 'Added Ref Name to the match referees')
+    assert.equal(ops.hasUnreviewed(1), false)
+  } finally {ops.logout()}
+})
