@@ -6,6 +6,16 @@ import { Lines } from '../src/main/protocol.ts'
 import { mapProfile, profileCommands } from '../src/shared/map-profile.ts'
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 async function until(fn: () => boolean) { for (let i = 0; i < 400; i++) { if (fn()) return; await pause(10) } throw new Error('Plan timed out') }
+// Observing the last effect does not finish the connection-wide flood interval.
+async function previewStart(session: IrcSession, target: {roomId: number; roomEpoch: number}) {
+  await until(() => {
+    try { session.previewMp({ ...target, intent: { kind: 'start' } }); return true }
+    catch (error) {
+      if (!(error instanceof Error) || error.message !== '請稍候再查詢或送出訊息。') throw error
+      return false
+    }
+  })
+}
 const profile = { beatmapId: '456', roomMods: ['HD'], freemod: false, individualModsPolicy: 'disabled', ruleset: 'current', revision: 'v1' }
 async function fixture(mode = 'success') {
   let map = '123', mods = 'None', peer: net.Socket
@@ -57,7 +67,7 @@ test('map then mods execute once with new query-scoped observations; duplicate e
     const mapIndex = f.sent.indexOf('PRIVMSG #mp_9 :!mp map 456'), modsIndex = f.sent.indexOf('PRIVMSG #mp_9 :!mp mods HD')
     assert.ok(f.sent.slice(mapIndex + 1, modsIndex).includes('PRIVMSG #mp_9 :!mp settings'))
     assert.equal(f.session.state.operations!.records.at(-1)!.state, 'observed')
-    f.session.previewMp({ ...f.target(), intent: { kind: 'start' } })
+    await previewStart(f.session, f.target())
   } finally { await f.close() }
 })
 test('wrong map, missing response, changed mods and disconnect stop remaining steps without replay', async () => {
@@ -102,7 +112,7 @@ test('pool revisions invalidate previews and Start confirmations without blockin
     preview=f.session.previewPoolEntry(select())
     f.session.executeProfile({...f.target(),token:preview.token,reviewed:true})
     await until(()=>f.session.state.mapPlan?.state==='observed')
-    f.session.previewMp({...f.target(),intent:{kind:'start'}})
+    await previewStart(f.session, f.target())
     f.session.replaceManualPool({revision:f.session.state.manualPool!.revision,entries})
     assert.throws(()=>f.session.previewMp({...f.target(),intent:{kind:'start'}}))
     f.session.logout();assert.equal(f.session.state.manualPool!.entries.length,0)
