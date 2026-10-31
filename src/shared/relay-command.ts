@@ -1,3 +1,4 @@
+import { countdownEvent } from './countdown.ts'
 import { validateModCombination } from './mp-command.ts'
 
 /** Website relay commands are bounded MP commands, never raw IRC or credentials. */
@@ -14,6 +15,15 @@ export function relayCommand(value: unknown): string {
 /** A wire write is not acceptance. Only a subsequent scoped BanchoBot reply can confirm. */
 export function relayReply(command: string, text: string): 'confirmed' | 'failed' | null {
   if (/^(?:You (?:are not|must be)|Invalid |Failed to |User not found|No user found|Beatmap not found|The beatmap could not be found)/i.test(text)) return 'failed'
+  const timer = /^!mp timer ([1-9]\d{0,3})$/.exec(command)
+  if (timer) {
+    const event = countdownEvent(text, 0)
+    if (event?.kind === 'timer' && event.value.status === 'active' && Date.parse(event.value.deadline!) === Number(timer[1]) * 1000) return 'confirmed'
+  }
+  const addref = /^!mp addref ([A-Za-z0-9_\[\]-]{1,50})$/.exec(command)
+  const added = /^Added (.+) to the match referees\.?$/.exec(text)
+  const nick = (name: string) => name.trim().replace(/ /g, '_').toLowerCase()
+  if (addref && added && nick(addref[1]) === nick(added[1])) return 'confirmed'
   const map = /^!mp map (\d+)/.exec(command)
   if (map && /^(?:Beatmap changed to:|Changed beatmap to)\s/i.test(text)) return new RegExp(`https://osu\\.ppy\\.sh/(?:b/|beatmaps/)${map[1]}(?:[^0-9]|$)`).test(text) ? 'confirmed' : null
   if (command === '!mp abort' && /^Aborted the match\.?$/i.test(text)) return 'confirmed'
