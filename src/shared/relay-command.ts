@@ -1,8 +1,13 @@
+import { validateModCombination } from './mp-command.ts'
+
 /** Website relay commands are bounded MP commands, never raw IRC or credentials. */
 export function relayCommand(value: unknown): string {
   if (typeof value !== 'string' || value.length > 300 || /[\p{Cc}\p{Cf}\u2028\u2029]/u.test(value)) throw new Error('無效的網站指令。')
   const text = value.trim()
-  if (/^!mp (?:map [1-9]\d{0,9}(?: [0-3])?|set [0-3] [0-3](?: (?:[1-9]|1[0-6]))?|(?:invite|addref) [A-Za-z0-9_\[\]-]{1,50}|(?:timer|start) [1-9]\d{0,3}|abort|aborttimer|mods (?:None|(?:NF|EZ|HD|HR|DT|HT|NC|FL|FI|SD|PF|SO|MR|[1-9]K|Freemod)(?: (?:NF|EZ|HD|HR|DT|HT|NC|FL|FI|SD|PF|SO|MR|[1-9]K|Freemod))*))$/.test(text)) return text
+  if (/^!mp (?:map [1-9]\d{0,9}(?: [0-3])?|set [0-3] [0-3](?: (?:[1-9]|1[0-6]))?|(?:invite|addref) [A-Za-z0-9_\[\]-]{1,50}|(?:timer|start) [1-9]\d{0,3}|abort|aborttimer|mods (?:None|(?:NF|EZ|HD|HR|DT|HT|NC|FL|FI|SD|PF|SO|MR|[1-9]K|Freemod)(?: (?:NF|EZ|HD|HR|DT|HT|NC|FL|FI|SD|PF|SO|MR|[1-9]K|Freemod))*))$/.test(text)) {
+    if (text.startsWith('!mp mods ') && text !== '!mp mods None') validateModCombination(text.slice('!mp mods '.length).split(' '))
+    return text
+  }
   throw new Error('此網站指令不在允許清單。')
 }
 

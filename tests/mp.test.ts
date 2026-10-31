@@ -325,3 +325,17 @@ test('website explicit Mods replacement tolerates omitted old Mods, but start re
     assert.equal(f.session.state.room!.mods, null)
   } finally { await f.close() }
 })
+
+test('Main rejects conflicting website Mods before operation tracking or wire writes', async () => {
+  const f = await fixture()
+  try {
+    await f.refresh()
+    const before = f.session.state.operations!.records.length
+    for (const text of ['!mp mods HD HD', '!mp mods EZ HR', '!mp mods DT HT', '!mp mods NF PF']) {
+      assert.equal(f.session.relayReady(f.target(), text), false)
+      assert.throws(() => f.session.relaySend({...f.target(), text}))
+    }
+    assert.equal(f.session.state.operations!.records.length, before)
+    assert.equal(f.sent.some(line => line.includes(':!mp mods ')), false)
+  } finally { await f.close() }
+})
