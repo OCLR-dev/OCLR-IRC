@@ -1,0 +1,82 @@
+{
+  "evidence": "synthetic-tray-quit-81",
+  "recordedAt": "2026-11-01T05:10:22.393332+00:00",
+  "baseline": "662cf60",
+  "platform": "darwin",
+  "arch": "arm64",
+  "checks": {
+    "npm ci": "passed",
+    "npm run typecheck": "passed",
+    "npm test": {
+      "passed": 216,
+      "failed": 0
+    },
+    "npm run test:ui": {
+      "passed": true,
+      "processes": 29,
+      "includesBuild": true
+    },
+    "git diff --check": "passed"
+  },
+  "backgroundScenarios": [
+    {
+      "phase": "initial-hidden",
+      "state": "hidden",
+      "background": true,
+      "locale": "zh-Hant",
+      "trayConstructed": true
+    },
+    {
+      "phase": "initial-foreground",
+      "state": "foreground",
+      "background": true,
+      "locale": "zh-Hans",
+      "trayConstructed": true
+    },
+    {
+      "phase": "initial-minimized",
+      "state": "minimized",
+      "background": true,
+      "locale": "en",
+      "trayConstructed": true
+    },
+    {
+      "phase": "updated-hidden",
+      "state": "hidden",
+      "background": false,
+      "locale": "zh-Hans",
+      "trayConstructed": true
+    },
+    {
+      "phase": "updated-foreground",
+      "state": "foreground",
+      "background": false,
+      "locale": "en",
+      "trayConstructed": true
+    },
+    {
+      "phase": "updated-minimized",
+      "state": "minimized",
+      "background": false,
+      "locale": "zh-Hant",
+      "trayConstructed": true
+    },
+    {
+      "phase": "close-disabled",
+      "state": "foreground",
+      "background": false,
+      "locale": "zh-Hant",
+      "trayConstructed": true
+    }
+  ],
+  "coverage": [
+    "initial menu and resolved system locale",
+    "three language selections and foreground system-language refresh",
+    "foreground / hidden / minimized with background enabled or disabled",
+    "existing close-to-background and disabled-close quit",
+    "IRC / OCLR session, panel and relay cleanup; request signal abort; tray / window destruction",
+    "single chat dispatch, no replay or room mutations",
+    "runner stops on signal, timeout or nonzero exit"
+  ],
+  "limitation": "Local macOS arm64 with synthetic IRC/HTTP and injected native menu callbacks / second-instance event. CI, physical three-platform tray visibility and real right-click / OS shutdown behavior require separate evidence."
+}

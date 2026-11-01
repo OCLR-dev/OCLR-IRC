@@ -1,4 +1,4 @@
-import { Menu, Tray, nativeImage } from 'electron'
+import { app, Menu, Tray, nativeImage } from 'electron'
 import type { BrowserWindow } from 'electron'
 
 // Native bitmap avoids external icon files disappearing from packaged builds.
@@ -27,16 +27,16 @@ export class DesktopBackground {
     try {
       this.tray = new Tray(trayIcon())
       this.tray.setToolTip('OCLR IRC')
-      this.tray.setContextMenu(Menu.buildFromTemplate([
-        { label: '開啟 OCLR IRC', click: () => this.show() }
-      ]))
+      this.setLocale('zh-Hant')
       this.tray.on('click', () => this.show())
       this.tray.on('double-click', () => this.show())
     } catch { this.tray?.destroy(); this.tray = null }
   }
   setLocale(locale: string) {
     this.tray?.setContextMenu(Menu.buildFromTemplate([
-      { label: locale === 'en' ? 'Open OCLR IRC' : locale === 'zh-Hans' ? '打开 OCLR IRC' : '開啟 OCLR IRC', click: () => this.show() }
+      { label: locale === 'en' ? 'Open OCLR IRC' : locale === 'zh-Hans' ? '打开 OCLR IRC' : '開啟 OCLR IRC', click: () => this.show() },
+      { type: 'separator' },
+      { label: locale === 'en' ? 'Quit' : locale === 'zh-Hans' ? '退出程序' : '退出程式', click: () => app.quit() }
     ]))
   }
   hide() {
