@@ -10,7 +10,7 @@ function windowsConfiguration(filename, output) {
     directories: { output }, publish: null, npmRebuild: false,
     protocols: [{ name: 'OCLR IRC', schemes: ['oclr-irc'] }],
     win: { target: ['nsis'], signAndEditExecutable: false, artifactName: filename },
-    nsis: { artifactName: filename, oneClick: false, perMachine: false, allowElevation: false,
+    nsis: { artifactName: filename, include: path.join(__dirname, 'windows-installer.nsh'), oneClick: false, perMachine: false, allowElevation: false,
       allowToChangeInstallationDirectory: true, runAfterFinish: false, deleteAppDataOnUninstall: false,
       createDesktopShortcut: false, createStartMenuShortcut: true, differentialPackage: false,
       installerLanguages: ['en_US', 'zh_CN', 'zh_TW'] }
