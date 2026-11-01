@@ -1,5 +1,13 @@
 // Application-authored text only. Interpolation values and external content remain literal.
 export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
+  "IRC 登入": {"zh-Hans": "IRC 登录", "en": "IRC login"},
+  "啟動時恢復上次 IRC 登入": {"zh-Hans": "启动时恢复上次 IRC 登录", "en": "Restore the last IRC login on startup"},
+  "使用系統安全儲存保存登入；手動登出後不會自動連線。": {"zh-Hans": "使用系统安全存储保存登录；手动登出后不会自动连接。", "en": "Save your login in secure system storage. Signing out prevents automatic connection."},
+  "系統安全儲存不可用，無法啟用自動登入。": {"zh-Hans": "系统安全存储不可用，无法启用自动登录。", "en": "Secure system storage is unavailable. Automatic login cannot be enabled."},
+  "系統安全儲存不可用，將使用手動登入。": {"zh-Hans": "系统安全存储不可用，将使用手动登录。", "en": "Secure system storage is unavailable. Sign in manually."},
+  "設定已變更，請重試。": {"zh-Hans": "设置已变更，请重试。", "en": "Settings changed. Try again."},
+  "無法停用登入恢復，請檢查本機檔案權限。": {"zh-Hans": "无法停用登录恢复，请检查本机文件权限。", "en": "Unable to disable login restoration. Check local file permissions."},
+  "無法恢復上次 IRC 登入，請手動登入。": {"zh-Hans": "无法恢复上次 IRC 登录，请手动登录。", "en": "Unable to restore the last IRC login. Sign in manually."},
   "重新加入房間": {"zh-Hans": "重新加入房间", "en": "Rejoin room"},
   "帳號名稱相符・已自動核對": {"zh-Hans": "帐号名称相符・已自动核对", "en": "Account names match · Automatically checked"},
   "圖池": {"zh-Hans": "图池", "en": "Pool"},

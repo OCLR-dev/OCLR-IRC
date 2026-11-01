@@ -138,6 +138,8 @@ export class IrcSession extends EventEmitter {
     this.socket.write(line + '\r\n')
   }
   get sessionGeneration() { return this.generation }
+  /** Main-only access for opt-in encrypted persistence; never exposed over IPC. */
+  get authenticatedCredentials() { return this.connection === 'online' && this.auth ? { ...this.auth } : null }
   private disconnect() {
     this.roomPlan?.cancel(); this.roomPlanPreview = null; this.mapPlan?.cancel(); this.profilePreview = null; this.lobbyPreview = null
     this.operations.interrupt()

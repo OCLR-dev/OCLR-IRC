@@ -11,11 +11,11 @@ test('preferences persist across new instances; invalid, corrupt and failed writ
   try {
     const store = new PreferencesStore(file)
     assert.deepEqual(store.get(), DEFAULT_PREFERENCES)
-    const desired = { closeToBackground: false, language: 'en' as const }
+    const desired = { closeToBackground: false, language: 'en' as const, restoreIrcLogin: true }
     store.set(desired)
     assert.deepEqual(new PreferencesStore(file).get(), desired)
-    assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), { schema: 1, preferences: desired })
-    for (const bad of [null, [], {}, { ...desired, language: 'fr' }, { ...desired, closeToBackground: 'false' }, { ...desired, token: 'not-allowed' }]) {
+    assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), { schema: 2, preferences: desired, ircLoginActive: false })
+    for (const bad of [null, [], {}, { ...desired, language: 'fr' }, { ...desired, closeToBackground: 'false' }, { ...desired, restoreIrcLogin: 'true' }, { ...desired, token: 'not-allowed' }]) {
       assert.throws(() => store.set(bad)); assert.deepEqual(store.get(), desired)
     }
     const copy = store.get(); copy.closeToBackground = true
@@ -27,6 +27,25 @@ test('preferences persist across new instances; invalid, corrupt and failed writ
       writeFileSync(file, bad); assert.deepEqual(new PreferencesStore(file).get(), DEFAULT_PREFERENCES)
     }
     assert.throws(() => preferencesInput(Object.assign(Object.create(desired), {})))
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('legacy preferences keep language and background without granting login restoration; eligibility is explicit', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'oclr-settings-migration-')), file = join(dir, 'preferences.json')
+  try {
+    writeFileSync(file, JSON.stringify({ schema: 1, preferences: { closeToBackground: false, language: 'zh-Hant' } }))
+    const store = new PreferencesStore(file)
+    assert.deepEqual(store.get(), { closeToBackground: false, language: 'zh-Hant', restoreIrcLogin: false })
+    store.setIrcLoginActive(true); assert.equal(new PreferencesStore(file).ircLoginActive, false)
+    store.set({ ...store.get(), restoreIrcLogin: true }); assert.equal(store.ircLoginActive, false)
+    store.setIrcLoginActive(true); assert.equal(new PreferencesStore(file).ircLoginActive, true)
+    store.set({ ...store.get(), language: 'en' }); assert.equal(new PreferencesStore(file).ircLoginActive, true)
+    store.setIrcLoginActive(false); assert.equal(new PreferencesStore(file).ircLoginActive, false)
+    store.setIrcLoginActive(true); store.set({ ...store.get(), restoreIrcLogin: false })
+    assert.equal(new PreferencesStore(file).ircLoginActive, false)
+    for (const bad of [{ schema: 2, preferences: store.get(), ircLoginActive: 'true' }, { schema: 1, preferences: { ...store.get() } }]) {
+      writeFileSync(file, JSON.stringify(bad)); assert.deepEqual(new PreferencesStore(file).get(), DEFAULT_PREFERENCES)
+    }
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 
