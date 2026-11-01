@@ -131,8 +131,12 @@ async function main() {
   await js('document.querySelector(".oclr-fixture").click()')
   await until(() => js('Boolean(document.querySelector(".oclr-settings"))'))
   const beforeRefresh = requests.length
+  await until(() => js('!document.querySelector(\'.refresh-button[aria-label="更新面板"]\').disabled'))
+  window.show(); window.focus(); window.webContents.focus()
+  await until(() => js('document.hasFocus()'))
   window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Tab' })
   window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Tab' })
+  await js('new Promise(resolve => requestAnimationFrame(resolve))')
   await js('document.querySelector(\'.refresh-button[aria-label="更新面板"]\').focus()')
   await until(() => js('Array.from(document.querySelectorAll(\'[role="tooltip"]\')).some(t => t.textContent.includes("更新面板"))'))
   await js('document.querySelector(\'.refresh-button[aria-label="更新面板"]\').click()')

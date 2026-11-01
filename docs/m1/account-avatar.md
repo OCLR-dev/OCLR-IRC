@@ -12,4 +12,4 @@ Main 只讀取 `https://osu.ppy.sh/users/<encoded-name>?key=username` 的公開�
 
 驗證：`tests/avatar-cache.test.ts` 覆蓋來源／名稱、快取重啟、離線與過期、毀損／超量／錯誤格式、儲存失敗與登入世代；完整 Electron smoke 另驗證原生圖片處理、HeroUI 顯示、900×640、離線快取重用、跨帳號字母回退及 IPC sender。測試資料與 HTTP／IRC 均為 synthetic，不操作真實登入帳號。
 
-2026-11-01：Node 24 型別檢查及 212 項核心測試通過；完整 Electron 與三平台驗證見 [PR #79](https://github.com/OCLR-dev/OCLR-IRC/pull/79) 的對應提交／CI 紀錄。另以無登入的 Electron 原生唯讀檢查確認 Lapis 暱稱頁經同站正規轉址後，提供相符名稱／avatar_url，對應頭像回傳 HTTP 200 JPEG；實際轉為 128×128 PNG（30,489 bytes）、寫入隔離暫存快取並離線重建快取實例讀取通過。未操作真實 IRC 登入；不等於房間操作驗收。提示框的合成鍵盤測試先發送 Tab 再聚焦，避免依賴電腦當時的滑鼠／鍵盤焦點模式。
+2026-11-01：Node 24 型別檢查及 212 項核心測試通過；完整 Electron 與三平台驗證見 [PR #79](https://github.com/OCLR-dev/OCLR-IRC/pull/79) 的對應提交／CI 紀錄。另以無登入的 Electron 原生唯讀檢查確認 Lapis 暱稱頁經同站正規轉址後，提供相符名稱／avatar_url，對應頭像回傳 HTTP 200 JPEG；實際轉為 128×128 PNG（30,489 bytes）、寫入隔離暫存快取並離線重建快取實例讀取通過。未操作真實 IRC 登入；不等於房間操作驗收。提示框的合成鍵盤測試等待按鈕啟用及視窗取得焦點，再發送 Tab 並聚焦，避免依賴測試當時的忙碌或滑鼠／鍵盤焦點模式。
