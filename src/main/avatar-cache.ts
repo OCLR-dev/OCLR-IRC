@@ -43,8 +43,19 @@ export class AvatarCache {
     this.directory = directory; this.rasterize = rasterize; this.fetcher = fetcher; this.now = now
   }
   private key(username: string) { return createHash('sha256').update(normalize(username)).digest('hex') + '.json' }
-  private async download(url: string, type: RegExp, limit: number, signal: AbortSignal) {
-    const response = await this.fetcher(url, { signal: AbortSignal.any([signal, AbortSignal.timeout(8000)]), redirect: 'error', credentials: 'omit', headers: { 'User-Agent': 'OCLR-IRC-avatar/1 (+https://github.com/OCLR-dev/OCLR-IRC)' } })
+  private async download(url: string, type: RegExp, limit: number, signal: AbortSignal, profile = false) {
+    const options: RequestInit = { signal: AbortSignal.any([signal, AbortSignal.timeout(8000)]), redirect: profile ? 'manual' : 'error', credentials: 'omit', headers: { 'User-Agent': 'OCLR-IRC-avatar/1 (+https://github.com/OCLR-dev/OCLR-IRC)' } }
+    let response = await this.fetcher(url, options)
+    // osu! canonicalizes a username URL to /users/<id>. Follow exactly this one
+    // same-origin hop; the returned profile must still match the authenticated nick.
+    if (profile && [301, 302, 303, 307, 308].includes(response.status)) {
+      const location = response.headers.get('location')
+      await response.body?.cancel()
+      if (!location) throw new Error('Missing canonical profile')
+      const target = new URL(location, url)
+      if (target.origin !== 'https://osu.ppy.sh' || target.username || target.password || target.hash || target.search || !/^\/users\/[1-9]\d{0,15}$/.test(target.pathname)) throw new Error('Invalid canonical profile')
+      response = await this.fetcher(target.href, { ...options, redirect: 'error' })
+    }
     if (!response.ok || !type.test(response.headers.get('content-type') ?? '') || Number(response.headers.get('content-length')) > limit || !response.body) {
       await response.body?.cancel(); throw new Error('Avatar response unavailable')
     }
@@ -92,7 +103,7 @@ export class AvatarCache {
     if (cached) { onCached(cached.dataUrl); if (cached.fresh) return cached.dataUrl }
     try {
       // key=username prevents all-numeric nicknames from being treated as user IDs.
-      const profile = await this.download(`https://osu.ppy.sh/users/${encodeURIComponent(username.replace(/_/g, ' '))}?key=username`, /^text\/html\b/i, MAX_IMAGE, signal)
+      const profile = await this.download(`https://osu.ppy.sh/users/${encodeURIComponent(username.replace(/_/g, ' '))}?key=username`, /^text\/html\b/i, MAX_IMAGE, signal, true)
       const url = profileAvatar(profile.toString('utf8'), username)
       if (!url) return cached?.dataUrl ?? null
       const bytes = await this.download(url, /^image\/(?:png|jpeg|gif|webp)\b/i, MAX_IMAGE, signal)

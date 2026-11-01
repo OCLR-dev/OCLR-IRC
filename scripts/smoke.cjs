@@ -320,6 +320,7 @@ async function main() {
   await js('window.oclr.logout()')
   await js('window.oclr.login({username:"OtherSynthetic",password:"SYNTHETIC_PASSWORD_ONLY"})')
   await until(() => js('(async () => (await window.oclr.snapshot()).connection === "online")()'))
+  await until(() => js('Boolean(document.querySelector(".join-room-button"))'))
   await js(`document.querySelector('nav button[title="帳號連線"]').click()`)
   await until(() => js('document.querySelector(".account-avatar")?.textContent === "O"'))
   assert.equal(await js('Boolean(document.querySelector(".account-avatar img"))'), false)

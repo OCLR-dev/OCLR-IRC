@@ -17,7 +17,7 @@ async function fixture(t: test.TestContext) {
   let now = Date.now(), calls: string[] = []
   const fetcher: typeof fetch = async (input, init) => {
     const url = String(input); calls.push(url)
-    assert.equal(init?.credentials, 'omit'); assert.equal(init?.redirect, 'error')
+    assert.equal(init?.credentials, 'omit'); assert.equal(init?.redirect, url.includes('?key=username') ? 'manual' : 'error')
     assert.equal(new Headers(init?.headers).has('authorization'), false)
     assert.equal(new Headers(init?.headers).has('cookie'), false)
     return url.startsWith('https://osu.ppy.sh/users/') ? new Response(profile(), { headers: { 'Content-Type': 'text/html; charset=UTF-8' } }) : new Response(png, { headers: { 'Content-Type': 'image/png' } })
@@ -48,6 +48,32 @@ test('valid avatar persists under a hashed name and a fresh restart cache avoids
   const restarted = new AvatarCache(f.directory, rasterize, async () => { throw new Error('must remain offline') }, f.now)
   assert.equal(await restarted.load('ref name', signal(), value => { cached = value }), dataUrl)
   assert.equal(cached, dataUrl)
+})
+
+test('only one canonical numeric osu! profile redirect is allowed and identity is rechecked', async t => {
+  const f = await fixture(t), urls: string[] = []
+  const redirected: typeof fetch = async (input, init) => {
+    const url = String(input); urls.push(url)
+    if (url.includes('?key=username')) {
+      assert.equal(init?.redirect, 'manual')
+      return new Response(null, { status: 302, headers: { location: '/users/42' } })
+    }
+    assert.equal(init?.redirect, 'error')
+    return f.fetcher(input, init)
+  }
+  assert.equal(await new AvatarCache(f.directory, rasterize, redirected).load('Ref Name', signal(), () => {}), dataUrl)
+  assert.deepEqual(urls, ['https://osu.ppy.sh/users/Ref%20Name?key=username', 'https://osu.ppy.sh/users/42', 'https://a.ppy.sh/42?1.png'])
+  await rm(f.directory, { recursive: true })
+  for (const location of ['https://evil.invalid/users/42', 'http://osu.ppy.sh/users/42', 'https://user@osu.ppy.sh/users/42', '/api/private', '/users/Other', '/users/42?key=username', '/users/42#bad']) {
+    let calls = 0
+    const cache = new AvatarCache(f.directory, rasterize, async () => { calls++; return new Response(null, { status: 302, headers: { location } }) })
+    assert.equal(await cache.load('Ref Name', signal(), () => {}), null); assert.equal(calls, 1)
+  }
+  let calls = 0
+  const loop = new AvatarCache(f.directory, rasterize, async () => { calls++; return new Response(null, { status: 302, headers: { location: '/users/42' } }) })
+  assert.equal(await loop.load('Ref Name', signal(), () => {}), null); assert.equal(calls, 2)
+  const wrong = new AvatarCache(f.directory, rasterize, async input => String(input).includes('?key=username') ? new Response(null, { status: 302, headers: { location: '/users/42' } }) : new Response(profile('Other'), { headers: { 'content-type': 'text/html' } }))
+  assert.equal(await wrong.load('Ref Name', signal(), () => {}), null)
 })
 
 test('stale avatar is delivered before refresh and remains usable when offline; expiry is bounded', async t => {
