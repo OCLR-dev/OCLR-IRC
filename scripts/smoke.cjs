@@ -59,6 +59,7 @@ async function main() {
     return originalConnect.call(net, { host: '127.0.0.1', port }, ...rest)
   }
   require('./mock-beatmap-fetch.cjs')
+  require('./mock-avatar-fetch.cjs')
   require('../out/main/index.js')
   await app.whenReady()
   await until(() => BrowserWindow.getAllWindows().length > 0)
@@ -298,6 +299,12 @@ async function main() {
   assert.ok(!JSON.stringify(await js('window.oclr.snapshot()')).includes('SYNTHETIC_PASSWORD_ONLY'))
   await js(`document.querySelector('nav button[title="帳號連線"]').click()`)
   await until(() => js('Boolean(document.querySelector(".connected-panel .logout-button"))'))
+  await until(() => js('Boolean(document.querySelector(".account-avatar img")?.naturalWidth)'))
+  assert.equal(await js('document.querySelector(".account-avatar img").src.startsWith("data:image/png;base64,")'), true)
+  assert.equal(await js('document.querySelector(".account-avatar").getBoundingClientRect().width'), 48)
+  assert.equal(await js('document.querySelector(".connected-panel .logout-button").getBoundingClientRect().bottom < innerHeight'), true)
+  const avatarTransport = require('./mock-avatar-fetch.cjs'), avatarRequests = avatarTransport.requests.length
+  assert.equal(fs.readdirSync(path.join(app.getPath('userData'), 'avatar-cache')).some(name => /^[a-f0-9]{64}\.json$/.test(name)), true)
   assert.deepEqual(await js('Array.from(document.querySelectorAll(".logout-button")).map(b => [b.getAttribute("aria-label"), b.textContent.trim(), Boolean(b.querySelector("svg"))])'), [['登出 IRC', '', true], ['登出 IRC', '', true]])
   await js('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
   fs.writeFileSync(path.join(output, 'logout-icons-synthetic.png'), (await capture()).toPNG())
@@ -305,10 +312,22 @@ async function main() {
   await until(() => js('Boolean(document.querySelector("input[name=password]"))'))
   assert.equal(await js('document.querySelector("input[name=password]").value'), '')
   assert.equal((await js('window.oclr.snapshot()')).connection, 'offline')
+  assert.deepEqual(await js('window.oclr.avatar.snapshot()'), { username: '', dataUrl: null })
+  avatarTransport.setAvailable(false)
+  await js('window.oclr.login({username:"SyntheticRef",password:"SYNTHETIC_PASSWORD_ONLY"})')
+  await until(() => js('(async () => Boolean((await window.oclr.avatar.snapshot()).dataUrl))()'))
+  assert.equal(avatarTransport.requests.length, avatarRequests)
+  await js('window.oclr.logout()')
+  await js('window.oclr.login({username:"OtherSynthetic",password:"SYNTHETIC_PASSWORD_ONLY"})')
+  await until(() => js('(async () => (await window.oclr.snapshot()).connection === "online")()'))
+  await js(`document.querySelector('nav button[title="帳號連線"]').click()`)
+  await until(() => js('document.querySelector(".account-avatar")?.textContent === "O"'))
+  assert.equal(await js('Boolean(document.querySelector(".account-avatar img"))'), false)
+  await js('window.oclr.logout()')
   assert.deepEqual(errors, [])
   const report = { evidence: 'synthetic-desktop-ui', platform: process.platform, arch: process.arch,
     electron: process.versions.electron, recordedAt: new Date().toISOString(),
-    passed: ['renderer and sandboxed preload loaded', 'form login to local fake IRC', 'LF-only settings binding', 'split-line referee membership', 'plain chat sent label without delivery receipt', 'synthetic IME Enter guard', 'blocked command and unsafe links', 'safe external link and escaped HTML', '1000 retained rows with under 100 DOM rows', 'history scroll and jump to latest', '900x640 composer visible', 'multiple room tabs and unread mention routing', 'renderer reload preserves connection and tabs', 'leave sends PART not mp close', 'socket reconnect renews epoch and settings/listrefs without chat replay', 'complete map/mods snapshot after recovery', 'powerMonitor suspend/resume restores reads', 'kick disables room actions', 'generic channel UI with NAMES Tab completion', 'private inbox preserves selection and sends fixed-target reply', 'create form requires explicit existing-room review', 'make confirmation joins actual MP and queries settings/listrefs', 'old create request cannot be submitted twice', 'created room composer visible at 900x640', 'logout and secret clearing', 'no renderer console errors'],
+    passed: ['renderer and sandboxed preload loaded', 'form login to local fake IRC', 'LF-only settings binding', 'split-line referee membership', 'plain chat sent label without delivery receipt', 'synthetic IME Enter guard', 'blocked command and unsafe links', 'safe external link and escaped HTML', '1000 retained rows with under 100 DOM rows', 'history scroll and jump to latest', '900x640 composer visible', 'multiple room tabs and unread mention routing', 'renderer reload preserves connection and tabs', 'leave sends PART not mp close', 'socket reconnect renews epoch and settings/listrefs without chat replay', 'complete map/mods snapshot after recovery', 'powerMonitor suspend/resume restores reads', 'kick disables room actions', 'generic channel UI with NAMES Tab completion', 'private inbox preserves selection and sends fixed-target reply', 'create form requires explicit existing-room review', 'make confirmation joins actual MP and queries settings/listrefs', 'old create request cannot be submitted twice', 'created room composer visible at 900x640', 'logout and secret clearing', 'osu avatar rendered at 900x640, disk cache reused offline and other-account letter fallback', 'no renderer console errors'],
     sent, limitation: 'Local fake server only; no live account credentials, no OCLR OAuth, no Windows/Linux verification; synthetic composition event is not a real IME test.' }
   fs.writeFileSync(path.join(output, 'ui-smoke-recovery.json'), JSON.stringify(report, null, 2) + '\n')
   fs.writeFileSync(path.join(output, 'ui-smoke-creation.json'), JSON.stringify(report, null, 2) + '\n')

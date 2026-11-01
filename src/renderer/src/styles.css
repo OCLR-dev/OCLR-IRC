@@ -75,6 +75,8 @@ dd { color: #bdb8c9; font-size: 12px; margin: 0; overflow-wrap: anywhere; }
 
 .connected-panel { display: flex; flex-direction: column; align-items: start; gap: 15px; margin-top: 40px; }
 .account-avatar { width: 48px; height: 48px; border-radius: 13px; background: #32273f; color: #c2a8f3; font-size: 22px; display: grid; place-items: center; }
+.account-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.account-avatar [data-slot="avatar-fallback"] { background: transparent; color: inherit; }
 .connected-panel h2 { font-size: 22px; margin: 0; }
 .connected-panel p { font-size: 12px; color: #938a9f; margin: 0 0 10px; }
 .room-view { padding: 34px; display: flex; flex-direction: column; height: calc(100vh - 104px); min-height: 535px; }

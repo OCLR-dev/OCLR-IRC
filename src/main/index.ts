@@ -1,11 +1,12 @@
 import { WebsiteRoomJoin } from './website-room-join.ts'
+import { AccountAvatar, AvatarCache } from './avatar-cache.ts'
 import { WebsiteLaunch } from './website-launch.ts'
 import { sameLocalPage } from './trusted-page.ts'
 import { SqliteOperationStore } from './operation-store.ts'
 import { EncryptedJournal } from './encrypted-journal.ts'
 import { registerJournal } from './journal-ipc.ts'
 import { fetchBeatmapDuration } from './beatmap-duration.ts'
-import { app, BrowserWindow, ipcMain, shell, powerMonitor, safeStorage, clipboard } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, powerMonitor, safeStorage, clipboard, nativeImage } from 'electron'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { IrcSession } from './irc.ts'
@@ -58,6 +59,18 @@ function action(event: Electron.IpcMainInvokeEvent, fn: () => void) {
 }
 app.whenReady().then(() => {
   if (!primaryInstance) return
+  const avatar = new AccountAvatar(new AvatarCache(join(app.getPath('userData'), 'avatar-cache'), bytes => {
+    const image = nativeImage.createFromBuffer(bytes)
+    if (image.isEmpty()) return null
+    const { width, height } = image.getSize()
+    if (width < 1 || height < 1 || width > 2048 || height > 2048) return null
+    const scale = Math.min(1, 128 / width, 128 / height)
+    return image.resize({ width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)), quality: 'best' }).toPNG()
+  }))
+  irc.on('state', state => avatar.update(state.username, state.connection === 'online', irc.sessionGeneration))
+  avatar.on('state', state => { if (window && !window.isDestroyed()) window.webContents.send('app:avatar-state', state) })
+  ipcMain.handle('app:avatar', event => { trusted(event); return avatar.state })
+  app.on('before-quit', () => avatar.update('', false, 0))
   if (app.isPackaged && !process.env.OCLR_QA_TEMP && process.platform !== 'linux') {
     try { app.setAsDefaultProtocolClient('oclr-irc') } catch { /* OS registration failure must not prevent normal launch. */ }
   }

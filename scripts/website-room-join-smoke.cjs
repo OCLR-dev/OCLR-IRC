@@ -37,6 +37,7 @@ async function main() {
   const connect = net.createConnection
   net.createConnection = options => { assert.equal(options.host, 'irc.ppy.sh'); return connect({host: '127.0.0.1', port: server.address().port}) }
   require('./mock-beatmap-fetch.cjs')
+  require('./mock-avatar-fetch.cjs')
   require('../out/main/index.js')
   await app.whenReady()
   await until(() => BrowserWindow.getAllWindows()[0]?.webContents.getURL())

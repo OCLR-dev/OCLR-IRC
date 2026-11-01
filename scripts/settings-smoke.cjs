@@ -42,6 +42,7 @@ async function main() {
   const connect = net.createConnection
   net.createConnection = options => { assert.equal(options.host, 'irc.ppy.sh'); return connect({ host: '127.0.0.1', port: server.address().port }) }
   require('./mock-beatmap-fetch.cjs')
+  require('./mock-avatar-fetch.cjs')
   require('../out/main/index.js')
   await app.whenReady()
   await until(() => BrowserWindow.getAllWindows().length)
@@ -57,6 +58,7 @@ async function main() {
   assert.equal(await js('document.documentElement.lang'), 'en')
   assert.equal(await js('document.body.textContent.includes("Quit")'), false)
   assert.equal(await js('Boolean(document.querySelector(".sidebar-note"))'), false)
+  assert.throws(() => handlers.get('app:avatar')({ sender: window.webContents, senderFrame: { url: 'https://untrusted.invalid' } }), /Untrusted/)
   assert.throws(() => handlers.get('app:settings-update')({ sender: window.webContents, senderFrame: { url: 'https://untrusted.invalid' } }, { closeToBackground: false, language: 'en' }), /Untrusted/)
   if (!restart) {
     await js('document.querySelector(".sidebar-settings button").click()')
