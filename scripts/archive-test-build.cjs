@@ -2,6 +2,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const { spawnSync } = require('node:child_process')
 const { createHash } = require('node:crypto')
+const { distribution } = require('./distribution.cjs')
 
 async function main() {
   const version = require('../package.json').version
@@ -12,12 +13,13 @@ async function main() {
   const folder = `OCLR IRC-${process.platform}-${process.arch}`
   const source = path.resolve('release', folder)
   if (!fs.statSync(source).isDirectory()) throw new Error('Packaged app is missing')
-  const name = `OCLR-IRC-${version}-${platform}-${process.arch}-${sha.slice(0, 7)}`
+  const { name, installer } = distribution(version, sha, platform, process.arch)
   const downloads = path.resolve('release/downloads')
   fs.mkdirSync(downloads, { recursive: true })
   const signing = platform === 'macos' ? JSON.parse(fs.readFileSync(path.join(source, 'mac-signing.json'), 'utf8')) : { signed: false, codeSigning: 'unsigned', notarized: false }
   const metadata = { version, commit: sha, platform, arch: process.arch, node: process.version, electron: require('electron/package.json').version,
-    builtAt: new Date().toISOString(), run: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`, ...signing, milestoneAccepted: false }
+    builtAt: new Date().toISOString(), run: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`, ...signing, installer, milestoneAccepted: false }
+  fs.copyFileSync('THIRD_PARTY_NOTICES.md', path.join(source, 'THIRD_PARTY_NOTICES.md'))
   fs.writeFileSync(path.join(source, 'build-info.json'), JSON.stringify(metadata, null, 2) + '\n')
   const signingNote = signing.notarized ? 'macOS is Developer ID signed and Apple notarized; the ticket is stapled.' : 'No public identity signing/notarization; macOS uses an ad-hoc integrity signature.'
   fs.writeFileSync(path.join(source, 'README-TESTING.txt'), `OCLR IRC ${version} — internal test build\nCommit: ${sha}\n\nExtract the entire directory before launching. This is a portable test build, not an installer. ${signingNote}\nAcceptance guide: https://github.com/OCLR-dev/OCLR-IRC/blob/${sha}/docs/m1/platform-acceptance.md\nLinux credential persistence is disabled pending provider verification.\nCI tests use synthetic IRC; real IME, OS sleep and Bancho acceptance are still required.\n`)

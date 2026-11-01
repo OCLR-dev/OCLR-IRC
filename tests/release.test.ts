@@ -5,6 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
+const { distribution } = createRequire(import.meta.url)('../scripts/distribution.cjs')
 const { validate, assemble, assertReleaseAvailable } = createRequire(import.meta.url)('../scripts/prepare-release.cjs')
 
 test('release publishing requires matching existing tag; branch runs are dry-run only', () => {
@@ -44,28 +45,37 @@ test('release assembly requires all three identities and hashes before producing
   let archive = '', metadataFile = ''
   try {
     for (const [platform, arch, ext] of [['windows', 'x64', '.zip'], ['linux', 'x64', '.tar.gz'], ['macos', 'arm64', '.zip']]) {
-      const name = `OCLR-IRC-${version}-${platform}-${arch}-${sha.slice(0, 7)}`, dir = join(input, name), filename = name + ext
+      const {name, installer} = distribution(version, sha, platform, arch), dir = join(input, name), filename = name + ext
       mkdirSync(dir); archive = join(dir, filename); writeFileSync(archive, 'synthetic archive')
-      writeFileSync(join(dir, 'SHA256SUMS.txt'), `${createHash('sha256').update('synthetic archive').digest('hex')}  ${filename}\n`)
+      if (installer) writeFileSync(join(dir, installer.file), 'synthetic installer')
+      writeFileSync(join(dir, 'SHA256SUMS.txt'), `${createHash('sha256').update('synthetic archive').digest('hex')}  ${filename}\n` + (installer ? `${createHash('sha256').update('synthetic installer').digest('hex')}  ${installer.file}\n` : ''))
       metadataFile = join(dir, 'build-info.json')
-      writeFileSync(metadataFile, JSON.stringify({ version, commit: sha, platform, arch, signed: false }))
+      writeFileSync(metadataFile, JSON.stringify({ version, commit: sha, platform, arch, installer, signed: false }))
     }
     await assert.rejects(assemble(input, output, version, sha, true), /notarized/); assert.equal(existsSync(output), false)
     const originalMetadata = readFileSync(metadataFile)
-    writeFileSync(metadataFile, JSON.stringify({ version, commit: 'b'.repeat(40), platform: 'macos', arch: 'arm64', signed: false }))
+    writeFileSync(metadataFile, JSON.stringify({ version, commit: 'b'.repeat(40), platform: 'macos', arch: 'arm64', installer: distribution(version, sha, 'macos', 'arm64').installer, signed: false }))
     await assert.rejects(assemble(input, output, version, sha), /identity/); assert.equal(existsSync(output), false)
     writeFileSync(metadataFile, originalMetadata); writeFileSync(archive, 'corrupt')
     await assert.rejects(assemble(input, output, version, sha), /checksum/); assert.equal(existsSync(output), false)
     writeFileSync(archive, 'synthetic archive'); await assemble(input, output, version, sha)
-    assert.equal(readFileSync(join(output, 'SHA256SUMS.txt'), 'utf8').trim().split('\n').length, 3)
+    assert.equal(readFileSync(join(output, 'SHA256SUMS.txt'), 'utf8').trim().split('\n').length, 5)
     assert.equal(JSON.parse(readFileSync(join(output, 'build-info.json'), 'utf8')).length, 3)
     const notes = readFileSync(join(output, 'RELEASE_NOTES.md'), 'utf8')
     for (const [platform, arch, ext] of [['windows', 'x64', '.zip'], ['linux', 'x64', '.tar.gz'], ['macos', 'arm64', '.zip']]) {
       assert.ok(notes.includes(`https://github.com/OCLR-dev/OCLR-IRC/releases/download/v${version}/OCLR-IRC-${version}-${platform}-${arch}-${sha.slice(0, 7)}${ext}`))
     }
-    writeFileSync(metadataFile, JSON.stringify({ version, commit: sha, platform: 'macos', arch: 'arm64', signed: true, codeSigning: 'developer-id', notarized: true, teamId: 'ABCDEF1234' }))
+    const dmg = join(input, distribution(version, sha, 'macos', 'arm64').name, distribution(version, sha, 'macos', 'arm64').installer.file)
+    rmSync(dmg)
+    await assert.rejects(assemble(input, output, version, sha), /Unexpected/)
+    writeFileSync(dmg, 'corrupt installer')
+    await assert.rejects(assemble(input, output, version, sha), /checksum/)
+    writeFileSync(dmg, 'synthetic installer')
+    assert.ok(notes.includes('-setup.exe'))
+    assert.ok(notes.includes('.dmg'))
+    writeFileSync(metadataFile, JSON.stringify({ version, commit: sha, platform: 'macos', arch: 'arm64', installer: distribution(version, sha, 'macos', 'arm64').installer, signed: true, codeSigning: 'developer-id', notarized: true, teamId: 'ABCDEF1234' }))
     await assemble(input, output, version, sha, true)
-    assert.match(readFileSync(join(output, 'RELEASE_NOTES.md'), 'utf8'), /macOS is Developer ID signed/)
+    assert.match(readFileSync(join(output, 'RELEASE_NOTES.md'), 'utf8'), /macOS App and DMG are Developer ID signed/)
     mkdirSync(join(input, 'unexpected'))
     await assert.rejects(assemble(input, join(temp, 'other'), version, sha), /exactly three/)
   } finally { rmSync(temp, { recursive: true, force: true }) }

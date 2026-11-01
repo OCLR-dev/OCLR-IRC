@@ -7,7 +7,7 @@
 - 推送既有版本 tag `v<package.json version>` 時自動執行；package-lock 版本也必須一致。版本不符立即停止，不代為建立、移動或覆寫 tag。
 - GitHub Actions → OCLR IRC release → Run workflow：預設 `dry_run=true`，可從 main 執行完整測試、打包、跨平台成品校驗與彙整，但跳過發布。
 - 手動正式執行必須選擇已存在的版本 tag，取消 dry_run；從 main 取消 dry_run 會被驗證拒絕。
-- Windows x64 ZIP、Linux x64 tar.gz、macOS arm64 ZIP、合併 SHA256SUMS.txt 及 build-info.json 成為 GitHub Release assets。直接從 Releases 下載，不受 Actions artifacts 的 30 天保留期限限制。
+- Windows x64 安裝版 EXE／ZIP、Linux x64 tar.gz、macOS arm64 DMG／ZIP、合併 SHA256SUMS.txt 及 build-info.json 成為 GitHub Release assets。直接從 Releases 下載，不受 Actions artifacts 的 30 天保留期限限制。
 
 日常測試包保留 ad-hoc 模式；版本 Release 現已要求 macOS Developer ID 簽章與 Apple 公證（見 [設定及驗證](apple-signing-ci.md)）。發行階段仍統一發布為 **Pre-release、非 Latest**，即使 tag 沒有 `-rc` 後綴也不宣稱正式穩定版。Release 說明保留 Linux 憑證保存與 M1 實機驗收限制。
 
@@ -45,3 +45,15 @@ Apple 正式簽章實測已於 [dry-run 40620456501](https://github.com/OCLR-dev
 - 實際發布的提交、CI、公證與資產結果以 GitHub Release 及對應 Actions run 為準；準備這份文件本身不代表發布成功。
 
 一般操作：先在 main 完成對應版本與測試，再建立未使用的 `v<version>` tag，核對指向的完整提交，僅推送這個 tag。CI 完成後至 [Releases](https://github.com/OCLR-dev/OCLR-IRC/releases) 下載；不要將同名 tag 移到其他提交。修正已發布版本需增加版本號。
+
+## v0.8.2：原生安裝格式
+
+新增固定版本 electron-builder 26.18.0（MIT）的 NSIS per-user 安裝精靈，沿用 Packager 已驗證的 Windows App，不更換核心打包流程或 appId。禁止安裝完成自動啟動，卸載保留 AppData；保留 oclr-irc 協定註冊與開始功能表入口。Windows CI 在隔離暫存位置實際安裝、核對協定、以空白測試 profile 啟動並讀取精確版本、重新安裝、卸載及確認測試使用者資料仍存在。這是原生 CI 驗證，不宣稱真實使用者升級已驗收。
+
+macOS 以 CI macOS 15 支援的原生 hdiutil 產生 DMG，包含 App、Applications 捷徑及版本／授權資料。保留原 App 簽章；正式 Release 另外對 DMG 簽章、公證與 staple，再唯讀掛載核對內部 App 簽章及實際離線啟動。一般 PR 的 DMG 仍未公證。Apple 只讀驗證遇明確網路錯誤最多重試三次；無效簽章／ticket 立即失敗，不降低正式發布條件、不在此重試公證提交。
+
+每平台 artifact 仍只有一份目錄，Windows／macOS 各含 portable 與 installer；Linux 一份 tar.gz。共五個成品及兩份校驗／建置資訊成為公開 assets。共用白名單依平台、架構、版本、完整 commit 固定檔名，拒絕缺檔、額外檔案、缺少／重複 checksum、安裝包描述不符及任何成品損壞。所有 native installer／archive 驗證通過後才上傳、彙整、發布；已發布 tag 不移動，v0.8.1 保持不變。
+
+本機開發可在 package App、`scripts/archive-test-build.cjs` 後執行 `scripts/create-installers.cjs`；以上共用 GITHUB_SHA 等建置身分。macOS 可本機測試 ad-hoc DMG；Windows 安裝／卸載 smoke 限專用 GitHub runner，避免改動真實使用者的安裝與協定。依賴總 audit 的 16 項 moderate 位於開發工具鏈（glob／minimatch 等，現有 packager 及新 builder 的間接依賴）；未以不相容 major override 或降級工具冒充修復。runtime audit 為 0，高／critical 為 0；工具相容更新仍另追蹤。
+
+本輪本機證據：Node 24.22.2 typecheck、203 項核心／契約、完整 12 組 Electron synthetic、actionlint 與版本 validator 通過。使用明示 synthetic commit 的本機 ad-hoc App／DMG，完成 DMG checksum、唯讀掛載、Applications 連結、內部簽章、精確版本離線啟動與卸載測試映像，以及 portable ZIP 驗證；不宣稱本機 Developer ID／公證。Windows 原生安裝／重新安裝／卸載及正式 macOS／公開發布仍以對應 CI 為準。

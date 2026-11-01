@@ -1,3 +1,4 @@
+const { appleVerify } = require('./apple-verify.cjs')
 const { execFileSync } = require('node:child_process')
 const path = require('node:path')
 const fs = require('node:fs')
@@ -29,8 +30,8 @@ async function main() {
     if (signed) {
       const info = require('node:child_process').spawnSync('codesign', ['-d', '--verbose=4', app], { encoding: 'utf8' })
       if (info.status !== 0 || !info.stderr.includes(`TeamIdentifier=${process.env.MAC_TEAM_ID}`) || !/Authority=Developer ID Application:/.test(info.stderr) || !/flags=.*\bruntime\b/.test(info.stderr)) throw new Error('Developer ID/team/hardened runtime verification failed')
-      execFileSync('xcrun', ['stapler', 'validate', app], { stdio: 'inherit' })
-      execFileSync('spctl', ['--assess', '--type', 'execute', '--verbose=4', app], { stdio: 'inherit' })
+      await appleVerify('xcrun', ['stapler', 'validate', app])
+      await appleVerify('spctl', ['--assess', '--type', 'execute', '--verbose=4', app])
     }
     fs.writeFileSync(path.join(output, 'mac-signing.json'), JSON.stringify({ codeSigning: mode, signed, notarized: signed, teamId: signed ? process.env.MAC_TEAM_ID : null }, null, 2) + '\n')
   }
