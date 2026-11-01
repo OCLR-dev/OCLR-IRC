@@ -43,6 +43,10 @@ export interface Snapshot {
 export interface JournalEntry { time: number; room: string; text: string }
 export interface JournalState { enabled: boolean; status: 'saving' | 'memory_only' | 'failed'; account: string | null }
 export interface DesktopAPI {
+  avatar: {
+    snapshot(): Promise<import('./avatar.ts').AvatarState>
+    onState(listener: (state: import('./avatar.ts').AvatarState) => void): () => void
+  }
   websiteRoomJoin: {
     snapshot(): Promise<import('./website-room-join.ts').WebsiteRoomJoinState | null>
     retry(requestId: string): Promise<void>

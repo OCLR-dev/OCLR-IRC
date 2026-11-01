@@ -27,6 +27,7 @@
 | [玩家槽位](m1/player-slots.md) | 槽位顯示與驗證範圍 |
 | [房內快捷操作](m1/manual-mp-controls.md) | 換圖、Mods、計時／倒數、開始／中止與確認流程 |
 | [背景執行](m1/background-running.md) | 平台差異、退出與生命週期 |
+| [帳號頭像](m1/account-avatar.md) | osu! 公開來源、本機快取與失敗回退 |
 | [網站 IRC 投影](m1/website-irc-relay.md) | 本機測試、授權、投影及命令確認限制 |
 | [OCLR 桌面接入](m1/oclr-read-integration.md) | 已實作的唯讀接入與待聯調項目 |
 | [PR409 接入契約與 JSON Schema](contracts/pr409-desktop-read.md) | 提供網站端實作的桌面 API 契約 |

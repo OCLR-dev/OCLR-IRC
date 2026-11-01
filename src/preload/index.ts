@@ -3,6 +3,14 @@ import type { DesktopAPI, Snapshot } from '../shared/types.ts'
 import type { OclrSnapshot } from '../shared/oclr-contracts.ts'
 
 const api: DesktopAPI = {
+  avatar: {
+    snapshot: () => ipcRenderer.invoke('app:avatar'),
+    onState: listener => {
+      const handler = (_event: Electron.IpcRendererEvent, state: import('../shared/avatar.ts').AvatarState) => listener(state)
+      ipcRenderer.on('app:avatar-state', handler)
+      return () => ipcRenderer.removeListener('app:avatar-state', handler)
+    }
+  },
   websiteRoomJoin: {
     snapshot: () => ipcRenderer.invoke('app:website-room-join'),
     retry: id => ipcRenderer.invoke('app:website-room-join-retry', id),

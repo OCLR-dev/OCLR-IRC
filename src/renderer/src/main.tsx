@@ -1,4 +1,5 @@
 import { Icon } from './icons'
+import { AccountAvatar } from './account-avatar'
 import { useTranslation } from 'react-i18next'
 import { SettingsView } from './settings'
 import { changeLocale, tr, uiLocale } from './i18n'
@@ -142,7 +143,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           <section className="login-section">
             <div className="section-kicker">ACCOUNT CONNECTION</div>
             <h1>{online ? tr("IRC 已連線") : tr("連接 osu! IRC")}</h1>
-            {online ? <div className="connected-panel"><span className="account-avatar">{state.username.slice(0, 1)}</span><h2>{state.username}</h2><Button className="primary-button" onPress={() => setPage('room')}>{tr("前往房間記錄")}<Icon name="arrow" /></Button><LogoutButton label={tr("登出 IRC")} onPress={() => void logout()} /></div> : <form onSubmit={login} className="login-form">
+            {online ? <div className="connected-panel"><AccountAvatar username={state.username} /><h2>{state.username}</h2><Button className="primary-button" onPress={() => setPage('room')}>{tr("前往房間記錄")}<Icon name="arrow" /></Button><LogoutButton label={tr("登出 IRC")} onPress={() => void logout()} /></div> : <form onSubmit={login} className="login-form">
               <TextField name="username" value={username} onChange={setUsername} isRequired isDisabled={connecting || busy} className="field">
                 <Label>{tr("osu! 使用者名稱")}</Label><Input placeholder={tr("你的 osu! 名稱")} autoComplete="username" maxLength={32} /><FieldError />
               </TextField>

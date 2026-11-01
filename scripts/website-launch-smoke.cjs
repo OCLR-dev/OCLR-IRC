@@ -12,6 +12,7 @@ shell.openExternal = async value => { opened.push(value) }
 const fixture = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`
 const url = n => `oclr-irc://connect?fixture=${fixture(n)}`
 process.argv.push(url(101))
+require('./mock-avatar-fetch.cjs')
 require('../out/main/index.js')
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 async function until(fn) { for (let i = 0; i < 100; i++) { if (await fn()) return; await delay(50) } throw Error('Launch UI timed out') }
