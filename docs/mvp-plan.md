@@ -287,3 +287,5 @@ OCLR 房名帶入：新建房間表單訂閱已選場次的唯讀 panel，優先
 2026-11-01 UX／RELEASE 增量：依使用者要求，重新整理／同步／查詢／重試入口統一免費 HeroUI refresh 圖示，保留提示及 accessible label；準備 0.8.1 納入自動帳號核對，三平台 CI／正式 macOS 簽章公證／成品驗證通過後發布。這是本次明確版本發布授權，其他 MVP 與實機 gate 保持原狀。
 
 2026-11-01 RELEASE 增量：依使用者要求準備 v0.8.2，新增 Windows NSIS EXE 及 macOS DMG，保留 portable。原生 CI 安裝／掛載／啟動與所有檔案完整性通過後發布，不將此宣稱為真實使用者升級、IME、provider 或完整 MVP 完成。詳見 release-ci.md，追蹤 #75。
+
+2026-11-01 UX 增量：OCLR／IRC 帳號頁、側欄與停止重連登出入口統一免費 HeroUI log out 圖示按鈕，保留本地化 Tooltip／aria-label 與原登出／撤銷邏輯；取消連線仍保留原語意。Node 24 型別檢查、203 項核心測試及完整 12 組 Electron smoke 通過，含 900×640 與 OCLR 登出不影響 IRC 的合成驗證。此為介面修改，不重新發布既有 v0.8.2 或操作真實登入。
