@@ -20,6 +20,7 @@ async function main() {
   const metadata = { version, commit: sha, platform, arch: process.arch, node: process.version, electron: require('electron/package.json').version,
     builtAt: new Date().toISOString(), run: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`, ...signing, installer, milestoneAccepted: false }
   fs.copyFileSync('THIRD_PARTY_NOTICES.md', path.join(source, 'THIRD_PARTY_NOTICES.md'))
+  fs.copyFileSync('licenses/INSTALLER-LICENSES.txt', path.join(source, 'INSTALLER-LICENSES.txt'))
   fs.writeFileSync(path.join(source, 'build-info.json'), JSON.stringify(metadata, null, 2) + '\n')
   const signingNote = signing.notarized ? 'macOS is Developer ID signed and Apple notarized; the ticket is stapled.' : 'No public identity signing/notarization; macOS uses an ad-hoc integrity signature.'
   fs.writeFileSync(path.join(source, 'README-TESTING.txt'), `OCLR IRC ${version} — internal test build\nCommit: ${sha}\n\nExtract the entire directory before launching. This is a portable test build, not an installer. ${signingNote}\nAcceptance guide: https://github.com/OCLR-dev/OCLR-IRC/blob/${sha}/docs/m1/platform-acceptance.md\nLinux credential persistence is disabled pending provider verification.\nCI tests use synthetic IRC; real IME, OS sleep and Bancho acceptance are still required.\n`)

@@ -35,6 +35,7 @@ async function main() {
     fs.symlinkSync('/Applications', path.join(staging, 'Applications'))
     fs.copyFileSync(path.join(source, 'build-info.json'), path.join(staging, 'build-info.json'))
     fs.copyFileSync(path.join(source, 'THIRD_PARTY_NOTICES.md'), path.join(staging, 'THIRD_PARTY_NOTICES.md'))
+    fs.copyFileSync(path.join(source, 'INSTALLER-LICENSES.txt'), path.join(staging, 'INSTALLER-LICENSES.txt'))
     execFileSync('hdiutil', ['create', '-volname', 'OCLR IRC', '-srcfolder', staging, '-fs', 'HFS+', '-format', 'UDZO', '-ov', target], { stdio: 'inherit' })
     if (metadata.signed) {
       const identity = process.env.MAC_SIGNING_IDENTITY, keychain = process.env.MAC_KEYCHAIN_PATH, profile = process.env.MAC_NOTARY_PROFILE

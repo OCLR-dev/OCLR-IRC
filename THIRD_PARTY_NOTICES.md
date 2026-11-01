@@ -41,3 +41,5 @@ The application uses i18next 26.5.12 and react-i18next 17.1.9 (MIT), with their 
 Windows installers are built from the existing packaged application with electron-builder 26.18.0 (MIT), Copyright (c) 2015 Loopline Systems. The build dependency is pinned in package-lock.json; its installed MIT license is retained. Source: <https://github.com/electron-userland/electron-builder>.
 
 The unmodified NSIS installer engine and compression components retain their respective licenses (zlib/libpng, bzip2, and CPL 1.0 with the NSIS LZMA linking exception). Copyright (C) 1999–2026 NSIS Contributors. License terms and source downloads: <https://nsis.sourceforge.io/License> and <https://nsis.sourceforge.io/Download>. The OCLR application remains separately MIT licensed; these components are not authored by OCLR. macOS disk images are created with the operating system's native tooling.
+
+The NSIS StdUtils plugin, Copyright (C) 2004–2018 LoRd_MuldeR, is LGPL 2.1 or later. Complete NSIS/CPL, LGPL 2.1 and builder MIT license texts and source locations are included in licenses/INSTALLER-LICENSES.txt and copied beside the packaged application and into the DMG.
