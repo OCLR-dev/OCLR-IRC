@@ -1,5 +1,7 @@
 # GitHub Release CI
 
+2026-11-01 v0.8.3：依使用者本次明確授權，整合登出圖示、osu! 頭像快取、啟動恢復 IRC 登入及已合併的系統匣退出入口。版本／介面同步至 0.8.3；通過三平台 PR CI 後建立未使用的 v0.8.3 tag，再由 Release CI 驗證、簽章公證及公開。更新內容見 [v0.8.3](releases/v0.8.3.md)，發布與本機更新驗收追蹤 #84，結果以對應提交及 run 為準。
+
 2026-10-28：新增 `.github/workflows/release.yml`，共用既有三平台 `test-builds.yml` 的 workflow_call，避免 Release 與測試版使用不同打包流程。
 
 ## 觸發與輸出
