@@ -25,3 +25,9 @@ export function RefreshButton({ label, disabled, busy, onPress, variant = 'ghost
 }) {
   return <Tooltip delay={400}><Button type="button" isIconOnly size="sm" variant={variant} className="refresh-button" aria-label={label} aria-busy={busy || undefined} isDisabled={disabled || busy} onPress={onPress}><Icon name="refresh" /></Button><Tooltip.Content>{label}</Tooltip.Content></Tooltip>
 }
+
+export function LogoutButton({ label, disabled, onPress }: {
+  label: string; disabled?: boolean; onPress: () => void
+}) {
+  return <Tooltip delay={400}><Button type="button" isIconOnly size="sm" variant="ghost" className="logout-button" aria-label={label} isDisabled={disabled} onPress={onPress}><Icon name="logout" /></Button><Tooltip.Content>{label}</Tooltip.Content></Tooltip>
+}

@@ -5,7 +5,7 @@ import { changeLocale, tr, uiLocale } from './i18n'
 import { DEFAULT_PREFERENCES, resolveLocale, type AppSettings } from '../../shared/preferences'
 import { OperationsView } from './operations'
 import { JournalView } from './journal'
-import { WorkspaceSelect, WorkspaceCheckbox, RefreshButton } from './controls'
+import { WorkspaceSelect, WorkspaceCheckbox, RefreshButton, LogoutButton } from './controls'
 import { MatchStatus } from './match-status'
 import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -123,10 +123,10 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         <button className={page === 'operations' ? 'nav-item selected' : 'nav-item'} title={tr("操作記錄")} aria-current={page === 'operations' ? 'page' : undefined} onClick={() => setPage('operations')}><Icon name="history" /><span className="nav-label">{tr("操作記錄")}</span></button>
       </nav>
       <div className="sidebar-settings"><button className={page === 'settings' ? 'nav-item selected' : 'nav-item'} title={tr("設定")} aria-current={page === 'settings' ? 'page' : undefined} onClick={() => setPage('settings')}><Icon name="settings" /><span className="nav-label">{tr("設定")}</span></button></div>
-      <div className="sidebar-footer" role="status" aria-label={`${state.username || 'osu! IRC'} · ${tr(statusText[state.connection])}`} title={`${state.username || 'osu! IRC'} · ${tr(statusText[state.connection])}`}><span className={`status-dot ${online ? 'online' : connecting ? 'connecting' : ''}`} aria-hidden="true" /><div><strong>{state.username || 'osu! IRC'}</strong><span>{tr(statusText[state.connection])}</span></div>{state.username && <Button isIconOnly variant="ghost" aria-label={tr("登出 IRC")} onPress={() => void logout()}><Icon name="logout" /></Button>}</div>
+      <div className="sidebar-footer" role="status" aria-label={`${state.username || 'osu! IRC'} · ${tr(statusText[state.connection])}`} title={`${state.username || 'osu! IRC'} · ${tr(statusText[state.connection])}`}><span className={`status-dot ${online ? 'online' : connecting ? 'connecting' : ''}`} aria-hidden="true" /><div><strong>{state.username || 'osu! IRC'}</strong><span>{tr(statusText[state.connection])}</span></div>{state.username && <LogoutButton label={tr("登出 IRC")} onPress={() => void logout()} />}</div>
     </aside>
     <div className="workspace">
-      {state.connection !== 'online' && state.username && <div className="reconnect-notice" role="status">{tr(statusText[state.connection])}{state.retryAttempt > 0 && tr(" · 第 {{v0}}/5 次重試", { v0: state.retryAttempt })}{state.retryAt && tr(" · {{v0}} 重試", { v0: new Date(state.retryAt).toLocaleTimeString(uiLocale()) })}{state.connection === 'error' && <RefreshButton label={tr("重新連線")} onPress={() => { void window.oclr?.retry().then(result => { if (!result.ok) setFormError(result.error || '重試失敗') }).catch(() => setFormError('桌面服務無法回應。')) }} />}<Button size="sm" variant="ghost" onPress={() => void logout()}>{tr("停止並登出")}</Button></div>}
+      {state.connection !== 'online' && state.username && <div className="reconnect-notice" role="status">{tr(statusText[state.connection])}{state.retryAttempt > 0 && tr(" · 第 {{v0}}/5 次重試", { v0: state.retryAttempt })}{state.retryAt && tr(" · {{v0}} 重試", { v0: new Date(state.retryAt).toLocaleTimeString(uiLocale()) })}{state.connection === 'error' && <RefreshButton label={tr("重新連線")} onPress={() => { void window.oclr?.retry().then(result => { if (!result.ok) setFormError(result.error || '重試失敗') }).catch(() => setFormError('桌面服務無法回應。')) }} />}<LogoutButton label={tr("停止並登出")} onPress={() => void logout()} /></div>}
       <main>
         {roomRequest && roomRequest.status !== 'joined' && <section className="oclr-session" aria-label={tr("重新加入房間")}>
           <div><strong>#{`mp_${roomRequest.roomId}`}</strong><span role="status">{roomRequest.status === 'pending' ? tr("請先登入 osu! IRC。") : roomRequest.status === 'error' ? tr("未能加入房間。") : tr("正在加入房間…")}</span></div>
@@ -142,7 +142,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           <section className="login-section">
             <div className="section-kicker">ACCOUNT CONNECTION</div>
             <h1>{online ? tr("IRC 已連線") : tr("連接 osu! IRC")}</h1>
-            {online ? <div className="connected-panel"><span className="account-avatar">{state.username.slice(0, 1)}</span><h2>{state.username}</h2><Button className="primary-button" onPress={() => setPage('room')}>{tr("前往房間記錄")}<Icon name="arrow" /></Button><Button variant="ghost" onPress={() => void logout()}>{tr("登出")}</Button></div> : <form onSubmit={login} className="login-form">
+            {online ? <div className="connected-panel"><span className="account-avatar">{state.username.slice(0, 1)}</span><h2>{state.username}</h2><Button className="primary-button" onPress={() => setPage('room')}>{tr("前往房間記錄")}<Icon name="arrow" /></Button><LogoutButton label={tr("登出 IRC")} onPress={() => void logout()} /></div> : <form onSubmit={login} className="login-form">
               <TextField name="username" value={username} onChange={setUsername} isRequired isDisabled={connecting || busy} className="field">
                 <Label>{tr("osu! 使用者名稱")}</Label><Input placeholder={tr("你的 osu! 名稱")} autoComplete="username" maxLength={32} /><FieldError />
               </TextField>
