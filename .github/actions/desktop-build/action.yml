@@ -63,6 +63,13 @@ runs:
       id: archive
       shell: bash
       run: node scripts/archive-test-build.cjs
+    - name: Create native installers
+      shell: bash
+      run: node scripts/create-installers.cjs
+    - name: Verify native installer and installed app
+      if: runner.os != 'Linux'
+      shell: bash
+      run: node scripts/verify-installer.cjs
     - name: Verify extracted archive identity and packaged startup
       if: runner.os != 'Linux'
       shell: bash

@@ -55,3 +55,5 @@ macOS 已完成 Developer ID 憑證與 Team API credentials 驗證、Hardened Ru
 首次執行發現 reusable workflow 雖宣告 environment，仍需由呼叫端逐層傳遞具名 secrets；已依 [GitHub 官方說明](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows#using-inputs-and-secrets-in-a-reusable-workflow) 修正。失敗的第一次 run 未匯入私鑰，也未產生簽章成品；以上結果來自修正後的完整重跑。
 
 本次證據確立 CI 的簽章、公證、staple、Gatekeeper 與啟動檢查；使用者瀏覽器下載後的首次開啟、真實 IME／休眠／IRC 與其餘 M1 實機驗收仍依原清單進行。
+
+0.8.2 起正式發布亦產生 DMG：既有 App 公證後，以相同 Developer ID 簽署 DMG，notarytool 單次提交並等待 Accepted，再 staple／validate；DMG 與掛載後 App 均驗證，原 ZIP 保留。只有明確 Apple 傳輸錯誤的只讀 validate／assess 可有限重試，無效簽章不重試也不放行。實際成功仍以版本對應 run 為準。

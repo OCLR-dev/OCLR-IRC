@@ -9,7 +9,7 @@
 - [GitHub Releases](https://github.com/OCLR-dev/OCLR-IRC/releases)：已發布的預覽版、校驗碼與建置資訊。
 - [Desktop test builds](https://github.com/OCLR-dev/OCLR-IRC/actions/workflows/test-builds.yml)：指定提交的測試包；需登入 GitHub，Artifacts 保留 30 天。
 
-提供 Windows x64、Linux x64 與 macOS Apple Silicon arm64。一般 CI 的 macOS 測試包未經 Apple 公證；請以各次下載附帶的簽章與建置資訊為準。
+發布格式：Windows x64 安裝精靈 EXE／備用 ZIP、macOS Apple Silicon arm64 拖放安裝 DMG／備用 ZIP，以及 Linux x64 tar.gz。Windows 執行 Setup EXE；macOS 開啟 DMG 後將 App 拖至 Applications，再退出映像並從應用程式啟動。一般 CI 的 macOS 測試包未經 Apple 公證；請以各次下載附帶的簽章與建置資訊為準。
 
 ## 主要功能
 
