@@ -83,7 +83,7 @@ async function main() {
     console.log(JSON.stringify(report))
   })
   assert.ok(!trayMenu || !trayMenu.items.some(item => item.label === '退出程式'))
-  assert.equal((await js('window.oclr.settings.update({closeToBackground:false,language:"zh-Hant"})')).ok, true)
+  assert.equal((await js('window.oclr.settings.update({restoreIrcLogin:false,closeToBackground:false,language:"zh-Hant"})')).ok, true)
   window.close()
 }
 main().catch(error => { console.error(error.stack); app.exit(1) })

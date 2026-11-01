@@ -29,6 +29,10 @@ export function SettingsView({ settings, onChange }: { settings: AppSettings; on
         <Tabs.Tab id="about">{tr('關於')}<Tabs.Indicator /></Tabs.Tab>
       </Tabs.List></Tabs.ListContainer>
       <Tabs.Panel id="general">
+        <section className="settings-section"><h2>{tr('IRC 登入')}</h2>
+          <WorkspaceCheckbox name="restoreIrcLogin" selected={settings.preferences.restoreIrcLogin} disabled={busy || !window.oclr || !settings.secureStorageAvailable && !settings.preferences.restoreIrcLogin} onChange={value => void save({ restoreIrcLogin: value })}>{tr('啟動時恢復上次 IRC 登入')}</WorkspaceCheckbox>
+          <p>{tr(settings.secureStorageAvailable ? '使用系統安全儲存保存登入；手動登出後不會自動連線。' : '系統安全儲存不可用，將使用手動登入。')}</p>
+        </section>
         <section className="settings-section"><h2>{tr('視窗行為')}</h2>
           <WorkspaceCheckbox name="closeToBackground" selected={settings.preferences.closeToBackground} disabled={busy || !window.oclr} onChange={value => void save({ closeToBackground: value })}>{tr('關閉視窗後在背景執行')}</WorkspaceCheckbox>
           <p>{tr('保留連線，可從系統匣、Dock 或工作列重新開啟。')}</p>
