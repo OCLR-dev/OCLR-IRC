@@ -1,4 +1,5 @@
-import { Checkbox, Label, ListBox, Select } from '@heroui/react'
+import { Icon } from './icons'
+import { Button, Checkbox, Label, ListBox, Select, Tooltip } from '@heroui/react'
 import type { ReactNode } from 'react'
 
 export function WorkspaceSelect({ label, value, onChange, options, disabled, className = '' }: {
@@ -17,4 +18,10 @@ export function WorkspaceCheckbox({ children, selected, onChange, disabled, name
   return <Checkbox className="workspace-checkbox" isSelected={selected} onChange={onChange} isDisabled={disabled} name={name}>
     <Checkbox.Content><Checkbox.Control><Checkbox.Indicator /></Checkbox.Control><Label>{children}</Label></Checkbox.Content>
   </Checkbox>
+}
+
+export function RefreshButton({ label, disabled, busy, onPress, variant = 'ghost' }: {
+  label: string; disabled?: boolean; busy?: boolean; onPress: () => void; variant?: 'ghost' | 'secondary'
+}) {
+  return <Tooltip delay={400}><Button type="button" isIconOnly size="sm" variant={variant} className="refresh-button" aria-label={label} aria-busy={busy || undefined} isDisabled={disabled || busy} onPress={onPress}><Icon name="refresh" /></Button><Tooltip.Content>{label}</Tooltip.Content></Tooltip>
 }

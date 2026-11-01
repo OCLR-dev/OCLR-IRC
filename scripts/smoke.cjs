@@ -97,6 +97,7 @@ async function main() {
   await fill('.join-form input', '900000001')
   await js('document.querySelector(".join-form button[type=submit]").click()')
   await until(() => js('!document.querySelector(".query-actions button").disabled'))
+  assert.deepEqual(await js('Array.from(document.querySelectorAll(".query-actions button")).map(b => [b.getAttribute("aria-label"), b.textContent.trim(), Boolean(b.querySelector("svg"))])'), [['讀取設定', '', true], ['裁判名單', '', true]])
   await delay(1100)
   await js('document.querySelectorAll(".query-actions button")[0].click()')
   await until(() => js('document.body.textContent.includes("History 連結相符")'))

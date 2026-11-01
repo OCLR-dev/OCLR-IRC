@@ -127,3 +127,7 @@ Main 提供固定來源的內部 createWebsiteRoom，relay 與候選 FixtureCrea
 已有 IRC 登入時，沿用一般 join 的節流、分頁上限、離開中拒絕與房間核對。已加入或正在加入的房間只選取原分頁；新房間等待真實 JOIN 觀測後才顯示已加入。未登入時請求留記憶體最多十分鐘，顯示帳號畫面，成功登入後加入。登出、休眠、取消、登入世代改變會清除待處理請求；失敗不自動重試，只接受使用者再點連結或重試。關閉提示不會退出已開始加入的房間。網站導入的房間在加入前即排除 IRC-only 日誌。
 
 冷啟動 argv、open-url、second-instance 共用此 Main 路徑。需更新兩端與安裝新版桌面程式；瀏覽器仍可能要求允許開啟本機 App。合成測試涵蓋解析、延後登入、去重、取消、世代隔離、失敗與真實 Main/preload/renderer 的本機 IRC；不代表真實 Bancho 或三平台 OS 協定提示驗收。
+
+v0.8.1 發布準備（2026-11-01）：依使用者要求將上述自動帳號核對納入新版本，同步把資料更新與重試入口改為共用 HeroUI refresh 圖示，具本地化 Tooltip／aria-label 及忙碌停用；更新／查詢的目標、權限與不重送規則不變。此段不預告 CI 或公開發布已成功，實際成品以對應 Release run 為準。
+
+本輪本機驗證：Node.js 24.22.2 typecheck、200 項核心／契約測試、完整 12 組 Electron synthetic smoke 通過；包含 refresh 圖示／無障礙名稱、Tooltip 鍵盤提示、實際面板更新、日誌讀取及 900×640。版本／tag validator 已以 v0.8.1 驗證一致；未操作真實 OAuth／Bancho，公開發布須以實際 Release run 為準。

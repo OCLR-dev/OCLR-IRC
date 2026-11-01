@@ -117,6 +117,7 @@ async function main() {
   await until(() => js('document.querySelector(".account-pairing")?.textContent.includes("已自動核對")'))
   assert.equal(await js('Boolean(document.querySelector(".account-pairing input[type=checkbox]"))'), false)
   assert.equal((await js('window.oclr.website.snapshot()')).pairing.status, 'nickname_matched')
+  assert.equal(await js('Boolean(document.querySelector(\'.refresh-button[aria-label="重新整理場次"] svg\'))'), true)
   await js('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
   fs.writeFileSync(path.join(output, 'oclr-automatic-pairing-synthetic.png'), (await window.webContents.capturePage()).toPNG())
   await js('window.oclr.logout()')
@@ -128,6 +129,13 @@ async function main() {
   assert.equal(await js('Boolean(document.querySelector(".account-pairing input[type=checkbox]"))'), false)
   await js('document.querySelector(".oclr-fixture").click()')
   await until(() => js('Boolean(document.querySelector(".oclr-settings"))'))
+  const beforeRefresh = requests.length
+  await js('document.querySelector(\'.refresh-button[aria-label="更新面板"]\').focus()')
+  await until(() => js('Array.from(document.querySelectorAll(\'[role="tooltip"]\')).some(t => t.textContent.includes("更新面板"))'))
+  await js('document.querySelector(\'.refresh-button[aria-label="更新面板"]\').click()')
+  await until(() => requests.slice(beforeRefresh).some(request => request.path.endsWith('/panel')))
+  await until(() => js('!document.querySelector(\'.refresh-button[aria-label="更新面板"]\').disabled'))
+
   await until(() => js(`!document.querySelector('button[aria-label="複製 make"]').disabled`))
   assert.equal(await js('Boolean(document.querySelector(".oclr-panel input"))'), false)
   await js(`document.querySelector('button[aria-label="複製 make"]').click()`)
