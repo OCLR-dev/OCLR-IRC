@@ -2,7 +2,7 @@ import { tr, uiLocale } from './i18n'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@heroui/react'
 import type { JournalEntry, JournalState } from '../../shared/types'
-import { WorkspaceCheckbox, WorkspaceSelect } from './controls'
+import { WorkspaceCheckbox, WorkspaceSelect, RefreshButton } from './controls'
 
 export function JournalView() {
   const [state, setState] = useState<JournalState | null>(null)
@@ -33,7 +33,7 @@ export function JournalView() {
     <div className="journal-toolbar">
       <WorkspaceCheckbox selected={state?.enabled ?? true} disabled={!api || busy || !state} onChange={enabled => { if (!enabled) setConfirm('disable'); else if (api) void run(() => api.setEnabled(true)) }}>{tr("保存加密 IRC 日誌 · 7 天")}</WorkspaceCheckbox>
       <span role="status">{state && ({ saving: tr("正在保存"), memory_only: tr("僅記憶體"), failed: tr("保存失敗") })[state.status]}</span>
-      <Button variant="secondary" size="sm" isDisabled={!state?.account || busy} onPress={() => api && void run(() => api.read())}>{tr("讀取歷史")}</Button>
+      <RefreshButton variant="secondary" label={tr("讀取歷史")} disabled={!state?.account} busy={busy} onPress={() => api && void run(() => api.read())} />
     </div>
     <div className="journal-toolbar">
       <WorkspaceSelect label={tr("日誌範圍")} value={room} onChange={setRoom} options={[{ value: 'account', label: tr("本帳號所有對話") }, ...rooms.map(value => ({ value, label: value }))]} />

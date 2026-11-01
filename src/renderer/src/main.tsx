@@ -1,10 +1,11 @@
+import { Icon } from './icons'
 import { useTranslation } from 'react-i18next'
 import { SettingsView } from './settings'
 import { changeLocale, tr, uiLocale } from './i18n'
 import { DEFAULT_PREFERENCES, resolveLocale, type AppSettings } from '../../shared/preferences'
 import { OperationsView } from './operations'
 import { JournalView } from './journal'
-import { WorkspaceSelect, WorkspaceCheckbox } from './controls'
+import { WorkspaceSelect, WorkspaceCheckbox, RefreshButton } from './controls'
 import { MatchStatus } from './match-status'
 import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -20,22 +21,7 @@ import { FixtureSource, FixturePool, FixtureRoster, useFixtureSource } from './f
 declare global { interface Window { oclr?: DesktopAPI } }
 const initial: Snapshot = { creation: { status: 'unreviewed', requestId: '', roomId: null, message: null }, retryAttempt: 0, retryAt: null, connection: 'offline', username: '', room: null, pending: null, error: null, messages: [], rooms: [], leavingChannels: [], messageStartIndex: 1 }
 const statusText = { offline: '未連線', connecting: '正在連線', online: '已連線', error: '連線失敗', reconnecting: '正在重連', suspended: '休眠暫停' }
-function Icon({ name }: { name: 'connect' | 'room' | 'trophy' | 'document' | 'history' | 'arrow' | 'logout' | 'key' | 'eye' | 'menu' | 'settings' }) {
-  const paths = {
-    connect: <><path d="M8 7V3m8 4V3M6 7h12v4a6 6 0 0 1-12 0V7Zm6 10v4" /></>,
-    room: <><path d="M4 5h16v12H9l-5 4V5Z" /><path d="M8 9h8M8 13h5" /></>,
-    trophy: <><path d="M7 3h10v5a5 5 0 0 1-10 0V3ZM7 5H3v2a4 4 0 0 0 4 4m10-6h4v2a4 4 0 0 1-4 4" /><path d="M12 13v5m-4 3h8m-7-3h6v3H9v-3Z" /></>,
-    document: <><path d="M14 3H5v18h14V8l-5-5ZM14 3v5h5" /><path d="M8 12h8M8 16h6" /></>,
-    history: <><path d="M3 11a9 9 0 1 1 2.4 6.1M3 4v7h7" /><path d="M12 7v5l3 2" /></>,
-    settings: <><path d="m9 3-.5 3-2 1L4 6 2 10l2.5 2v2L2 16l2 4 2.5-1 2 1 .5 3h6l.5-3 2-1 2.5 1 2-4-2.5-2v-2L22 10l-2-4-2.5 1-2-1-.5-3H9Z" transform="translate(0 -1) scale(1 .96)" /><circle cx="12" cy="11.5" r="3" /></>,
-    arrow: <path d="M5 12h14m-6-6 6 6-6 6" />,
-    menu: <path d="M4 6h16M4 12h16M4 18h16" />,
-    logout: <><path d="M9 4H4v16h5m5-13 5 5-5 5m-5-5h14" /></>,
-    key: <><circle cx="8" cy="8" r="4" /><path d="m11 11 9 9m-3-3 3-3m-6 0 3-3" /></>,
-    eye: <><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></>
-  }
-  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>
-}
+
 function App({ initialSettings }: { initialSettings: AppSettings }) {
   useTranslation()
   const [settings, setSettings] = useState(initialSettings)
@@ -140,11 +126,11 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       <div className="sidebar-footer" role="status" aria-label={`${state.username || 'osu! IRC'} · ${tr(statusText[state.connection])}`} title={`${state.username || 'osu! IRC'} · ${tr(statusText[state.connection])}`}><span className={`status-dot ${online ? 'online' : connecting ? 'connecting' : ''}`} aria-hidden="true" /><div><strong>{state.username || 'osu! IRC'}</strong><span>{tr(statusText[state.connection])}</span></div>{state.username && <Button isIconOnly variant="ghost" aria-label={tr("登出 IRC")} onPress={() => void logout()}><Icon name="logout" /></Button>}</div>
     </aside>
     <div className="workspace">
-      {state.connection !== 'online' && state.username && <div className="reconnect-notice" role="status">{tr(statusText[state.connection])}{state.retryAttempt > 0 && tr(" · 第 {{v0}}/5 次重試", { v0: state.retryAttempt })}{state.retryAt && tr(" · {{v0}} 重試", { v0: new Date(state.retryAt).toLocaleTimeString(uiLocale()) })}{state.connection === 'error' && <Button size="sm" variant="ghost" onPress={() => { void window.oclr?.retry().then(result => { if (!result.ok) setFormError(result.error || '重試失敗') }).catch(() => setFormError('桌面服務無法回應。')) }}>{tr("重新連線")}</Button>}<Button size="sm" variant="ghost" onPress={() => void logout()}>{tr("停止並登出")}</Button></div>}
+      {state.connection !== 'online' && state.username && <div className="reconnect-notice" role="status">{tr(statusText[state.connection])}{state.retryAttempt > 0 && tr(" · 第 {{v0}}/5 次重試", { v0: state.retryAttempt })}{state.retryAt && tr(" · {{v0}} 重試", { v0: new Date(state.retryAt).toLocaleTimeString(uiLocale()) })}{state.connection === 'error' && <RefreshButton label={tr("重新連線")} onPress={() => { void window.oclr?.retry().then(result => { if (!result.ok) setFormError(result.error || '重試失敗') }).catch(() => setFormError('桌面服務無法回應。')) }} />}<Button size="sm" variant="ghost" onPress={() => void logout()}>{tr("停止並登出")}</Button></div>}
       <main>
         {roomRequest && roomRequest.status !== 'joined' && <section className="oclr-session" aria-label={tr("重新加入房間")}>
           <div><strong>#{`mp_${roomRequest.roomId}`}</strong><span role="status">{roomRequest.status === 'pending' ? tr("請先登入 osu! IRC。") : roomRequest.status === 'error' ? tr("未能加入房間。") : tr("正在加入房間…")}</span></div>
-          {roomRequest.status === 'error' && <Button onPress={() => void window.oclr?.websiteRoomJoin.retry(roomRequest.requestId).catch(() => setFormError('桌面服務無法回應。'))}>{tr("重新加入房間")}</Button>}
+          {roomRequest.status === 'error' && <RefreshButton label={tr("重新加入房間")} onPress={() => void window.oclr?.websiteRoomJoin.retry(roomRequest.requestId).catch(() => setFormError('桌面服務無法回應。'))} />}
           <Button variant="ghost" onPress={() => void window.oclr?.websiteRoomJoin.clear()}>{tr("關閉")}</Button>
         </section>}
         {launch && (page === 'account' || page === 'oclr') && <section className="oclr-session" aria-label={tr("網站連接請求")}>
@@ -198,7 +184,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           </div>}
           {error && (!connecting || formError || state.credentialError) && <div className="error-message room-error" role="alert">{tr(error)}</div>}
           <div className={`room-grid ${state.room ? '' : 'room-grid-empty'}`}><section className="conversation" aria-label={tr("房間訊息")}>
-            <div className="conversation-header"><div className="conversation-title"><h2>{state.room?.name || state.room?.channel || tr("尚未加入房間")}</h2><div className="conversation-meta"><span className="channel-name">{state.room?.channel}</span><span className="query-status" role="status" aria-label={state.pending ? tr("正在等待伺服器回覆…") : undefined}>{state.pending && <><Spinner size="sm" aria-hidden="true" /><span>{tr("正在等待伺服器回覆…")}</span></>}</span></div></div><div className="query-actions"><Button size="sm" variant="ghost" isDisabled={!online || !state.room?.joined || state.room.kind !== 'match' || Boolean(state.pending)} onPress={() => void query('settings')}>{tr("讀取設定")}</Button><Button size="sm" variant="ghost" isDisabled={!online || !state.room?.joined || state.room.kind !== 'match' || Boolean(state.pending)} onPress={() => void query('listrefs')}>{tr("裁判名單")}</Button></div></div>
+            <div className="conversation-header"><div className="conversation-title"><h2>{state.room?.name || state.room?.channel || tr("尚未加入房間")}</h2><div className="conversation-meta"><span className="channel-name">{state.room?.channel}</span><span className="query-status" role="status" aria-label={state.pending ? tr("正在等待伺服器回覆…") : undefined}>{state.pending && <><Spinner size="sm" aria-hidden="true" /><span>{tr("正在等待伺服器回覆…")}</span></>}</span></div></div><div className="query-actions"><RefreshButton label={tr("讀取設定")} disabled={!online || !state.room?.joined || state.room.kind !== 'match'} busy={Boolean(state.pending)} onPress={() => void query('settings')} /><RefreshButton label={tr("裁判名單")} disabled={!online || !state.room?.joined || state.room.kind !== 'match'} busy={Boolean(state.pending)} onPress={() => void query('listrefs')} /></div></div>
             {state.room?.kind === 'match' && <MatchStatus room={state.room} />}
             <MessageList key={`messages-${state.room?.epoch ?? 0}`} state={state} onError={setFormError} />
             <Composer key={`composer-${state.room?.epoch ?? 0}-${state.connection}`} state={state} onError={setFormError} />
@@ -214,7 +200,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   </div>
 }
 async function bootstrap() {
-  let settings: AppSettings = { preferences: { ...DEFAULT_PREFERENCES }, locale: resolveLocale('system', navigator.languages), version: '0.8.0', platform: '' }
+  let settings: AppSettings = { preferences: { ...DEFAULT_PREFERENCES }, locale: resolveLocale('system', navigator.languages), version: '0.8.1', platform: '' }
   try { if (window.oclr) settings = await window.oclr.settings.snapshot() } catch { /* Preview defaults; never read credentials here. */ }
   await changeLocale(settings.locale)
   createRoot(document.getElementById('root')!).render(<App initialSettings={settings} />)

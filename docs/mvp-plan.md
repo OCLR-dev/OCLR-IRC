@@ -283,3 +283,5 @@ OCLR 房名帶入：新建房間表單訂閱已選場次的唯讀 panel，優先
 2026-11-01：PAIR-01 依使用者要求改為 Main 自動名稱配對，取代 2026-10-30 的人工勾選。移除確認 IPC、人工核對 token／reviewed；成功 IRC 登入＋OCLR subject 名稱相符即可配對，空格＝底線且忽略大小寫。雙方登入世代／原始名稱／subject ID 變動仍停止舊 relay，不自動恢復投影或重送。核心與 Electron 合成覆蓋自動相符、未知／不符、重新登入、晚到回覆及無人工確認入口；真實 OAuth／Bancho／三平台實機仍另驗，INT-01／02 保持 partial。
 
 2026-11-01：INT-01／02 房間導覽增量提供網站「重新加入房間」與固定 join URI；已有 IRC 登入即走一般 JOIN，離線待登入、已加入只選取、不自動重試變更操作。此功能不授權場次或啟用 relay；核心及 Electron 合成驗證與 OS／真實 Bancho 驗收分開，INT-01／02 保持 partial。見 [網站 IRC 投影](m1/website-irc-relay.md)。
+
+2026-11-01 UX／RELEASE 增量：依使用者要求，重新整理／同步／查詢／重試入口統一免費 HeroUI refresh 圖示，保留提示及 accessible label；準備 0.8.1 納入自動帳號核對，三平台 CI／正式 macOS 簽章公證／成品驗證通過後發布。這是本次明確版本發布授權，其他 MVP 與實機 gate 保持原狀。
