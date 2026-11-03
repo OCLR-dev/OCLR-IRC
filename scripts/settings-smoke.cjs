@@ -57,11 +57,12 @@ async function main() {
   assert.equal(settings.locale, 'en')
   assert.equal(settings.preferences.language, restart ? 'en' : 'system')
   assert.equal(settings.preferences.closeToBackground, !restart)
+  assert.equal(settings.preferences.autoRefreshOclr, !restart)
   assert.equal(await js('document.documentElement.lang'), 'en')
   assert.equal(await js('document.body.textContent.includes("Quit")'), false)
   assert.equal(await js('Boolean(document.querySelector(".sidebar-note"))'), false)
   assert.throws(() => handlers.get('app:avatar')({ sender: window.webContents, senderFrame: { url: 'https://untrusted.invalid' } }), /Untrusted/)
-  await assert.rejects(handlers.get('app:settings-update')({ sender: window.webContents, senderFrame: { url: 'https://untrusted.invalid' } }, { closeToBackground: false, language: 'en', restoreIrcLogin: false }), /Untrusted/)
+  await assert.rejects(handlers.get('app:settings-update')({ sender: window.webContents, senderFrame: { url: 'https://untrusted.invalid' } }, { closeToBackground: false, language: 'en', restoreIrcLogin: false, autoRefreshOclr: false }), /Untrusted/)
   if (!restart) {
     try {
       for (const [width, height, size] of [[1440, 900, 64], [1920, 1080, 80], [1440, 700, 40]]) {
@@ -80,6 +81,10 @@ async function main() {
     await js('document.querySelector(".sidebar-settings button").click()')
     await until(() => js('Boolean(document.querySelector(".language-select"))'))
     window.setSize(900, 640)
+    assert.equal(await js('document.querySelector("input[name=autoRefreshOclr]").checked'), true)
+    await js('document.querySelector("input[name=autoRefreshOclr]").click()')
+    await until(() => js('(async () => !(await window.oclr.settings.snapshot()).preferences.autoRefreshOclr)()'))
+    await until(() => js('!document.querySelector("input[name=closeToBackground]").disabled'))
     await js('document.querySelector("input[name=closeToBackground]").click()')
     await until(() => js('(async () => !(await window.oclr.settings.snapshot()).preferences.closeToBackground)()'))
     async function choose(value, locale, preference) {
@@ -90,10 +95,13 @@ async function main() {
       await until(() => js(`document.documentElement.lang===${JSON.stringify(locale)}`))
       await until(() => js(`(async () => (await window.oclr.settings.snapshot()).preferences.language===${JSON.stringify(preference)})()`))
       await until(() => js('document.querySelector(".language-select button[aria-haspopup]").getAttribute("aria-expanded")!=="true"'))
+      await until(() => js('!document.querySelector("[role=option]")'))
     }
     await choose('简体中文', 'zh-Hans', 'zh-Hans')
+    assert.equal(await js('document.querySelector(".settings-section:has(input[name=autoRefreshOclr]) .label").textContent'), '自动更新 OCLR 网站数据')
     assert.equal(await js('document.querySelector(".settings-view h1").textContent'), '设置')
     await choose('繁體中文', 'zh-Hant', 'zh-Hant')
+    assert.equal(await js('document.querySelector(".settings-section:has(input[name=autoRefreshOclr]) .label").textContent'), '自動更新 OCLR 網站資料')
     assert.equal(await js('document.querySelector(".settings-view h1").textContent'), '設定')
     await choose('跟隨系統', 'en', 'system')
     osLanguages = ['zh-TW']; window.emit('focus')
@@ -103,6 +111,7 @@ async function main() {
     await until(() => js('document.documentElement.lang==="en"'))
     await choose('English', 'en', 'en')
     assert.equal(await js('document.querySelector(".settings-view h1").textContent'), 'Settings')
+    assert.equal(await js('document.querySelector(".settings-section:has(input[name=autoRefreshOclr]) .label").textContent'), 'Automatically update OCLR website data')
     assert.equal(await js('document.documentElement.scrollWidth<=innerWidth'), true)
     assert.ok((await js('document.querySelector(".settings-section:has(input[name=closeToBackground]) .label").textContent')).endsWith('closed'))
     assert.equal(await js('document.querySelector(".settings-section:has(input[name=restoreIrcLogin]) .label").textContent'), 'Restore the last IRC login on startup')
@@ -142,7 +151,7 @@ async function main() {
     await until(() => js('document.querySelector(".message-area").textContent.includes("已連線 原文")'))
     await js('(() => { const el=document.querySelector("input[name=chat]"); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set.call(el,"Draft 未知"); el.dispatchEvent(new Event("input",{bubbles:true})) })()')
     const before = sent.length
-    await js('window.oclr.settings.update({restoreIrcLogin:false,closeToBackground:false,language:"zh-Hans"})')
+    await js('window.oclr.settings.update({autoRefreshOclr:false,restoreIrcLogin:false,closeToBackground:false,language:"zh-Hans"})')
     await until(() => js('document.documentElement.lang==="zh-Hans"'))
     assert.equal(await js('document.querySelector(".conversation-title h2").textContent'), '未知 房間')
     assert.ok((await js('document.querySelector(".match-status").textContent')).includes('歌曲 原文'))
@@ -150,7 +159,7 @@ async function main() {
     assert.ok((await js('document.querySelector(".message-area").textContent')).includes('已連線 原文'))
     assert.equal(await js('document.querySelector("input[name=chat]").value'), 'Draft 未知')
     assert.equal(sent.length, before)
-    await js('window.oclr.settings.update({restoreIrcLogin:false,closeToBackground:false,language:"en"})')
+    await js('window.oclr.settings.update({autoRefreshOclr:false,restoreIrcLogin:false,closeToBackground:false,language:"en"})')
     await until(() => js('document.querySelector(".tools-heading").textContent.includes("Room tools")'))
     assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom<=innerHeight'), true)
   }
@@ -160,7 +169,7 @@ async function main() {
     const state = handlers.get('irc:snapshot')({ sender: window.webContents, senderFrame: window.webContents.mainFrame })
     assert.equal(state.connection, 'offline')
     const saved = JSON.parse(fs.readFileSync(path.join(profile, 'preferences.json'), 'utf8'))
-    assert.deepEqual(saved.preferences, { closeToBackground: false, language: 'en', restoreIrcLogin: false })
+    assert.deepEqual(saved.preferences, { closeToBackground: false, language: 'en', restoreIrcLogin: false, autoRefreshOclr: false })
   })
   app.on('will-quit', () => {
     const report = { evidence: restart ? 'synthetic-settings-restart' : 'synthetic-settings-localization', passed: restart ? ['new application process restores locale and close behavior', 'close without background exits'] : ['HeroUI language selection for all four options', 'language changes without relogin or IRC commands', 'chat, names, maps and draft remain literal', '900x640 settings, about and composer', 'no sidebar quit button', 'fixed About link allowlist', 'invalid IPC inputs and sender rejected', 'preferences survive renderer reload', 'close without background exits and cleans authentication'], limitation: 'Synthetic services and OS language. Physical tray/IME acceptance remains separate.' }

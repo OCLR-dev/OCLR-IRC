@@ -53,6 +53,7 @@ export class OclrSession extends EventEmitter {
   private listPurgeUntil = 0
   private blockedUntil = 0
   private foreground = true
+  private autoRefresh = true
   private nextCursor: string | null = null
   private collectionRevision: string | null = null
   private pollAfterSeconds = 15
@@ -286,14 +287,17 @@ export class OclrSession extends EventEmitter {
     this.clearPanel(); this.value.selectedFixtureId = input as string; this.selectedFixture = this.value.fixtures.find(f => f.fixtureId === input)!; this.publish()
     return this.readPanel()
   }
-  readPanel(): Promise<void> {
+  readPanel(background = false): Promise<void> {
     if (this.reading) return this.reading
     if (!this.value.selectedFixtureId) return Promise.resolve()
     const generation = this.generation, panelGeneration = this.panelGeneration, id = this.value.selectedFixtureId
     const fixture = this.selectedFixture
     if (!fixture) return Promise.resolve()
     if (this.pollTimer) clearTimeout(this.pollTimer)
-    this.value.panelState = this.value.panel ? 'stale' : 'loading'; this.publish()
+    // A background read can keep the still-valid snapshot until its original deadline.
+    // Explicit reads and expired snapshots retain the existing operation gate.
+    if (!background || !this.fresh()) this.value.panelState = this.value.panel ? 'stale' : 'loading'
+    this.publish()
     const task = (async () => {
       try {
         const response = await this.get(`/api/referee/v1/fixtures/${id}/panel`, 524288, this.panelController.signal)
@@ -331,19 +335,27 @@ export class OclrSession extends EventEmitter {
   }
   private schedulePoll() {
     if (this.pollTimer) clearTimeout(this.pollTimer)
-    if (!this.pair || !this.value.selectedFixtureId) return
+    this.pollTimer = null
+    if (!this.autoRefresh || !this.pair || !this.value.selectedFixtureId) return
     const delay = Math.max((this.foreground ? 15 : 60) * 1000, this.pollAfterSeconds * 1000, this.blockedUntil - this.now())
-    this.pollTimer = setTimeout(() => { void this.readPanel() }, delay)
+    this.pollTimer = setTimeout(() => { this.pollTimer = null; if (this.autoRefresh) void this.readPanel(true) }, delay)
   }
   private scheduleList() {
     if (this.listPollTimer) clearTimeout(this.listPollTimer)
-    if (!this.pair) return
-    this.listPollTimer = setTimeout(() => { void this.loadFixtures() }, Math.max(this.foreground ? 60000 : 120000, this.blockedUntil - this.now()))
+    this.listPollTimer = null
+    if (!this.autoRefresh || !this.pair) return
+    this.listPollTimer = setTimeout(() => { this.listPollTimer = null; if (this.autoRefresh) void this.loadFixtures() }, Math.max(this.foreground ? 60000 : 120000, this.blockedUntil - this.now()))
+  }
+  setAutoRefresh(enabled: boolean) {
+    if (this.autoRefresh === enabled) return
+    this.autoRefresh = enabled
+    if (enabled && this.pair) { void this.loadFixtures(); if (this.value.selectedFixtureId) void this.readPanel(true) }
+    else { this.schedulePoll(); this.scheduleList() }
   }
   setForeground(foreground: boolean) {
     const resumed = foreground && !this.foreground
     this.foreground = foreground
-    if (resumed && this.pair) { void this.loadFixtures(); if (this.value.selectedFixtureId) void this.readPanel() }
+    if (resumed && this.autoRefresh && this.pair) { void this.loadFixtures(); if (this.value.selectedFixtureId) void this.readPanel(true) }
     else this.schedulePoll()
     this.scheduleList()
   }

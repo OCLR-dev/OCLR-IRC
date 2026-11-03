@@ -88,6 +88,7 @@ app.whenReady().then(() => {
   ipcMain.handle('app:website-launch-clear', event => { trusted(event); websiteLaunch.clear() })
   ipcMain.handle('app:website-launch-continue', (event, id: unknown) => { trusted(event); return websiteLaunch.continue(id) })
   const preferences = new PreferencesStore(join(app.getPath('userData'), 'preferences.json'))
+  oclr.setAutoRefresh(preferences.get().autoRefreshOclr)
   let secureStorageAvailable = false, settingsGeneration = 0
   const settingsSnapshot = () => ({ preferences: preferences.get(), locale: resolveLocale(preferences.get().language, app.getPreferredSystemLanguages()), version: app.getVersion(), platform: process.platform, secureStorageAvailable })
   let lastLocale = settingsSnapshot().locale
@@ -107,6 +108,7 @@ app.whenReady().then(() => {
       if (value.restoreIrcLogin && !previous && !(await store.status()).available) return { ok: false, error: '系統安全儲存不可用，無法啟用自動登入。' }
       if (generation !== settingsGeneration) return { ok: false, error: '設定已變更，請重試。' }
       preferences.set(value)
+      oclr.setAutoRefresh(value.autoRefreshOclr)
       if (value.restoreIrcLogin && !previous) autoSaveGeneration = loginGeneration
       if (previous && !value.restoreIrcLogin) { loginGeneration++; pendingSave = null; persistedLoginGeneration = null }
       const settings = settingsSnapshot()

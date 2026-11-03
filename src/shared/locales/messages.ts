@@ -1,5 +1,7 @@
 // Application-authored text only. Interpolation values and external content remain literal.
 export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
+  "自動更新 OCLR 網站資料": {"zh-Hans": "自动更新 OCLR 网站数据", "en": "Automatically update OCLR website data"},
+  "在背景更新場次與裁判面板；關閉後可手動重新整理。": {"zh-Hans": "在后台更新场次与执裁面板；关闭后可手动刷新。", "en": "Update fixtures and the referee panel in the background. Refresh manually when disabled."},
   "IRC 登入": {"zh-Hans": "IRC 登录", "en": "IRC login"},
   "啟動時恢復上次 IRC 登入": {"zh-Hans": "启动时恢复上次 IRC 登录", "en": "Restore the last IRC login on startup"},
   "使用系統安全儲存保存登入；手動登出後不會自動連線。": {"zh-Hans": "使用系统安全存储保存登录；手动登出后不会自动连接。", "en": "Save your login in secure system storage. Signing out prevents automatic connection."},
