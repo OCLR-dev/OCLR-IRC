@@ -27,6 +27,7 @@ on:
     branches: [main]
     paths:
       - 'src/**'
+      - 'resources/**'
       - 'scripts/**'
       - 'tests/**'
       - 'package*.json'
@@ -39,6 +40,7 @@ on:
   pull_request:
     paths:
       - 'src/**'
+      - 'resources/**'
       - 'scripts/**'
       - 'tests/**'
       - 'package*.json'

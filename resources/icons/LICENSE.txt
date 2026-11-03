@@ -1,0 +1,23 @@
+Liru (莉露 / LR娘), OCLR mascot — application icon adaptation
+
+Original character design: JerrYamada (community proposal), adopted by OCLR.
+Reference: https://oclr.org/wiki/liru
+Official reference sheets (character design v1.2.1):
+https://oclr.org/mascot/liru/sheet-main.webp
+https://oclr.org/mascot/liru/sheet-expressions.webp
+
+The character reference artwork is licensed under Creative Commons
+Attribution 4.0 International (CC BY 4.0):
+https://creativecommons.org/licenses/by/4.0/
+Legal code: https://creativecommons.org/licenses/by/4.0/legalcode
+
+OCLR IRC icon adaptation, 2026, OCLR contributors: original head-and-shoulders
+composition generated with OpenAI imagegen using the official sheets as
+identity references, followed by format conversion and small-size review.
+The menu-bar silhouette is a simplified adaptation. These adapted icon
+assets are provided under CC BY 4.0 with attribution to JerrYamada and OCLR.
+Changes: new portrait, expression, framing, background, simplified silhouette,
+OCLR/IRC speech badge, and platform-specific sizes/formats. OCLR wordmark
+reference: https://oclr.org/branding/oclr-wordmark-dark.svg (OCLR identity).
+No endorsement by the original designer
+is implied. The application source code retains its separate MIT license.

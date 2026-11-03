@@ -1,4 +1,5 @@
 import { Icon } from './icons'
+import { BrandIcon } from './brand'
 import { AccountAvatar } from './account-avatar'
 import { useTranslation } from 'react-i18next'
 import { SettingsView } from './settings'
@@ -114,7 +115,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   const error = formError || state.error || state.credentialError
   return <div className="app-shell">
     <aside className="sidebar">
-      <div className="brand"><span className="brand-symbol">O</span><div><strong>OCLR</strong><span>IRC</span></div></div>
+      <div className="brand"><BrandIcon /><div><strong>OCLR</strong><span>IRC</span></div></div>
       <div className="workspace-label">{tr("裁判工作台")}<span>01</span></div>
       <nav aria-label={tr("主要導覽")}>
         <button className={page === 'account' ? 'nav-item selected' : 'nav-item'} title={tr("帳號連線")} aria-current={page === 'account' ? 'page' : undefined} onClick={() => setPage('account')}><Icon name="connect" /><span className="nav-label">{tr("帳號連線")}</span><span className={`tiny-dot ${online ? 'active' : ''}`} /></button>

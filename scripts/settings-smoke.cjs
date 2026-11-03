@@ -51,6 +51,8 @@ async function main() {
   await until(() => !window.webContents.isLoading())
   const js = code => window.webContents.executeJavaScript(code).catch(error => { throw new Error(`Settings evaluation: ${code.slice(0, 240)}; ${error.message}; console: ${errors.join(' | ')}`) })
   await until(() => js('Boolean(document.querySelector(".sidebar-settings button"))'))
+  await until(() => js('Array.from(document.querySelectorAll("img.brand-symbol")).every(img=>img.complete && img.naturalWidth===256)'))
+  assert.equal(await js('document.querySelectorAll(".brand img.brand-symbol").length'), 1)
   const settings = await js('window.oclr.settings.snapshot()')
   assert.equal(settings.locale, 'en')
   assert.equal(settings.preferences.language, restart ? 'en' : 'system')
@@ -61,6 +63,20 @@ async function main() {
   assert.throws(() => handlers.get('app:avatar')({ sender: window.webContents, senderFrame: { url: 'https://untrusted.invalid' } }), /Untrusted/)
   await assert.rejects(handlers.get('app:settings-update')({ sender: window.webContents, senderFrame: { url: 'https://untrusted.invalid' } }, { closeToBackground: false, language: 'en', restoreIrcLogin: false }), /Untrusted/)
   if (!restart) {
+    try {
+      for (const [width, height, size] of [[1440, 900, 64], [1920, 1080, 80], [1440, 700, 40]]) {
+        window.webContents.enableDeviceEmulation({ screenPosition: 'desktop', screenSize: { width, height }, viewPosition: { x: 0, y: 0 }, viewSize: { width, height }, deviceScaleFactor: 2, scale: 1 })
+        await until(() => js(`innerWidth===${width} && innerHeight===${height}`))
+        const brand = await js('(() => { const r=document.querySelector(".brand img").getBoundingClientRect(), sidebar=document.querySelector(".sidebar").getBoundingClientRect(), text=document.querySelector(".brand > div").getBoundingClientRect(); return { width:r.width, height:r.height, inside:r.left>=sidebar.left && text.right<=sidebar.right, font:getComputedStyle(document.querySelector(".brand strong")).fontSize, density:devicePixelRatio, overflow:document.documentElement.scrollWidth>innerWidth } })()')
+        assert.equal(brand.width, size); assert.equal(brand.height, size)
+        assert.equal(brand.inside, true); assert.equal(brand.overflow, false)
+        assert.equal(brand.font, size === 40 ? '21px' : '28px'); assert.equal(brand.density, 2)
+        if (size === 80) {
+          fs.mkdirSync('artifacts', { recursive: true })
+          fs.writeFileSync('artifacts/liru-brand-wide-synthetic.png', (await window.webContents.capturePage({ x: 0, y: 0, width: 222, height: 140 })).toPNG())
+        }
+      }
+    } finally { window.webContents.disableDeviceEmulation() }
     await js('document.querySelector(".sidebar-settings button").click()')
     await until(() => js('Boolean(document.querySelector(".language-select"))'))
     window.setSize(900, 640)
@@ -97,6 +113,8 @@ async function main() {
     fs.writeFileSync('artifacts/settings-compact-synthetic.png', (await window.webContents.capturePage()).toPNG())
     await js('Array.from(document.querySelectorAll("[role=tab]")).find(e=>e.textContent==="About").click()')
     await until(() => js('Boolean(document.querySelector(".about-app"))'))
+    await until(() => js('document.querySelector(".about-app img.brand-symbol")?.naturalWidth===256'))
+    assert.equal(await js('Array.from(document.querySelectorAll("img.brand-symbol")).every(img=>{const r=img.getBoundingClientRect();return r.width===40 && r.height===40 && r.right<=innerWidth && r.bottom<=innerHeight})'), true)
     assert.ok((await js('document.querySelector(".about-details").textContent')).includes(app.getVersion()))
     await js('Array.from(document.querySelectorAll(".about-links button")).find(e=>e.textContent.includes("Project website")).click()')
     await until(() => opened.length === 1)

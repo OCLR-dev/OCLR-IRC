@@ -6,6 +6,7 @@ async function main() {
   for (const output of outputs) {
     const target = path.join(output, 'install-protocol.sh')
     copyFileSync('scripts/install-linux-protocol.sh', target); chmodSync(target, 0o755)
+    copyFileSync('resources/icons/icon-256.png', path.join(output, 'oclr-irc.png'))
   }
 }
 main().catch(error => { console.error(error); process.exitCode = 1 })

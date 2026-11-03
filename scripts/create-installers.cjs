@@ -9,10 +9,11 @@ function windowsConfiguration(filename, output) {
     appId: 'org.oclr.ref-tools', productName: 'OCLR IRC', executableName: 'OCLR IRC',
     directories: { output }, publish: null, npmRebuild: false,
     protocols: [{ name: 'OCLR IRC', schemes: ['oclr-irc'] }],
-    win: { target: ['nsis'], signAndEditExecutable: false, artifactName: filename },
+    win: { target: ['nsis'], icon: path.resolve('resources/icons/icon.ico'), signAndEditExecutable: false, artifactName: filename },
     nsis: { artifactName: filename, include: path.join(__dirname, 'windows-installer.nsh'), oneClick: false, perMachine: false, allowElevation: false,
       allowToChangeInstallationDirectory: true, runAfterFinish: false, deleteAppDataOnUninstall: false,
       createDesktopShortcut: false, createStartMenuShortcut: true, differentialPackage: false,
+      installerIcon: path.resolve('resources/icons/icon.ico'), uninstallerIcon: path.resolve('resources/icons/icon.ico'),
       installerLanguages: ['en_US', 'zh_CN', 'zh_TW'] }
   }
 }

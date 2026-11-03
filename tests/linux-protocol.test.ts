@@ -10,6 +10,7 @@ test('Linux helper installs a quoted per-user URI entry without executing the ap
     const dir = join(root, 'Portable $IRC % "quoted"'), bin = join(root, 'bin'), data = join(root, 'data')
     mkdirSync(dir); mkdirSync(bin)
     copyFileSync('scripts/install-linux-protocol.sh', join(dir, 'install-protocol.sh'))
+    copyFileSync('resources/icons/icon-256.png', join(dir, 'oclr-irc.png'))
     writeFileSync(join(dir, 'OCLR IRC'), '#!/bin/sh\nexit 99\n', {mode: 0o755})
     writeFileSync(join(bin, 'xdg-mime'), '#!/bin/sh\nprintf "%s\\n" "$@" > "$OCLR_TEST_XDG_LOG"\n', {mode: 0o755})
     const log = join(root, 'xdg.log')
@@ -18,6 +19,8 @@ test('Linux helper installs a quoted per-user URI entry without executing the ap
     assert.equal(readFileSync(log, 'utf8'), 'default\noclr-irc.desktop\nx-scheme-handler/oclr-irc\n')
     const entry = readFileSync(join(data, 'applications', 'oclr-irc.desktop'), 'utf8')
     assert.ok(entry.includes('MimeType=x-scheme-handler/oclr-irc;'))
+    assert.ok(entry.includes('Icon=oclr-irc\n'))
+    assert.deepEqual(readFileSync(join(data, 'icons/hicolor/256x256/apps/oclr-irc.png')), readFileSync('resources/icons/icon-256.png'))
     assert.ok(entry.includes('Exec="')); assert.ok(entry.includes('\\$IRC %% \\"quoted\\"/OCLR IRC" %u'))
     assert.ok(!entry.includes('sudo'))
   } finally {rmSync(root, {recursive: true, force: true})}

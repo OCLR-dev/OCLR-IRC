@@ -19,6 +19,7 @@ import { FixtureInvites } from './fixture-invites.ts'
 import { OclrSession } from './oclr.ts'
 import { OclrError, publicOclrError } from './oclr-http.ts'
 import { DesktopBackground } from './background.ts'
+import { appIconPath } from './app-icon.ts'
 import { PreferencesStore } from './preferences-store.ts'
 import { preferencesInput, resolveLocale } from '../shared/preferences.ts'
 
@@ -62,6 +63,7 @@ function action(event: Electron.IpcMainInvokeEvent, fn: () => void) {
 }
 app.whenReady().then(() => {
   if (!primaryInstance) return
+  if (process.platform === 'darwin' && !app.isPackaged) app.dock?.setIcon(appIconPath)
   const avatar = new AccountAvatar(new AvatarCache(join(app.getPath('userData'), 'avatar-cache'), bytes => {
     const image = nativeImage.createFromBuffer(bytes)
     if (image.isEmpty()) return null
@@ -307,7 +309,7 @@ app.whenReady().then(() => {
   })
   function create() {
     window = new BrowserWindow({ width: 1180, height: 780, minWidth: 900, minHeight: 640,
-      backgroundColor: '#111116', title: 'OCLR IRC', autoHideMenuBar: true,
+      backgroundColor: '#111116', title: 'OCLR IRC', autoHideMenuBar: true, icon: appIconPath,
       webPreferences: { preload: join(__dirname, '../preload/index.js'), nodeIntegration: false, contextIsolation: true, sandbox: true } })
     window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
     window.webContents.on('will-navigate', (event, url) => { if (devURL ? url !== devURL : !sameLocalPage(url, productionURL)) event.preventDefault() })

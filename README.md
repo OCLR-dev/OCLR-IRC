@@ -20,6 +20,7 @@
 - **[房內場次工具](docs/m1/compact-fixture-tools.md)**：同步本輪圖池與兩隊名單；逐人預覽、核對名稱後發送邀請，送出不代表到場。
 - **BP 自動同步**：配合新版網站，接收已保存的 Ban／Pick 通知，逐步換圖及設定 Mods；兩端需更新並重新連接。
 - **介面操作**：重新整理、同步、讀取與重試採統一 refresh 圖示，登出使用一致的 log out 圖示；滑鼠移入或鍵盤聚焦可查看操作提示。
+- **應用圖標**：採用 [Liru 角色圖標](docs/liru-app-icon.md)，同步用於應用程式、安裝包、側欄與關於頁；角色設計 JerrYamada，圖像採 CC BY 4.0。
 - **設定與恢復**：簡體中文、繁體中文、英文或跟隨系統；可選背景執行、加密憑證保存、啟動恢復上次 IRC 登入與本機日誌，斷線後不重送操作。
 
 ## 開始使用
@@ -49,4 +50,4 @@
 
 ## 授權
 
-自有程式碼採 [MIT License](LICENSE)。第三方依賴與授權見 [第三方聲明](THIRD_PARTY_NOTICES.md)。
+自有程式碼採 [MIT License](LICENSE)。Liru 圖標採 [CC BY 4.0](resources/icons/LICENSE.txt)。第三方依賴與授權見 [第三方聲明](THIRD_PARTY_NOTICES.md)。

@@ -17,7 +17,7 @@
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "test:ui": "npm run build && node scripts/run-smoke.cjs",
     "package:mac": "npm run build && node scripts/package-mac.cjs",
-    "package:win": "npm run build && electron-packager . \"OCLR IRC\" --platform=win32 --out=release --overwrite --ignore=^/release --ignore=^/spikes --ignore=^/docs --ignore=^/tests --ignore=^/src --ignore=^/scripts --ignore=^/artifacts",
+    "package:win": "npm run build && electron-packager . \"OCLR IRC\" --platform=win32 --icon=resources/icons/icon.ico --out=release --overwrite --ignore=^/release --ignore=^/spikes --ignore=^/docs --ignore=^/tests --ignore=^/src --ignore=^/scripts --ignore=^/artifacts",
     "package:linux": "npm run build && node scripts/package-linux.cjs"
   },
   "dependencies": {
