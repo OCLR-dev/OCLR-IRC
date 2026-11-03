@@ -363,6 +363,11 @@ main { min-height: 0; overflow: auto; }
 .saved-actions .button:disabled { opacity: .4; }
 
 .journal-view { padding: 28px; }
+.records-view { padding: 28px; min-width: 0; }
+.records-view > .tabs { margin-top: 20px; }
+.records-view .journal-view { padding: 0; }
+.records-view .tabs__panel { min-width: 0; }
+.records-view .tabs__panel[data-inert="true"] { display: none; }
 .journal-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 20px; font-size: 12px; }
 .journal-toolbar .workspace-select { max-width: 240px; }
 .journal-confirm { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 16px 0; font-size: 12px; }

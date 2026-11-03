@@ -4,7 +4,7 @@ import { Button } from '@heroui/react'
 import type { JournalEntry, JournalState } from '../../shared/types'
 import { WorkspaceCheckbox, WorkspaceSelect, RefreshButton } from './controls'
 
-export function JournalView() {
+export function JournalView({ embedded = false, active = true }: { embedded?: boolean; active?: boolean }) {
   const [state, setState] = useState<JournalState | null>(null)
   const [entries, setEntries] = useState<JournalEntry[]>([])
   const [room, setRoom] = useState('account')
@@ -13,6 +13,7 @@ export function JournalView() {
   const [error, setError] = useState('')
   const generation = useRef(0)
   const api = window.oclr?.journal
+  useEffect(() => { if (!active) setConfirm(null) }, [active])
   useEffect(() => api?.onInvalidate(() => { generation.current++; setEntries([]); setConfirm(null); setRoom('account') }), [api])
   useEffect(() => { let active = true; void api?.status().then(value => { if (active) setState(value) }); return () => { active = false } }, [api])
   const selected = room === 'account' ? undefined : room
@@ -28,8 +29,8 @@ export function JournalView() {
     finally { setBusy(false) }
   }
   const rooms = [...new Set(entries.map(entry => entry.room))]
-  return <section className="journal-view enter">
-    <h1>{tr("本機日誌")}</h1>
+  return <section className="journal-view chat-journal-view enter">
+    {!embedded && <h1>{tr("本機日誌")}</h1>}
     <div className="journal-toolbar">
       <WorkspaceCheckbox selected={state?.enabled ?? true} disabled={!api || busy || !state} onChange={enabled => { if (!enabled) setConfirm('disable'); else if (api) void run(() => api.setEnabled(true)) }}>{tr("保存加密 IRC 日誌 · 7 天")}</WorkspaceCheckbox>
       <span role="status">{state && ({ saving: tr("正在保存"), memory_only: tr("僅記憶體"), failed: tr("保存失敗") })[state.status]}</span>
