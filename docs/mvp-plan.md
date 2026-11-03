@@ -1,5 +1,7 @@
 # OCLR-ref-tools MVP 開發任務與驗收
 
+2026-11-03 版本增量：依使用者要求準備 0.8.4，整合 #87 的 Liru 圖標與高解析度側欄調整；套件、lockfile、介面及更新說明同步。這是版本準備，不將其餘 MVP／實機 gate 標為完成，發布狀態以實際 Release 為準。見 [v0.8.4](releases/v0.8.4.md)。
+
 - 文件版本：0.4（M0 驗證與條件式契約基線）；日期：2026-10-27
 - 狀態：SPEC-00 已盤點、SPIKE-01／02 部分實測、SPEC-01 已更新未凍結；使用者另授權登入／唯讀初版；正式 API、migration 與部署未開始
 - 關聯：[專案設計](project-design.md)、[桌面授權](contracts/desktop-authorization.md)、[context API](contracts/referee-context-api.md)、[審查及已確認決策](design-review.md)
