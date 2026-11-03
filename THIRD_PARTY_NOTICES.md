@@ -1,3 +1,13 @@
+# Liru application icon artwork
+
+Liru (莉露 / LR娘) character design by JerrYamada, adopted as the OCLR mascot.
+Source and reference sheets: <https://oclr.org/wiki/liru> (v1.2.1).
+Original and adapted icon artwork: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+The OCLR IRC adaptation uses a new AI-assisted portrait composition, simplified
+menu-bar silhouette and platform-specific formats. See
+`resources/icons/LICENSE.txt` in the application for attribution and changes.
+This artwork is separately licensed from the MIT application source code.
+
 # OCLR-website shared referee modules
 
 This distribution includes derived code from OCLR-website PR #409, commit

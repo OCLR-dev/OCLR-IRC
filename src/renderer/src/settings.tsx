@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Button, Tabs } from '@heroui/react'
 import { WorkspaceCheckbox, WorkspaceSelect } from './controls'
 import { tr } from './i18n'
+import { BrandIcon } from './brand'
 import type { AppPreferences, AppSettings, LanguagePreference } from '../../shared/preferences'
 
 export function SettingsView({ settings, onChange }: { settings: AppSettings; onChange: (settings: AppSettings) => void }) {
@@ -44,7 +45,7 @@ export function SettingsView({ settings, onChange }: { settings: AppSettings; on
         </section>
       </Tabs.Panel>
       <Tabs.Panel id="about">
-        <section className="settings-section about-app"><span className="brand-symbol" aria-hidden="true">O</span><div><h2>OCLR IRC</h2><p>{tr('OCLR 賽事裁判用 IRC 客戶端')}</p></div></section>
+        <section className="settings-section about-app"><BrandIcon /><div><h2>OCLR IRC</h2><p>{tr('OCLR 賽事裁判用 IRC 客戶端')}</p></div></section>
         <dl className="about-details"><div><dt>{tr('版本')}</dt><dd>{settings.version}</dd></div><div><dt>{tr('作業系統')}</dt><dd>{({ darwin: 'macOS', win32: 'Windows', linux: 'Linux' })[settings.platform as 'darwin' | 'win32' | 'linux'] ?? settings.platform}</dd></div><div><dt>{tr('授權')}</dt><dd>MIT</dd></div></dl>
         <div className="about-links"><Button variant="secondary" onPress={() => void open('repository')}>{tr('專案網站')} ↗</Button><Button variant="ghost" onPress={() => void open('license')}>{tr('開源授權')} ↗</Button><Button variant="ghost" onPress={() => void open('notices')}>{tr('第三方聲明')} ↗</Button></div>
         <p className="about-stack">Electron · React · HeroUI · i18next</p>

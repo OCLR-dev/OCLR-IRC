@@ -45,7 +45,7 @@ async function verifyStartup(executable, profile, metadata) {
       if (target) {
         const { sessionId } = await send('Target.attachToTarget', { targetId: target.targetId, flatten: true })
         await send('Runtime.enable', {}, sessionId)
-        const result = await send('Runtime.evaluate', { expression: `(async () => Boolean(document.querySelector("input[name=username]")) && typeof window.require === "undefined" && Boolean(window.oclr) && (await window.oclr.snapshot()).connection === "offline" && (await window.oclr.settings.snapshot()).version === ${JSON.stringify(metadata.version)})()`, awaitPromise: true, returnByValue: true }, sessionId)
+        const result = await send('Runtime.evaluate', { expression: `(async () => Boolean(document.querySelector("input[name=username]")) && document.querySelector(".brand img.brand-symbol")?.naturalWidth === 256 && typeof window.require === "undefined" && Boolean(window.oclr) && (await window.oclr.snapshot()).connection === "offline" && (await window.oclr.settings.snapshot()).version === ${JSON.stringify(metadata.version)})()`, awaitPromise: true, returnByValue: true }, sessionId)
         passed = result.result?.value === true
         if (!passed) {
           lastInspection = await send('Runtime.evaluate', { expression: `(async () => ({ title: document.title, ready: document.readyState, login: Boolean(document.querySelector('input[name=username]')), node: typeof window.require, bridge: typeof window.oclr, body: document.body?.textContent?.slice(0, 1200), snapshot: await window.oclr?.snapshot().then(s => ({ connection: s.connection })).catch(e => ({ error: String(e) })) }))()`, awaitPromise: true, returnByValue: true }, sessionId)
@@ -99,6 +99,7 @@ async function main() {
       }
     }
     const executable = process.platform === 'darwin' ? path.join(app, 'Contents/MacOS/OCLR IRC') : path.join(folder, process.platform === 'win32' ? 'OCLR IRC.exe' : 'OCLR IRC')
+    verifyPackagedIcons(folder, process.platform)
     await verifyStartup(executable, path.join(temp, 'profile'), metadata)
     fs.mkdirSync('artifacts', { recursive: true })
     fs.writeFileSync(`artifacts/${metadata.platform}-archive-verification.json`, JSON.stringify({ archive: filename, commit: metadata.commit, platform: process.platform, arch: process.arch, recordedAt: new Date().toISOString(), passed: ['archive SHA256 and build identity', ...(process.platform === 'darwin' ? ['extracted archive strict deep code signature'] : []), 'actual packaged executable launched', 'sandboxed login screen and preload IPC usable', 'offline; no IRC credentials or operations'], signing: metadata.codeSigning, notarized: metadata.notarized, limitation: process.platform !== 'darwin' ? 'CI offline startup only; no real OS IME, provider, sleep, upgrade or user download acceptance.' : metadata.notarized ? 'CI assessment includes stapled ticket and quarantined-copy Gatekeeper checks; user download/first-launch acceptance still required.' : 'Does not establish Gatekeeper approval for a browser-quarantined download or Developer ID identity.' }, null, 2) + '\n')
@@ -107,5 +108,26 @@ async function main() {
     fs.rmSync(temp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 })
   }
 }
-module.exports = { main, verifyIdentity, verifyStartup }
+function verifyPackagedIcons(folder, platform) {
+  const assert = require('node:assert/strict')
+  const resources = platform === 'darwin' ? path.join(folder, 'OCLR IRC.app/Contents/Resources') : path.join(folder, 'resources')
+  const archive = path.join(resources, 'app.asar')
+  const readAsset = file => fs.existsSync(archive) ? require('@electron/asar').extractFile(archive, path.join('resources', 'icons', file)) : fs.readFileSync(path.join(resources, 'app/resources/icons', file))
+  for (const file of ['icon.png', 'tray-color.png', 'trayTemplate.png', 'trayTemplate@2x.png', 'LICENSE.txt']) {
+    assert.ok(readAsset(file).equals(fs.readFileSync(path.join('resources/icons', file))), `Packaged ${file}`)
+  }
+  if (platform === 'darwin') {
+    const contents = path.join(folder, 'OCLR IRC.app/Contents')
+    const icon = execFileSync('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleIconFile', path.join(contents, 'Info.plist')], { encoding: 'utf8' }).trim()
+    assert.ok(icon && path.basename(icon) === icon)
+    assert.ok(fs.readFileSync(path.join(contents, 'Resources', icon.endsWith('.icns') ? icon : icon + '.icns')).equals(fs.readFileSync('resources/icons/icon.icns')), 'Bundle ICNS matches Liru artwork')
+  } else if (platform === 'win32') {
+    const ico = fs.readFileSync('resources/icons/icon.ico'), index = 6 + (ico.readUInt16LE(4) - 1) * 16
+    const size = ico.readUInt32LE(index + 8), offset = ico.readUInt32LE(index + 12)
+    assert.ok(fs.readFileSync(path.join(folder, 'OCLR IRC.exe')).includes(ico.subarray(offset, offset + size)), 'Application EXE embeds Liru icon')
+  } else {
+    assert.ok(fs.readFileSync(path.join(folder, 'oclr-irc.png')).equals(fs.readFileSync('resources/icons/icon-256.png')), 'Launcher PNG matches Liru artwork')
+  }
+}
+module.exports = { main, verifyIdentity, verifyStartup, verifyPackagedIcons }
 if (require.main === module) main().catch(error => { console.error(error); process.exitCode = 1 })

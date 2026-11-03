@@ -11,10 +11,18 @@ button:focus-visible, input:focus-visible { outline: 2px solid #b4a0ff; outline-
 .app-shell { min-height: 100vh; display: grid; grid-template-columns: 222px 1fr; }
 .sidebar { background: #15151b; border-right: 1px solid #282830; display: flex; flex-direction: column; padding: 29px 18px 0; }
 .brand { display: flex; align-items: center; gap: 11px; margin: 0 10px 48px; user-select: none; }
-.brand-symbol { display: grid; place-items: center; width: 35px; height: 35px; border: 2px solid #b4a0ff; border-radius: 50%; color: #b4a0ff; font-size: 0; position: relative; }
-.brand-symbol:after { content: ''; width: 12px; height: 12px; border-radius: 50%; background: #b4a0ff; }
+.brand-symbol { display: block; flex: 0 0 40px; width: 40px; height: 40px; object-fit: contain; }
 .brand strong { display: block; font-size: 21px; line-height: 1.15; letter-spacing: .035em; font-weight: 680; }
 .brand div>span { color: #92919e; font-size: 11px; letter-spacing: .12em; }
+@media (min-width: 1440px) and (min-height: 800px) {
+  .brand { gap: 14px; margin-inline: 0; margin-bottom: 40px; }
+  .brand .brand-symbol { flex-basis: 64px; width: 64px; height: 64px; }
+  .brand strong { font-size: 28px; }
+  .brand div>span { font-size: 13px; letter-spacing: .16em; }
+}
+@media (min-width: 1920px) and (min-height: 800px) {
+  .brand .brand-symbol { flex-basis: 80px; width: 80px; height: 80px; }
+}
 .workspace-label { display: flex; justify-content: space-between; margin: 0 12px 13px; color: #777785; font-size: 11px; letter-spacing: .06em; }
 .workspace-label span { font-family: monospace; }
 nav { display: grid; gap: 5px; }
