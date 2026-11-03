@@ -1,12 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, rmSync, mkdirSync, copyFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 const { distribution } = createRequire(import.meta.url)('../scripts/distribution.cjs')
-const { verifyIdentity } = createRequire(import.meta.url)('../scripts/verify-archive.cjs')
+const { verifyIdentity, verifyPackagedIcons } = createRequire(import.meta.url)('../scripts/verify-archive.cjs')
+const { createPackage } = createRequire(import.meta.url)('@electron/asar')
 
 test('native archive verification rejects wrong builds and corruption before extraction or launch', async () => {
   for (const [platform, arch, label, ext] of [['win32', 'x64', 'windows', '.zip'], ['linux', 'x64', 'linux', '.tar.gz'], ['darwin', 'arm64', 'macos', '.zip']]) {
@@ -30,6 +31,22 @@ test('native archive verification rejects wrong builds and corruption before ext
       await assert.rejects(verifyIdentity(dir, platform, arch, commit, version), /checksum/)
       writeFileSync(join(dir, 'extra.zip'), 'extra')
       await assert.rejects(verifyIdentity(dir, platform, arch, commit, version), /Unexpected/)
+    } finally { rmSync(dir, { recursive: true, force: true }) }
+  }
+})
+
+test('packaged icon verification reads native paths in both ASAR and loose packages and rejects a damaged launcher icon', async () => {
+  for (const packed of [false, true]) {
+    const dir = mkdtempSync(join(tmpdir(), 'oclr-icon-package-'))
+    try {
+      const source = join(dir, 'resources', 'app'), icons = join(source, 'resources', 'icons')
+      mkdirSync(icons, { recursive: true })
+      for (const file of ['icon.png', 'tray-color.png', 'trayTemplate.png', 'trayTemplate@2x.png', 'LICENSE.txt']) copyFileSync(join('resources', 'icons', file), join(icons, file))
+      copyFileSync('resources/icons/icon-256.png', join(dir, 'oclr-irc.png'))
+      if (packed) { await createPackage(source, join(dir, 'resources', 'app.asar')); rmSync(source, { recursive: true }) }
+      verifyPackagedIcons(dir, 'linux')
+      writeFileSync(join(dir, 'oclr-irc.png'), 'damaged synthetic icon')
+      assert.throws(() => verifyPackagedIcons(dir, 'linux'), assert.AssertionError)
     } finally { rmSync(dir, { recursive: true, force: true }) }
   }
 })

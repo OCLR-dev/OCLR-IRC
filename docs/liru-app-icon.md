@@ -40,4 +40,6 @@ Exact visible lettering: "OCLR" logo plus "IRC". No other text, marks or objects
 
 ## 本機驗證（2026-11-03）
 
-Node.js 24.22.2：型別檢查、216 項核心測試、30 階段完整 Electron smoke 通過；執行期 audit 0 項漏洞。原生圖片解碼、ICO 七種尺寸與 ICNS／Retina、透明角落均通過；Windows PE 圖示程式庫可解析全部 ICO frames。新增 1440×900／1920×1080 的 2x 像素密度品牌區，以及 1440×700 回復緊湊尺寸的幾何驗證；900×640 的側欄、關於頁與聊天輸入區通過。macOS App 為本機 ad-hoc 測試包，不宣稱公開簽章／公證或所有實機工作列驗收。三平台 CI 結果以對應 PR 的實際 run 為準。
+Node.js 24.22.2：型別檢查、217 項核心測試、30 階段完整 Electron smoke 通過；執行期 audit 0 項漏洞。原生圖片解碼、ICO 七種尺寸與 ICNS／Retina、透明角落均通過；Windows PE 圖示程式庫可解析全部 ICO frames。新增 1440×900／1920×1080 的 2x 像素密度品牌區，以及 1440×700 回復緊湊尺寸的幾何驗證；900×640 的側欄、關於頁與聊天輸入區通過。macOS App 為本機 ad-hoc 測試包，不宣稱公開簽章／公證或所有實機工作列驗收。三平台 CI 結果以對應 PR 的實際 run 為準。
+
+首輪三平台 CI 的 Linux／macOS 通過；Windows 完成測試、打包及安裝程式驗證後，封裝圖片檢查因 ASAR 路徑固定使用 `/` 而失敗。已改用平台原生路徑，新增 ASAR／loose package round-trip 及損壞圖標拒絕回歸；本機 217 核心與 macOS 封裝資產重驗通過。修正版 CI 以 PR 最新 run 為準，不將首輪 Windows 失敗記為成功。

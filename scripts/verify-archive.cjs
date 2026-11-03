@@ -112,21 +112,21 @@ function verifyPackagedIcons(folder, platform) {
   const assert = require('node:assert/strict')
   const resources = platform === 'darwin' ? path.join(folder, 'OCLR IRC.app/Contents/Resources') : path.join(folder, 'resources')
   const archive = path.join(resources, 'app.asar')
-  const readAsset = file => fs.existsSync(archive) ? require('@electron/asar').extractFile(archive, `resources/icons/${file}`) : fs.readFileSync(path.join(resources, 'app/resources/icons', file))
+  const readAsset = file => fs.existsSync(archive) ? require('@electron/asar').extractFile(archive, path.join('resources', 'icons', file)) : fs.readFileSync(path.join(resources, 'app/resources/icons', file))
   for (const file of ['icon.png', 'tray-color.png', 'trayTemplate.png', 'trayTemplate@2x.png', 'LICENSE.txt']) {
-    assert.deepEqual(readAsset(file), fs.readFileSync(path.join('resources/icons', file)), `Packaged ${file}`)
+    assert.ok(readAsset(file).equals(fs.readFileSync(path.join('resources/icons', file))), `Packaged ${file}`)
   }
   if (platform === 'darwin') {
     const contents = path.join(folder, 'OCLR IRC.app/Contents')
     const icon = execFileSync('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleIconFile', path.join(contents, 'Info.plist')], { encoding: 'utf8' }).trim()
     assert.ok(icon && path.basename(icon) === icon)
-    assert.deepEqual(fs.readFileSync(path.join(contents, 'Resources', icon.endsWith('.icns') ? icon : icon + '.icns')), fs.readFileSync('resources/icons/icon.icns'))
+    assert.ok(fs.readFileSync(path.join(contents, 'Resources', icon.endsWith('.icns') ? icon : icon + '.icns')).equals(fs.readFileSync('resources/icons/icon.icns')), 'Bundle ICNS matches Liru artwork')
   } else if (platform === 'win32') {
     const ico = fs.readFileSync('resources/icons/icon.ico'), index = 6 + (ico.readUInt16LE(4) - 1) * 16
     const size = ico.readUInt32LE(index + 8), offset = ico.readUInt32LE(index + 12)
     assert.ok(fs.readFileSync(path.join(folder, 'OCLR IRC.exe')).includes(ico.subarray(offset, offset + size)), 'Application EXE embeds Liru icon')
   } else {
-    assert.deepEqual(fs.readFileSync(path.join(folder, 'oclr-irc.png')), fs.readFileSync('resources/icons/icon-256.png'))
+    assert.ok(fs.readFileSync(path.join(folder, 'oclr-irc.png')).equals(fs.readFileSync('resources/icons/icon-256.png')), 'Launcher PNG matches Liru artwork')
   }
 }
 module.exports = { main, verifyIdentity, verifyStartup, verifyPackagedIcons }
