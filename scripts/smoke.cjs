@@ -317,9 +317,13 @@ async function main() {
   await js('window.oclr.login({username:"SyntheticRef",password:"SYNTHETIC_PASSWORD_ONLY"})')
   await until(() => js('(async () => Boolean((await window.oclr.avatar.snapshot()).dataUrl))()'))
   assert.equal(avatarTransport.requests.length, avatarRequests)
-  await js('window.oclr.logout()')
+  // Wait for this cached login to reach the renderer before changing accounts.
+  // Main IPC can complete while the previous room view is still painted.
+  await until(() => js('document.querySelector(".sidebar-footer")?.getAttribute("aria-label")==="SyntheticRef · 已連線" && Boolean(document.querySelector(".join-room-button"))'))
+  await js('document.querySelector(".sidebar-footer .logout-button").click()')
+  await until(() => js('Boolean(document.querySelector("input[name=password]")) && document.querySelector(".sidebar-footer")?.getAttribute("aria-label")==="osu! IRC · 未連線"'))
   await js('window.oclr.login({username:"OtherSynthetic",password:"SYNTHETIC_PASSWORD_ONLY"})')
-  await until(() => js('(async () => (await window.oclr.snapshot()).connection === "online")()'))
+  await until(() => js('(async () => { const s=await window.oclr.snapshot(); return s.connection==="online" && s.username==="OtherSynthetic" })()'))
   await until(() => js('Boolean(document.querySelector(".join-room-button"))'))
   await js(`document.querySelector('nav button[title="帳號連線"]').click()`)
   await until(() => js('document.querySelector(".account-avatar")?.textContent === "O"'))
