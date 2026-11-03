@@ -148,17 +148,17 @@ async function main() {
   assert.equal((await js('window.oclr.snapshot()')).connection, 'online')
   if (phase.startsWith('updated')) {
     for (const locale of ['en', 'zh-Hans', 'zh-Hant']) {
-      assert.equal((await js(`window.oclr.settings.update({restoreIrcLogin:false,closeToBackground:${scenario.background},language:${JSON.stringify(locale)}})`)).ok, true)
+      assert.equal((await js(`window.oclr.settings.update({autoRefreshOclr:false,restoreIrcLogin:false,closeToBackground:${scenario.background},language:${JSON.stringify(locale)}})`)).ok, true)
       checkMenu(trayMenu, locale)
     }
     // Following the system refreshes the same native menu on foreground changes.
     osLanguages = [scenario.locale === 'en' ? 'zh-TW' : 'en-US']
-    assert.equal((await js(`window.oclr.settings.update({restoreIrcLogin:false,closeToBackground:${scenario.background},language:"system"})`)).ok, true)
+    assert.equal((await js(`window.oclr.settings.update({autoRefreshOclr:false,restoreIrcLogin:false,closeToBackground:${scenario.background},language:"system"})`)).ok, true)
     checkMenu(trayMenu, scenario.locale === 'en' ? 'zh-Hant' : 'en')
     osLanguages = [scenario.locale]; window.emit('focus')
     checkMenu(trayMenu, scenario.locale)
   } else if (!scenario.background) {
-    assert.equal((await js('window.oclr.settings.update({restoreIrcLogin:false,closeToBackground:false,language:"system"})')).ok, true)
+    assert.equal((await js('window.oclr.settings.update({autoRefreshOclr:false,restoreIrcLogin:false,closeToBackground:false,language:"system"})')).ok, true)
   }
   assert.equal((await js('window.oclr.settings.snapshot()')).preferences.closeToBackground, scenario.background)
   if (scenario.state === 'hidden') {

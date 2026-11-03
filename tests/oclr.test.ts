@@ -12,6 +12,7 @@ import { apiError, at, fixture, fixtures, id, jsonResponse, meta, pair, panel, s
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 async function until(test: () => boolean) { for (let n = 0; n < 100; n++) { if (test()) return; await delay(5) }; throw new Error('condition timed out') }
+async function settled(test: () => boolean) { for (let n = 0; n < 100; n++) { await new Promise<void>(resolve => setImmediate(resolve)); if (test()) return }; throw new Error('async state did not settle') }
 interface Request { path: string; init: RequestInit; body: Record<string, unknown> }
 function harness(handler?: (request: Request) => Promise<Response | void> | Response | void) {
   const requests: Request[] = [], opened: string[] = [], clipboard: string[] = []
@@ -35,6 +36,63 @@ function harness(handler?: (request: Request) => Promise<Response | void> | Resp
   })
   return { session, requests, opened, clipboard, advance: (ms: number) => { clock += ms }, approve: () => resolveCallback({ code: 'C'.repeat(43) }), async login() { await session.login(); resolveCallback({ code: 'C'.repeat(43) }); await until(() => session.state.fixtures.length === 2) } }
 }
+
+test('automatic OCLR reads default on; disabling stops polling and focus refresh while manual reads and re-enabling work', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const f = harness()
+  const panelReads = () => f.requests.filter(r => r.path.endsWith('/panel')).length
+  const listReads = () => f.requests.filter(r => r.path.includes('/me/fixtures')).length
+  try {
+    await f.session.login(); f.approve(); await settled(() => f.session.state.fixtures.length === 2)
+    await f.session.selectFixture(id(101))
+    const first = panelReads()
+    f.advance(15000); t.mock.timers.tick(15000)
+    await f.session.readPanel() // Joins the scheduled read.
+    assert.equal(panelReads(), first + 1)
+    f.session.setAutoRefresh(false)
+    const reads = f.requests.length
+    f.session.setForeground(false); f.session.setForeground(true)
+    f.advance(61000); t.mock.timers.tick(61000)
+    await settled(() => !f.session.state.fixturesLoading)
+    assert.equal(f.requests.length, reads)
+    assert.equal(f.session.state.panelState, 'stale')
+    await assert.rejects(f.session.copyCommand({ previewId: f.session.state.previewId, commandId: 'make' }))
+    await f.session.readPanel()
+    assert.equal(panelReads(), first + 2)
+    const lists = listReads(), panels = panelReads()
+    f.session.setAutoRefresh(true)
+    await f.session.readPanel()
+    await settled(() => !f.session.state.fixturesLoading)
+    assert.equal(listReads(), lists + 1); assert.equal(panelReads(), panels + 1)
+    f.session.setAutoRefresh(true)
+    assert.equal(listReads(), lists + 1)
+  } finally { f.session.dispose(); t.mock.timers.reset() }
+})
+
+test('quiet background reads retain only the original freshness deadline and cannot restart polling after disabling', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  let hold = false, release: (response: Response) => void = () => {}
+  const f = harness(request => request.path.endsWith('/panel') && hold ? new Promise<Response>(resolve => { release = resolve }) : undefined)
+  try {
+    await f.session.login(); f.approve(); await settled(() => f.session.state.fixtures.length === 2)
+    await f.session.selectFixture(id(101)); f.session.setForeground(false)
+    const previewId = f.session.state.previewId
+    f.advance(25000); t.mock.timers.tick(25000)
+    hold = true
+    const reading = f.session.readPanel(true)
+    await settled(() => f.requests.filter(r => r.path.endsWith('/panel')).length === 2)
+    assert.equal(f.session.state.panelState, 'fresh'); assert.equal(f.session.state.previewId, previewId)
+    f.session.setAutoRefresh(false)
+    f.advance(6000); t.mock.timers.tick(6000)
+    assert.equal(f.session.state.panelState, 'stale')
+    assert.ok(f.session.state.commands.every(command => command.text === null))
+    release(jsonResponse(panel())); await reading
+    const reads = f.requests.length
+    f.advance(61000); t.mock.timers.tick(61000)
+    await settled(() => !f.session.state.fixturesLoading)
+    assert.equal(f.requests.length, reads)
+  } finally { f.session.dispose(); t.mock.timers.reset() }
+})
 
 test('loopback rejects wrong host/state, duplicate or unknown params, methods and replay without consuming the transaction', async () => {
   const state = 'S'.repeat(43), code = 'C'.repeat(43)
@@ -90,13 +148,14 @@ test('website builder parity, nullable missing policies and unknown enum rejecti
   assert.equal(panelSchema.safeParse(unknown).success, false)
 })
 
-test('two concurrent expired GETs share one refresh; each GET retries once with new access token', async () => {
+test('manual expired GETs share token refresh even when automatic data updates are disabled', async () => {
   let expired = false, refreshes = 0
   const f = harness(async request => {
     if (request.path.endsWith('/auth/refresh')) { refreshes++; await delay(15) }
     if (expired && request.path.startsWith('/api/referee/') && (request.init.headers as Record<string, string>).Authorization === 'Bearer ' + pair().data.access_token) return apiError('ACCESS_TOKEN_EXPIRED', 401)
   })
   try {
+    f.session.setAutoRefresh(false)
     await f.login(); expired = true
     await Promise.all([f.session.selectFixture(id(101)), f.session.loadFixtures()])
     assert.equal(refreshes, 1); assert.equal(f.session.state.status, 'connected'); assert.equal(f.session.state.panelState, 'fresh')
@@ -164,6 +223,9 @@ test('403 clears all data; fixture 404 clears only affected fixture; 429 blocks 
     await f.login(); await f.session.selectFixture(id(101)); code = 'RATE_LIMITED'; status = 429
     await f.session.readPanel(); const before = f.requests.length
     await f.session.readPanel(); assert.equal(f.requests.length, before); assert.ok(f.session.state.retryAt)
+    f.session.setAutoRefresh(false); f.session.setAutoRefresh(true)
+    await f.session.readPanel(); await settled(() => !f.session.state.fixturesLoading)
+    assert.equal(f.requests.length, before, 'Toggling automatic updates cannot bypass the origin backoff')
     f.advance(10001); code = 'FIXTURE_NOT_AVAILABLE'; status = 404; await f.session.readPanel()
     assert.equal(f.session.state.panel, null); assert.equal(f.session.state.fixtures.length, 1)
     code = null; await f.session.selectFixture(id(103)); code = 'REFEREE_ACCESS_REVOKED'; status = 403

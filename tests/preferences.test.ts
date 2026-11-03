@@ -11,11 +11,11 @@ test('preferences persist across new instances; invalid, corrupt and failed writ
   try {
     const store = new PreferencesStore(file)
     assert.deepEqual(store.get(), DEFAULT_PREFERENCES)
-    const desired = { closeToBackground: false, language: 'en' as const, restoreIrcLogin: true }
+    const desired = { closeToBackground: false, language: 'en' as const, restoreIrcLogin: true, autoRefreshOclr: false }
     store.set(desired)
     assert.deepEqual(new PreferencesStore(file).get(), desired)
-    assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), { schema: 2, preferences: desired, ircLoginActive: false })
-    for (const bad of [null, [], {}, { ...desired, language: 'fr' }, { ...desired, closeToBackground: 'false' }, { ...desired, restoreIrcLogin: 'true' }, { ...desired, token: 'not-allowed' }]) {
+    assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), { schema: 3, preferences: desired, ircLoginActive: false })
+    for (const bad of [null, [], {}, { ...desired, language: 'fr' }, { ...desired, closeToBackground: 'false' }, { ...desired, restoreIrcLogin: 'true' }, { ...desired, autoRefreshOclr: 'false' }, { ...desired, token: 'not-allowed' }]) {
       assert.throws(() => store.set(bad)); assert.deepEqual(store.get(), desired)
     }
     const copy = store.get(); copy.closeToBackground = true
@@ -35,9 +35,9 @@ test('legacy preferences keep language and background without granting login res
   try {
     writeFileSync(file, JSON.stringify({ schema: 1, preferences: { closeToBackground: false, language: 'zh-Hant' } }))
     const store = new PreferencesStore(file)
-    assert.deepEqual(store.get(), { closeToBackground: false, language: 'zh-Hant', restoreIrcLogin: false })
+    assert.deepEqual(store.get(), { closeToBackground: false, language: 'zh-Hant', restoreIrcLogin: false, autoRefreshOclr: true })
     store.setIrcLoginActive(true); assert.equal(new PreferencesStore(file).ircLoginActive, false)
-    store.set({ ...store.get(), restoreIrcLogin: true }); assert.equal(store.ircLoginActive, false)
+    store.set({ ...store.get(), restoreIrcLogin: true, autoRefreshOclr: false }); assert.equal(store.ircLoginActive, false)
     store.setIrcLoginActive(true); assert.equal(new PreferencesStore(file).ircLoginActive, true)
     store.set({ ...store.get(), language: 'en' }); assert.equal(new PreferencesStore(file).ircLoginActive, true)
     store.setIrcLoginActive(false); assert.equal(new PreferencesStore(file).ircLoginActive, false)
@@ -56,4 +56,21 @@ test('system language uses Chinese script, region and ordered supported language
   assert.equal(resolveLocale('system', ['en-GB', 'zh-TW']), 'en')
   assert.equal(resolveLocale('system', ['!invalid', 'fr']), 'en')
   assert.equal(resolveLocale('zh-Hant', ['en-US']), 'zh-Hant')
+})
+
+test('schema 2 migration enables OCLR updates without losing existing login eligibility; the choice persists separately', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'oclr-auto-refresh-settings-')), file = join(dir, 'preferences.json')
+  try {
+    writeFileSync(file, JSON.stringify({ schema: 2, preferences: { closeToBackground: false, language: 'en', restoreIrcLogin: true }, ircLoginActive: true }))
+    const store = new PreferencesStore(file)
+    assert.deepEqual(store.get(), { closeToBackground: false, language: 'en', restoreIrcLogin: true, autoRefreshOclr: true })
+    assert.equal(store.ircLoginActive, true)
+    store.set({ ...store.get(), autoRefreshOclr: false })
+    const restarted = new PreferencesStore(file)
+    assert.equal(restarted.get().autoRefreshOclr, false)
+    assert.equal(restarted.ircLoginActive, true)
+    assert.equal(JSON.parse(readFileSync(file, 'utf8')).schema, 3)
+    writeFileSync(file, JSON.stringify({ schema: 3, preferences: { ...store.get(), autoRefreshOclr: 'false' }, ircLoginActive: true }))
+    assert.deepEqual(new PreferencesStore(file).get(), DEFAULT_PREFERENCES)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
 })

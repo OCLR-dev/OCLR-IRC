@@ -30,6 +30,10 @@ export function SettingsView({ settings, onChange }: { settings: AppSettings; on
         <Tabs.Tab id="about">{tr('關於')}<Tabs.Indicator /></Tabs.Tab>
       </Tabs.List></Tabs.ListContainer>
       <Tabs.Panel id="general">
+        <section className="settings-section"><h2>OCLR</h2>
+          <WorkspaceCheckbox name="autoRefreshOclr" selected={settings.preferences.autoRefreshOclr} disabled={busy || !window.oclr} onChange={value => void save({ autoRefreshOclr: value })}>{tr('自動更新 OCLR 網站資料')}</WorkspaceCheckbox>
+          <p>{tr('在背景更新場次與裁判面板；關閉後可手動重新整理。')}</p>
+        </section>
         <section className="settings-section"><h2>{tr('IRC 登入')}</h2>
           <WorkspaceCheckbox name="restoreIrcLogin" selected={settings.preferences.restoreIrcLogin} disabled={busy || !window.oclr || !settings.secureStorageAvailable && !settings.preferences.restoreIrcLogin} onChange={value => void save({ restoreIrcLogin: value })}>{tr('啟動時恢復上次 IRC 登入')}</WorkspaceCheckbox>
           <p>{tr(settings.secureStorageAvailable ? '使用系統安全儲存保存登入；手動登出後不會自動連線。' : '系統安全儲存不可用，將使用手動登入。')}</p>

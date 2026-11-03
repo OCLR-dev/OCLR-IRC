@@ -89,7 +89,8 @@ reviewUrl 必須精確對應 `https://oclr.org/admin/tournaments/{edition.slug}/
 
 ## 輪詢、錯誤與資料清理
 
-- 選中 panel 前景 15 秒／背景 60 秒，fixtures 前景 60 秒／背景 120 秒；panel 遵守 pollAfterSeconds，全部遵守 Retry-After。恢復焦點重讀。同一資源 single-flight，切帳號／場次 generation 拒絕晚到資料。
+- 「自動更新 OCLR 網站資料」預設開啟：選中 panel 前景 15 秒／背景 60 秒，fixtures 前景 60 秒／背景 120 秒；panel 遵守 pollAfterSeconds，全部遵守 Retry-After。恢復焦點重讀。停用後取消定時與焦點資料重讀，手動／操作前讀取和授權續期不受此開關影響；重新啟用立即重讀。同一資源 single-flight，切帳號／場次 generation 拒絕晚到資料。
+- UI 不顯示例行 fresh／stale、更新時間或背景列表載入行。背景重讀可保留仍 fresh 的原快照，原有單調時鐘期限與清除 timer 繼續生效，不能因正在更新延長期限。關閉後晚到請求可完成既有驗證，但不得重新啟動輪詢。
 - 新 panel 完整驗證後一次替換，重產 previewId；改選地圖也重產。複製只接受當前 previewId＋已生成 commandId，不接受 raw command。過期、刷新授權、依賴變動、超長／控制字元、缺政策時禁用相應複製。
 - 私人 panel 於 capturedAt＋5 分鐘硬清除；列表也有限保留。失敗不延長期限，timer 延遲時 IPC 仍檢查 monotonic deadline。資料與 token 永不落盤，不從歷史重建權限。
 - 401 SESSION_REVOKED／SESSION_EXPIRED／INVALID_ACCESS_TOKEN、403 REFEREE_ACCESS_REVOKED／INSUFFICIENT_SCOPE 清全部 OCLR 私人資料；404 FIXTURE_NOT_AVAILABLE 只移除該場。未知 endpoint 的 404／HTML／未知契約顯示接入不可用，不冒充撤權或抓管理頁。

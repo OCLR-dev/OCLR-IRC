@@ -29,7 +29,7 @@ export function FixtureSource({website, onConnect}: {website: OclrSnapshot; onCo
   return <section className="fixture-source" aria-label={tr("場次來源")}>
     {!website.subject ? <Button size="sm" variant="secondary" onPress={onConnect}>{tr("連接 OCLR")}</Button> : <>
       <div className="fixture-source-row"><WorkspaceSelect label={tr("OCLR 場次")} value={website.selectedFixtureId || ''} disabled={busy || website.status !== 'connected'} onChange={id => {if (id) void update(id)}} options={[{value: '', label: tr("選擇場次")}, ...website.fixtures.map(fixture => ({value: fixture.fixtureId, label: fixture.label}))]} /><RefreshButton label={tr("同步場次資料")} disabled={website.status !== 'connected'} busy={busy || website.panelState === 'loading'} onPress={() => void update()} /></div>
-      <div className="fixture-source-meta"><span>{website.panel?.workspace.round.name || tr("尚未選擇場次")}</span><span>{website.panelState === 'fresh' ? tr("已同步") : website.panelState === 'loading' ? tr("同步中") : website.panelState === 'stale' ? tr("資料已過期") : ''}</span></div>
+      <div className="fixture-source-meta"><span>{website.panel?.workspace.round.name || tr("尚未選擇場次")}</span></div>
       {website.hasMore && <Button size="sm" variant="ghost" isDisabled={busy} onPress={() => void window.oclr?.website.loadMoreFixtures()}>{tr("載入更多場次")}</Button>}
     </>}
     {error && <p role="alert">{tr(error)}</p>}
