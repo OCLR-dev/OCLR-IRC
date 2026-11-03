@@ -1,13 +1,13 @@
 import { tr, uiLocale } from './i18n'
 import { WorkspaceSelect, RefreshButton, LogoutButton } from './controls'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Button, Spinner } from '@heroui/react'
 import { emptyOclrState } from '../../shared/oclr-state'
 import type { OclrCommand, OclrSnapshot } from '../../shared/oclr-contracts'
 const phases = ['賽前準備', 'BP 圖池', '賽後核對']
 const commandNames: Record<string, string> = { make: '建立房間', set: '房間規則', addref: '加入直播裁判', invite: '邀請選手', timer: '一般計時', map: '切換地圖', mods: '套用 Mods', start: '開賽倒數', abort: '中止比賽' }
 const statusNames = { pending: '待開始', playing: '進行中', completed: '已完成', tied: '平手', aborted: '已中止' }
-export function OclrView() {
+export function OclrView({ account }: { account: ReactNode }) {
   const [state, setState] = useState<OclrSnapshot>(emptyOclrState)
   const [phase, setPhase] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -39,17 +39,25 @@ export function OclrView() {
   function commands(kinds: string[]) {
     return <div className="oclr-commands">{state.commands.filter(c => kinds.includes(c.kind)).map(command => <CommandRow key={command.id} command={command} copied={copied === command.id} paused={!fresh} disabled={busy || !fresh} onCopy={() => api && void perform(() => api.copyCommand({ previewId: state.previewId, commandId: command.id }), command.id)} />)}</div>
   }
-  return <div className="oclr-view enter">
-    <div className="room-heading"><div><div className="section-kicker">OCLR WORKSPACE</div><h1>{authorized ? tr("我的執裁場次") : tr("連接 OCLR")}</h1></div></div>
+  return <div className="oclr-view referee-workbench enter">
+    <header className="workbench-heading"><h1>{tr("裁判工作臺")}</h1></header>
+    <div className="workbench-connections" aria-label={tr("連線帳號")}>
+      <section className="workbench-account workbench-irc" aria-label="osu! IRC">{account}</section>
+      <section className="workbench-account workbench-oclr" aria-label={tr("OCLR 網站")}>
+        <div className="workbench-account-heading"><h2>{tr("OCLR 網站")}</h2><span className="oclr-hint">{authorized ? tr("已連線") : tr("未連線")}</span></div>
     {(error || state.error) && <div className="error-message" role="alert">{tr(error || state.error)}</div>}
     {state.retryAt && <p className="oclr-hint" role="status">{tr("請於")}{new Date(state.retryAt).toLocaleTimeString(uiLocale())}{tr("後重試。")}</p>}
     {state.remoteRevocation === 'unconfirmed' && <p className="oclr-hint" role="status">{tr("本機登入資料已清除，遠端撤銷尚未確認；可到 OCLR 網站管理桌面連線。")}</p>}
+        {!authorized ? <section className="oclr-login">
+      {state.status === 'authorizing' ? <div className="oclr-authorization" role="status"><div className="oclr-hint">{tr("請在瀏覽器確認相同比對碼")}</div><strong className="oclr-verification">{state.authorization?.verificationCode ?? tr("準備授權…")}</strong><span className="oclr-hint">{state.authorization ? tr("有效至 {{v0}}", { v0: new Date(state.authorization.expiresAt).toLocaleTimeString(uiLocale()) }) : tr("正在建立安全回呼")}</span><Button variant="ghost" isDisabled={busy} onPress={() => api && void perform(() => api.cancelLogin())}>{tr("取消 OCLR 授權")}</Button></div> : <Button className="primary-button" isDisabled={!api || busy} onPress={() => api && void perform(() => api.login())}>{tr("透過瀏覽器登入 OCLR")}<span aria-hidden="true">↗</span></Button>}
+    </section> : <div className="oclr-session"><span><span className="tiny-dot active" /> {state.subject!.username} <small>osu! #{state.subject!.osuId}</small></span><div><RefreshButton label={tr("重新整理場次")} disabled={busy} busy={state.fixturesLoading} onPress={() => api && void perform(() => api.refreshFixtures())} /><LogoutButton label={tr("登出 OCLR")} disabled={busy} onPress={() => api && void perform(() => api.logout())} /></div></div>}
+      </section>
+    </div>
+    {authorized && <>
+      <div className="workbench-binding">
     {authorized && <section className="oclr-session account-pairing" aria-label={tr("帳號配對")}><div><strong>{tr("帳號配對")}</strong><span>IRC：{state.pairing.ircUsername ?? tr("未連線")} · OCLR：{state.subject!.username}</span><span role="status">{state.pairing.status === 'mismatch' ? tr("暱稱不符") : state.pairing.status === 'unknown' ? tr("尚未配對") : tr("帳號名稱相符・已自動核對")}</span></div></section>}
     {authorized && <section className="oclr-session website-projection" aria-label={tr("網站 IRC 投影")}><div><strong>{tr("網站 IRC 投影")}</strong><span role="status">{state.relay.status === 'connected' ? state.relay.roomId ? tr("已投影 #mp_{{v0}}", { v0: state.relay.roomId }) : tr("等待網站開房指令") : state.relay.status === 'connecting' ? tr("正在連接…") : tr(state.relay.error) || tr("尚未啟用")}</span></div><Button isDisabled={busy || !state.selectedFixtureId || state.relay.status === 'connecting' || state.relay.status !== 'connected' && state.pairing.status !== 'nickname_matched'} onPress={() => api && void perform(() => state.relay.status === 'connected' ? api.stopRelay() : api.startRelay())}>{state.relay.status === 'connected' ? tr("停止投影") : tr("連接網站 IRC")}</Button></section>}
-    {!authorized ? <section className="oclr-login">
-      {state.status === 'authorizing' ? <div className="oclr-authorization" role="status"><div className="oclr-hint">{tr("請在瀏覽器確認相同比對碼")}</div><strong className="oclr-verification">{state.authorization?.verificationCode ?? tr("準備授權…")}</strong><span className="oclr-hint">{state.authorization ? tr("有效至 {{v0}}", { v0: new Date(state.authorization.expiresAt).toLocaleTimeString(uiLocale()) }) : tr("正在建立安全回呼")}</span><Button variant="ghost" isDisabled={busy} onPress={() => api && void perform(() => api.cancelLogin())}>{tr("取消 OCLR 授權")}</Button></div> : <Button className="primary-button" isDisabled={!api || busy} onPress={() => api && void perform(() => api.login())}>{tr("透過瀏覽器登入 OCLR")}<span aria-hidden="true">↗</span></Button>}
-    </section> : <>
-      <div className="oclr-session"><span><span className="tiny-dot active" /> {state.subject!.username} <small>osu! #{state.subject!.osuId}</small></span><div><RefreshButton label={tr("重新整理場次")} disabled={busy} busy={state.fixturesLoading} onPress={() => api && void perform(() => api.refreshFixtures())} /><LogoutButton label={tr("登出 OCLR")} disabled={busy} onPress={() => api && void perform(() => api.logout())} /></div></div>
+      </div>
       <div className="oclr-grid">
         <aside className="oclr-fixtures" aria-label={tr("本人場次")}><span className="small-label">{tr("指派場次")}</span><WorkspaceSelect className="oclr-fixture-picker" label={tr("切換執裁場次")} value={state.selectedFixtureId ?? ''} disabled={busy || state.fixturesLoading || !state.fixtures.length} onChange={value => { if (api) void perform(() => api.selectFixture(value)) }} options={state.fixtures.map(f => ({ value: f.fixtureId, label: `${f.edition.name} · ${f.round.name} · ${f.label}` }))} />{state.fixturesLoading && !state.fixtures.length && <p className="oclr-hint" role="status"><Spinner size="sm" />{tr("讀取中…")}</p>}{!state.fixturesLoading && state.fixtures.length === 0 && <p className="oclr-hint">{tr("目前沒有可讀的指派場次。")}</p>}
           {state.fixtures.map(fixture => <button key={fixture.fixtureId} className={`oclr-fixture ${state.selectedFixtureId === fixture.fixtureId ? 'selected' : ''}`} aria-current={state.selectedFixtureId === fixture.fixtureId ? 'true' : undefined} onClick={() => api && void perform(() => api.selectFixture(fixture.fixtureId))} disabled={busy}><small>{fixture.edition.name} · {fixture.round.name}</small><strong>{fixture.label}</strong><span>{fixture.scheduledAt ? new Date(fixture.scheduledAt).toLocaleString(uiLocale()) : tr("時間待定")}</span><span>{fixture.status === 'cancelled' ? tr("已取消") : fixture.operational ? tr("可運作場次") : tr("僅供查閱")}</span></button>)}

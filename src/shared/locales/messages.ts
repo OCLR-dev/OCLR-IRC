@@ -1,5 +1,10 @@
 // Application-authored text only. Interpolation values and external content remain literal.
 export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
+  "裁判工作臺": {"zh-Hans": "裁判工作台", "en": "Referee workbench"},
+  "IRC 聊天": {"zh-Hans": "IRC 聊天", "en": "IRC chat"},
+  "開啟 IRC 聊天": {"zh-Hans": "打开 IRC 聊天", "en": "Open IRC chat"},
+  "連線帳號": {"zh-Hans": "连接账号", "en": "Connected accounts"},
+  "OCLR 網站": {"zh-Hans": "OCLR 网站", "en": "OCLR website"},
   "自動更新 OCLR 網站資料": {"zh-Hans": "自动更新 OCLR 网站数据", "en": "Automatically update OCLR website data"},
   "在背景更新場次與裁判面板；關閉後可手動重新整理。": {"zh-Hans": "在后台更新场次与执裁面板；关闭后可手动刷新。", "en": "Update fixtures and the referee panel in the background. Refresh manually when disabled."},
   "IRC 登入": {"zh-Hans": "IRC 登录", "en": "IRC login"},

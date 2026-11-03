@@ -2,7 +2,7 @@
 
 成功登入 IRC 後，帳號頁使用免費 HeroUI Avatar 顯示 osu! 頭像。IRC 暱稱中的底線視為空格，大小寫不敏感；全數字暱稱仍按名稱查詢。沒有圖片、下載失敗或圖片無效時顯示原本的名字首字母，尺寸固定，不影響版面。
 
-已連線帳號頁提供頭像、名稱與房間記錄入口；IRC 登出統一放在左側欄，避免同頁重複顯示。側欄登出沿用原有登入與頭像清理流程。
+「裁判工作臺」的 IRC 連線區提供頭像、名稱與「開啟 IRC 聊天」入口；IRC 登出統一放在左側欄，避免同頁重複顯示。側欄登出沿用原有登入與頭像清理流程。
 
 Main 只讀取 `https://osu.ppy.sh/users/<encoded-name>?key=username` 的公開個人頁，核對頁內目前名稱後，下載相同 user ID 的 `https://a.ppy.sh/<id>` 頭像。依據官方 [個人頁資料格式](https://github.com/ppy/osu-web/blob/master/resources/views/users/show.blade.php) 與 [User.avatar_url](https://osu.ppy.sh/docs/#user)，沒有新增 osu! OAuth／API key，也不傳送 IRC 密碼、OCLR token 或網站 cookie。公開頁格式改變／限制存取時回退快取或字母；這個查詢不提供 UID 身分證明，不改變 IRC／OCLR 帳號配對及操作 gate。
 
