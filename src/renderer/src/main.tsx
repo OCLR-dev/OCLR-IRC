@@ -6,7 +6,7 @@ import { SettingsView } from './settings'
 import { changeLocale, tr, uiLocale } from './i18n'
 import { DEFAULT_PREFERENCES, resolveLocale, type AppSettings } from '../../shared/preferences'
 import { RecordsView, type RecordsTab } from './records'
-import { WorkspaceSelect, WorkspaceCheckbox, RefreshButton, LogoutButton } from './controls'
+import { WorkspaceSelect, WorkspaceCheckbox, ActionIconButton, RefreshButton, LogoutButton } from './controls'
 import { MatchStatus } from './match-status'
 import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -183,7 +183,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           </div>}
           {error && (!connecting || formError || state.credentialError) && <div className="error-message room-error" role="alert">{tr(error)}</div>}
           <div className={`room-grid ${state.room ? '' : 'room-grid-empty'}`}><section className="conversation" aria-label={tr("房間訊息")}>
-            <div className="conversation-header"><div className="conversation-title"><h2>{state.room?.name || state.room?.channel || tr("尚未加入房間")}</h2><div className="conversation-meta"><span className="channel-name">{state.room?.channel}</span><span className="query-status" role="status" aria-label={state.pending ? tr("正在等待伺服器回覆…") : undefined}>{state.pending && <><Spinner size="sm" aria-hidden="true" /><span>{tr("正在等待伺服器回覆…")}</span></>}</span></div></div><div className="query-actions"><RefreshButton label={tr("讀取設定")} disabled={!online || !state.room?.joined || state.room.kind !== 'match'} busy={Boolean(state.pending)} onPress={() => void query('settings')} /><RefreshButton label={tr("裁判名單")} disabled={!online || !state.room?.joined || state.room.kind !== 'match'} busy={Boolean(state.pending)} onPress={() => void query('listrefs')} /></div></div>
+            <div className="conversation-header"><div className="conversation-title"><h2>{state.room?.name || state.room?.channel || tr("尚未加入房間")}</h2><div className="conversation-meta"><span className="channel-name">{state.room?.channel}</span><span className="query-status" role="status" aria-label={state.pending ? tr("正在等待伺服器回覆…") : undefined}>{state.pending && <><Spinner size="sm" aria-hidden="true" /><span>{tr("正在等待伺服器回覆…")}</span></>}</span></div></div><div className="query-actions"><ActionIconButton icon="settings" label={tr("讀取設定")} disabled={!online || !state.room?.joined || state.room.kind !== 'match'} busy={Boolean(state.pending)} onPress={() => void query('settings')} /><ActionIconButton icon="referees" label={tr("裁判名單")} disabled={!online || !state.room?.joined || state.room.kind !== 'match'} busy={Boolean(state.pending)} onPress={() => void query('listrefs')} /></div></div>
             {state.room?.kind === 'match' && <MatchStatus room={state.room} />}
             <MessageList key={`messages-${state.room?.epoch ?? 0}`} state={state} onError={setFormError} />
             <Composer key={`composer-${state.room?.epoch ?? 0}-${state.connection}`} state={state} onError={setFormError} />

@@ -1,6 +1,6 @@
 import { Icon } from './icons'
 import { Button, Checkbox, Label, ListBox, Select, Tooltip } from '@heroui/react'
-import type { ReactNode } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 
 export function WorkspaceSelect({ label, value, onChange, options, disabled, className = '' }: {
   label: string; value: string; onChange: (value: string) => void
@@ -20,10 +20,16 @@ export function WorkspaceCheckbox({ children, selected, onChange, disabled, name
   </Checkbox>
 }
 
-export function RefreshButton({ label, disabled, busy, onPress, variant = 'ghost' }: {
-  label: string; disabled?: boolean; busy?: boolean; onPress: () => void; variant?: 'ghost' | 'secondary'
-}) {
-  return <Tooltip delay={400}><Button type="button" isIconOnly size="sm" variant={variant} className="refresh-button" aria-label={label} aria-busy={busy || undefined} isDisabled={disabled || busy} onPress={onPress}><Icon name="refresh" /></Button><Tooltip.Content>{label}</Tooltip.Content></Tooltip>
+type ActionIconButtonProps = {
+  label: string; icon: ComponentProps<typeof Icon>['name']; disabled?: boolean; busy?: boolean; onPress: () => void; variant?: 'ghost' | 'secondary'
+}
+
+export function ActionIconButton({ label, icon, disabled, busy, onPress, variant = 'ghost' }: ActionIconButtonProps) {
+  return <Tooltip delay={400}><Button type="button" isIconOnly size="sm" variant={variant} className={icon === 'refresh' ? 'refresh-button' : undefined} aria-label={label} aria-busy={busy || undefined} isDisabled={disabled || busy} onPress={onPress}><Icon name={icon} /></Button><Tooltip.Content>{label}</Tooltip.Content></Tooltip>
+}
+
+export function RefreshButton(props: Omit<ActionIconButtonProps, 'icon'>) {
+  return <ActionIconButton {...props} icon="refresh" />
 }
 
 export function LogoutButton({ label, disabled, onPress }: {
