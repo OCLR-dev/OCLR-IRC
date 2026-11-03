@@ -4,6 +4,8 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Button, Spinner } from '@heroui/react'
 import { emptyOclrState } from '../../shared/oclr-state'
 import type { OclrCommand, OclrSnapshot } from '../../shared/oclr-contracts'
+import { fixtureDependenciesChanged } from '../../shared/fixture-tools'
+import { FixtureDependencyCheck } from './fixture-tools'
 const phases = ['賽前準備', 'BP 圖池', '賽後核對']
 const commandNames: Record<string, string> = { make: '建立房間', set: '房間規則', addref: '加入直播裁判', invite: '邀請選手', timer: '一般計時', map: '切換地圖', mods: '套用 Mods', start: '開賽倒數', abort: '中止比賽' }
 const statusNames = { pending: '待開始', playing: '進行中', completed: '已完成', tied: '平手', aborted: '已中止' }
@@ -37,8 +39,9 @@ export function OclrView({ account }: { account: ReactNode }) {
   const selectedFixture = state.fixtures.find(fixture => fixture.fixtureId === state.selectedFixtureId)
   const settings = workspace?.session?.settings ?? workspace?.defaultSettings
   const fresh = state.panelState === 'fresh' && state.status === 'connected'
+  const dependenciesChanged = fixtureDependenciesChanged(state)
   function commands(kinds: string[]) {
-    return <div className="oclr-commands">{state.commands.filter(c => kinds.includes(c.kind)).map(command => <CommandRow key={command.id} command={command} copied={copied === command.id} paused={!fresh} disabled={busy || !fresh} onCopy={() => api && void perform(() => api.copyCommand({ previewId: state.previewId, commandId: command.id }), command.id)} />)}</div>
+    return <div className="oclr-commands">{state.commands.filter(c => kinds.includes(c.kind)).map(command => <CommandRow key={command.id} command={command} copied={copied === command.id} paused={!fresh || dependenciesChanged} disabled={busy || !fresh} onCopy={() => api && void perform(() => api.copyCommand({ previewId: state.previewId, commandId: command.id }), command.id)} />)}</div>
   }
   return <div className="oclr-view referee-workbench enter">
     <header className="workbench-heading"><h1>{tr("裁判工作臺")}</h1></header>
@@ -68,6 +71,7 @@ export function OclrView({ account }: { account: ReactNode }) {
           {!state.selectedFixtureId ? <div className="empty-state"><h2>{tr("選擇執裁場次")}</h2></div> : <>
             <div className="oclr-panel-heading"><div><h2>{workspace?.fixture.label ?? selectedFixture?.label ?? tr("讀取裁判面板")}</h2>{state.panelState === 'unavailable' && <span className="oclr-hint">{tr("面板目前不可用")}</span>}</div><div className="oclr-panel-actions"><Button size="sm" variant="secondary" className="oclr-open-panel" isDisabled={!api || busy || !selectedFixture} onPress={() => api && selectedFixture && void perform(() => api.openRefereePanel(selectedFixture.fixtureId))}>{tr("開啟 OCLR 執裁面板")}<span aria-hidden="true">↗</span></Button><RefreshButton label={tr("更新面板")} disabled={busy} busy={state.panelState === 'loading'} onPress={() => api && void perform(() => api.refreshPanel())} /></div></div>
             {workspace && <>
+              <FixtureDependencyCheck website={state} />
               <div className="oclr-phases" role="tablist" aria-label={tr("執裁階段")}>{phases.map((name, i) => <button key={name} role="tab" id={`oclr-tab-${i}`} aria-controls="oclr-phase-content" aria-selected={phase === i} tabIndex={phase === i ? 0 : -1} onClick={() => setPhase(i)} onKeyDown={event => { const next = event.key === 'ArrowRight' ? (i + 1) % 3 : event.key === 'ArrowLeft' ? (i + 2) % 3 : event.key === 'Home' ? 0 : event.key === 'End' ? 2 : null; if (next !== null) { event.preventDefault(); setPhase(next); document.getElementById(`oclr-tab-${next}`)?.focus() } }}>{tr(name)}</button>)}</div>
               {workspace.readiness.length > 0 && <details className="oclr-issues"><summary>{tr("待核對項目（{{v0}}）", { v0: workspace.readiness.length })}</summary><ul>{workspace.readiness.map((issue, i) => <li key={i}>{tr(issue)}</li>)}</ul></details>}
               <div id="oclr-phase-content" role="tabpanel" aria-labelledby={`oclr-tab-${phase}`} className="oclr-phase-content enter" key={phase}>

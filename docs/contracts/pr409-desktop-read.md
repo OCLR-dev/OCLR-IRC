@@ -61,7 +61,7 @@ request／exchange／refresh JSON 欄位沿用 [授權草案 §5](desktop-author
 
 reviewUrl 必須精確對應 `https://oclr.org/admin/tournaments/{edition.slug}/matches/{fixtureId}`；Main 僅接受現有列表場次的 ID，沒有任意 URL 打開代理。正式 review 頁另由瀏覽器網站登入驗權。
 
-裁判工作臺另提供「開啟 OCLR 執裁面板」：沿用同一列表／reviewUrl 驗證，在 Main 加上固定 `/referee` 後綴並交給系統瀏覽器。這是既有網站路由入口，不新增 API 欄位或擴大 Bearer scope，也不向瀏覽器傳遞桌面 token。
+裁判工作臺另提供「開啟 OCLR 執裁面板」：沿用同一列表／reviewUrl 驗證，在 Main 加上固定 `/referee` 後綴並交給系統瀏覽器。這是既有網站路由入口，不新增 API 欄位或擴大 Bearer scope，也不向瀏覽器傳遞桌面 token。依賴核對入口僅在 Main 追加固定 `#referee-dependencies` 錨點；IPC 的可選 section 僅接受 `dependencies`。網站點擊核對才沿用既有寫入服務，桌面跳轉不擴大讀取 scope。
 
 ## Panel 1.1.0 的 wire shape
 

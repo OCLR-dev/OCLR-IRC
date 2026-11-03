@@ -2,6 +2,10 @@ import { relayCommand } from './relay-command.ts'
 import type { OclrSnapshot } from './oclr-contracts.ts'
 import type { LobbyPreview } from './lobby-command.ts'
 export interface FixtureInvitePreview extends LobbyPreview { fixtureLabel: string; teamName: string; osuId: number }
+export function fixtureDependenciesChanged(state: OclrSnapshot) {
+  const workspace = state.panel?.workspace
+  return Boolean(workspace && workspace.fixture.id === state.selectedFixtureId && workspace.session && workspace.session.dependencyFingerprint !== workspace.dependencyFingerprint)
+}
 /** A selected panel is a roster source, not an eligibility or lineup decision. */
 export function fixtureInviteSource(state: OclrSnapshot, teamId: string, osuId: number, includeFingerprint = true) {
   const panel = state.panel, workspace = panel?.workspace

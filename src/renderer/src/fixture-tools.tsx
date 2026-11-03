@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@heroui/react'
 import { emptyOclrState } from '../../shared/oclr-state'
-import { fixtureInviteSource, type FixtureInvitePreview } from '../../shared/fixture-tools'
+import { fixtureDependenciesChanged, fixtureInviteSource, type FixtureInvitePreview } from '../../shared/fixture-tools'
 import type { OclrSnapshot } from '../../shared/oclr-contracts'
 import type { Snapshot } from '../../shared/types'
 import { WorkspaceSelect, RefreshButton } from './controls'
@@ -30,8 +30,25 @@ export function FixtureSource({website, onConnect}: {website: OclrSnapshot; onCo
     {!website.subject ? <Button size="sm" variant="secondary" onPress={onConnect}>{tr("連接 OCLR")}</Button> : <>
       <div className="fixture-source-row"><WorkspaceSelect label={tr("OCLR 場次")} value={website.selectedFixtureId || ''} disabled={busy || website.status !== 'connected'} onChange={id => {if (id) void update(id)}} options={[{value: '', label: tr("選擇場次")}, ...website.fixtures.map(fixture => ({value: fixture.fixtureId, label: fixture.label}))]} /><RefreshButton label={tr("同步場次資料")} disabled={website.status !== 'connected'} busy={busy || website.panelState === 'loading'} onPress={() => void update()} /></div>
       <div className="fixture-source-meta"><span>{website.panel?.workspace.round.name || tr("尚未選擇場次")}</span></div>
+      <FixtureDependencyCheck website={website} />
       {website.hasMore && <Button size="sm" variant="ghost" isDisabled={busy} onPress={() => void window.oclr?.website.loadMoreFixtures()}>{tr("載入更多場次")}</Button>}
     </>}
+    {error && <p role="alert">{tr(error)}</p>}
+  </section>
+}
+export function FixtureDependencyCheck({website}: {website: OclrSnapshot}) {
+  const [busy, setBusy] = useState(false), [error, setError] = useState('')
+  if (!fixtureDependenciesChanged(website)) return null
+  const fixtureId = website.selectedFixtureId
+  async function open() {
+    if (!window.oclr || !fixtureId || busy) return
+    setBusy(true); setError('')
+    try { const result = await window.oclr.website.openRefereePanel(fixtureId, 'dependencies'); if (!result.ok) setError(result.error || 'OCLR 操作未完成。') }
+    catch {setError('桌面服務無法回應。')} finally {setBusy(false)}
+  }
+  return <section className="fixture-dependency-check" aria-label={tr("前往網站核對配置")}>
+    <p>{tr("網站場次依賴已變更，請先在網站重新核對。")}</p>
+    <Button size="sm" variant="secondary" isDisabled={busy || !website.subject || !website.fixtures.some(fixture => fixture.fixtureId === fixtureId)} onPress={() => void open()}>{tr("前往網站核對配置")}<span aria-hidden="true">↗</span></Button>
     {error && <p role="alert">{tr(error)}</p>}
   </section>
 }
@@ -49,7 +66,7 @@ export function FixturePool({website}: {website: OclrSnapshot}) {
       <div className="fixture-section-heading"><strong>{tr("本輪圖池")}</strong><span>{workspace.maps.length}</span></div>
       {!workspace.maps.length && <p className="tool-empty">{tr("本輪尚無圖池。")}</p>}
       <div className="fixture-map-list">{workspace.maps.map(map => <Button key={map.id} variant="ghost" className={`fixture-map ${website.selectedMapId === map.id ? 'selected' : ''}`} aria-pressed={website.selectedMapId === map.id} isDisabled={!fresh} onPress={() => {setError(''); void window.oclr?.website.selectMap(map.id).then(result => {if (!result.ok) setError(result.error || 'OCLR 操作未完成。')}).catch(() => setError('桌面服務無法回應。'))}}><span className="fixture-map-slot">{map.category}{map.position}</span><span className="fixture-map-title"><strong>{map.metadata?.title || String(map.beatmapId)}</strong><span>{map.metadata?.artist || `#${map.beatmapId}`}</span></span></Button>)}</div>
-      {website.selectedMapId && <div className="fixture-map-commands">{website.commands.filter(command => command.kind === 'map' || command.kind === 'mods').map(command => <div key={command.id}><code>{command.text || tr(command.reason || '無法預覽。')}</code><Button size="sm" variant="secondary" isDisabled={!fresh || !command.text} onPress={() => void copy(command.id)}>{copied === command.id ? tr("已複製") : command.kind === 'map' ? tr("複製換圖指令") : tr("複製 Mods 指令")}</Button></div>)}</div>}
+      {website.selectedMapId && <div className="fixture-map-commands">{website.commands.filter(command => command.kind === 'map' || command.kind === 'mods').map(command => <div key={command.id}><code>{command.text || (fixtureDependenciesChanged(website) ? '—' : tr(command.reason || '無法預覽。'))}</code><Button size="sm" variant="secondary" isDisabled={!fresh || !command.text} onPress={() => void copy(command.id)}>{copied === command.id ? tr("已複製") : command.kind === 'map' ? tr("複製換圖指令") : tr("複製 Mods 指令")}</Button></div>)}</div>}
     </>}
     {error && <p role="alert">{tr(error)}</p>}
   </section>
