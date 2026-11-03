@@ -1,6 +1,8 @@
 # OCLR IRC
 
-**osu! Chinese League Rookie（OCLR）**賽事的裁判用 IRC 桌面客戶端，支援 Windows、macOS 與 Linux。
+![OCLR IRC · Liru](resources/icons/icon-128.png)
+
+**osu! Chinese League Rookie（OCLR）** 賽事的裁判用 IRC 桌面客戶端，支援 Windows、macOS 與 Linux。
 
 目前為開發預覽版，完整 MVP 與三平台實機驗收尚未完成。
 
@@ -9,7 +11,17 @@
 - [GitHub Releases](https://github.com/OCLR-dev/OCLR-IRC/releases)：已發布的預覽版、校驗碼與建置資訊。
 - [Desktop test builds](https://github.com/OCLR-dev/OCLR-IRC/actions/workflows/test-builds.yml)：指定提交的測試包；需登入 GitHub，Artifacts 保留 30 天。
 
-發布格式：Windows x64 安裝精靈 EXE／備用 ZIP、macOS Apple Silicon arm64 拖放安裝 DMG／備用 ZIP，以及 Linux x64 tar.gz。Windows 執行 Setup EXE；macOS 開啟 DMG 後將 App 拖至 Applications，再退出映像並從應用程式啟動。一般 CI 的 macOS 測試包未經 Apple 公證；請以各次下載附帶的簽章與建置資訊為準。
+| 平台 | 架構 | 安裝版 | 可攜式 |
+| --- | --- | --- | --- |
+| Windows | x64 | Setup EXE 安裝精靈 | ZIP |
+| macOS | Apple Silicon arm64 | DMG 拖放安裝 | ZIP |
+| Linux | x64 | — | tar.gz |
+
+- **Windows**：執行 Setup EXE，依安裝精靈完成設定。
+- **macOS**：開啟 DMG，將 App 拖至 Applications，退出映像後從應用程式啟動。
+- **Linux／可攜式版本**：先完整解壓縮，再執行應用程式。
+
+一般 CI 的 macOS 測試包未經 Apple 公證；請以各次下載附帶的簽章與建置資訊為準。
 
 ## 主要功能
 
