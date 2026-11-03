@@ -121,6 +121,11 @@ function verifyPackagedIcons(folder, platform) {
     const icon = execFileSync('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleIconFile', path.join(contents, 'Info.plist')], { encoding: 'utf8' }).trim()
     assert.ok(icon && path.basename(icon) === icon)
     assert.ok(fs.readFileSync(path.join(contents, 'Resources', icon.endsWith('.icns') ? icon : icon + '.icns')).equals(fs.readFileSync('resources/icons/icon.icns')), 'Bundle ICNS matches Liru artwork')
+    const name = execFileSync('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleIconName', path.join(contents, 'Info.plist')], { encoding: 'utf8' }).trim()
+    assert.equal(name, 'Icon', 'Bundle selects the native macOS icon catalog')
+    assert.ok(readAsset(path.join('OCLR.icon', 'Assets', 'Liru.png')).equals(fs.readFileSync('resources/icons/icon.png')), 'Icon Composer uses the current Liru artwork')
+    const catalog = JSON.parse(execFileSync('xcrun', ['assetutil', '--info', path.join(contents, 'Resources', 'Assets.car')], { encoding: 'utf8' }))
+    verifyMacIconCatalog(catalog)
   } else if (platform === 'win32') {
     const ico = fs.readFileSync('resources/icons/icon.ico'), index = 6 + (ico.readUInt16LE(4) - 1) * 16
     const size = ico.readUInt32LE(index + 8), offset = ico.readUInt32LE(index + 12)
@@ -129,5 +134,11 @@ function verifyPackagedIcons(folder, platform) {
     assert.ok(fs.readFileSync(path.join(folder, 'oclr-irc.png')).equals(fs.readFileSync('resources/icons/icon-256.png')), 'Launcher PNG matches Liru artwork')
   }
 }
-module.exports = { main, verifyIdentity, verifyStartup, verifyPackagedIcons }
+function verifyMacIconCatalog(catalog) {
+  const assert = require('node:assert/strict')
+  assert.ok(Array.isArray(catalog), 'Readable macOS icon catalog')
+  assert.ok(catalog.some(asset => asset.AssetType === 'IconImageStack' && asset.Name === 'Icon'), 'Native layered Icon is compiled')
+  assert.ok(catalog.some(asset => asset.AssetType === 'Image' && asset.Name === 'Icon_Assets/Liru' && asset.PixelWidth === 1024 && asset.PixelHeight === 1024), 'Catalog contains the full-resolution Liru layer')
+}
+module.exports = { main, verifyIdentity, verifyStartup, verifyPackagedIcons, verifyMacIconCatalog }
 if (require.main === module) main().catch(error => { console.error(error); process.exitCode = 1 })

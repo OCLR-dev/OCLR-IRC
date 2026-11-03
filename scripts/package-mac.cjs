@@ -13,7 +13,9 @@ async function main() {
   const outputs = await packager({
     dir: '.', name: 'OCLR IRC', platform: 'darwin', arch: 'arm64',
     appBundleId: 'org.oclr.ref-tools',
-    icon: 'resources/icons/icon.icns',
+    // macOS 26+ uses the native catalog without shrinking the legacy tile into a plate.
+    // Keep ICNS for older macOS releases; Packager compiles the .icon before signing.
+    icon: ['resources/icons/icon.icns', 'resources/icons/OCLR.icon'],
     protocols: [{name: 'OCLR IRC', schemes: ['oclr-irc']}],
     out: 'release', overwrite: true,
     ignore: [/^\/(?:release(?:-input|-assets)?|spikes|docs|tests|src|scripts|artifacts|\.github)(?:\/|$)/],

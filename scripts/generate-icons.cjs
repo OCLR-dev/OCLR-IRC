@@ -15,6 +15,9 @@ async function main() {
   if (master.isEmpty() || master.getSize().width !== master.getSize().height || master.getSize().width < 1024) throw new Error('Square master of at least 1024px required')
   const png = size => master.resize({ width: size, height: size, quality: 'best' }).toPNG()
   for (const size of [32, 128, 256, 1024]) fs.writeFileSync(path.join(output, size === 1024 ? 'icon.png' : `icon-${size}.png`), png(size))
+  const composerAssets = path.join(output, 'OCLR.icon', 'Assets')
+  fs.mkdirSync(composerAssets, { recursive: true })
+  fs.copyFileSync(path.join(output, 'icon.png'), path.join(composerAssets, 'Liru.png'))
   const sizes = [16, 24, 32, 48, 64, 128, 256]
   const header = Buffer.alloc(6 + sizes.length * 16)
   header.writeUInt16LE(1, 2); header.writeUInt16LE(sizes.length, 4)
