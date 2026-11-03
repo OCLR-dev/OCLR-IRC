@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Button, Input, Label, TextField } from '@heroui/react'
+import { Button } from '@heroui/react'
 import { emptyOclrState } from '../../shared/oclr-state'
 import { fixtureInviteSource, type FixtureInvitePreview } from '../../shared/fixture-tools'
 import type { OclrSnapshot } from '../../shared/oclr-contracts'
 import type { Snapshot } from '../../shared/types'
-import { WorkspaceCheckbox, WorkspaceSelect, RefreshButton } from './controls'
+import { WorkspaceSelect, RefreshButton } from './controls'
 import { tr } from './i18n'
 export function useFixtureSource() {
   const [state, setState] = useState<OclrSnapshot>(emptyOclrState)
@@ -55,14 +55,14 @@ export function FixturePool({website}: {website: OclrSnapshot}) {
   </section>
 }
 export function FixtureRoster({website, state, onConnect, onOperations}: {website: OclrSnapshot; state: Snapshot; onConnect: () => void; onOperations: () => void}) {
-  const [preview, setPreview] = useState<FixtureInvitePreview | null>(null), [confirmName, setConfirmName] = useState(''), [reviewed, setReviewed] = useState(false), [busy, setBusy] = useState(false), [message, setMessage] = useState('')
+  const [preview, setPreview] = useState<FixtureInvitePreview | null>(null), [busy, setBusy] = useState(false), [message, setMessage] = useState('')
   const generation = useRef(0)
   const workspace = website.panel?.workspace
   const sourceKey = useMemo(() => JSON.stringify([website.subject, workspace]), [website.subject, workspace])
   const fresh = website.status === 'connected' && website.panelState === 'fresh'
   const linked = website.relay.status === 'connected' && website.relay.roomId === state.room?.id && state.room?.joined && website.pairing.status === 'nickname_matched'
   const unreviewed = state.operations?.records.some(record => record.roomId === state.room?.id && (record.state === 'awaiting' || record.state === 'unknown' && !record.reviewed))
-  function clear() {setPreview(null); setConfirmName(''); setReviewed(false)}
+  function clear() {setPreview(null)}
   useEffect(() => {generation.current++; clear(); setMessage('')}, [sourceKey, state.room?.id, state.room?.epoch, state.connection])
   useEffect(() => {if (preview && (!fresh || !linked)) clear()}, [fresh, linked, preview])
   useEffect(() => {if (!preview) return; const timer = setTimeout(clear, Math.max(0, Date.parse(preview.expiresAt) - Date.now())); return () => clearTimeout(timer)}, [preview])
@@ -75,7 +75,7 @@ export function FixtureRoster({website, state, onConnect, onOperations}: {websit
   }
   async function execute() {
     if (!window.oclr || !state.room || !preview || busy) return
-    const input = {roomId: state.room.id, roomEpoch: state.room.epoch, token: preview.token, playerName: confirmName, reviewed}
+    const input = {roomId: state.room.id, roomEpoch: state.room.epoch, token: preview.token, reviewed: true}
     clear(); setBusy(true); setMessage('')
     try {const result = await window.oclr.website.executeInvite(input); setMessage(result.ok ? '已送出，等待核對。' : result.error || '無法送出。')}
     catch {setMessage('結果不明，請核對房間。')} finally {setBusy(false)}
@@ -92,7 +92,7 @@ export function FixtureRoster({website, state, onConnect, onOperations}: {websit
         return <div className="fixture-player" key={player.osuId}><div><strong>{player.username}</strong><span>#{player.osuId} · {present ? tr("已在房內") : known ? tr("未到場") : tr("到場狀態未知")}</span>{sourceError && <span className="fixture-source-error">{tr(sourceError)}</span>}</div><Button size="sm" variant="secondary" aria-label={tr("邀請 {{v0}}", {v0: player.username})} isDisabled={!fresh || !linked || busy || Boolean(preview) || Boolean(present) || Boolean(unreviewed) || Boolean(sourceError)} onPress={() => void prepare(team.id, player.osuId)}>{tr("邀請")}</Button></div>
       })}</section>)}
     </>}
-    {preview && <div className="mp-confirm fixture-invite-confirm"><strong>{preview.fixtureLabel} · {preview.teamName}</strong><span>{preview.channel} · {preview.playerName} · #{preview.osuId}</span><code>{preview.command}</code><TextField name="fixtureConfirmName" value={confirmName} onChange={setConfirmName}><Label>{tr("輸入玩家名稱以核對 UID")}</Label><Input autoComplete="off" /></TextField><WorkspaceCheckbox selected={reviewed} onChange={setReviewed}>{tr("我已核對房間、玩家身份與變更")}</WorkspaceCheckbox><Button size="sm" className="primary-button" isDisabled={busy || !fresh || !linked || !reviewed || confirmName !== preview.playerName} onPress={() => void execute()}>{tr("確認邀請")}</Button><Button size="sm" variant="ghost" onPress={clear}>{tr("取消預覽")}</Button></div>}
+    {preview && <div className="mp-confirm fixture-invite-confirm"><strong>{preview.fixtureLabel} · {preview.teamName}</strong><span>{preview.channel} · {preview.playerName} · #{preview.osuId}</span><code>{preview.command}</code><Button size="sm" className="primary-button" isDisabled={busy || !fresh || !linked} onPress={() => void execute()}>{tr("確認邀請")}</Button><Button size="sm" variant="ghost" onPress={clear}>{tr("取消預覽")}</Button></div>}
     {unreviewed && <Button size="sm" variant="ghost" onPress={onOperations}>{tr("前往操作記錄核對")}</Button>}
     {message && <p role="status">{tr(message)}</p>}
   </section>

@@ -125,6 +125,7 @@ test('PKCE browser login keeps secrets in Main, requests exact read scopes and a
     await f.session.selectFixture(id(101)); assert.equal(f.session.state.panelState, 'fresh')
     f.session.selectMap(id(301))
     const state = f.session.state
+    assert.deepEqual(state.commands.filter(command => command.kind === 'invite').map(command => command.text), ['!mp invite #900000011', '!mp invite #900000021'])
     assert.equal(state.commands.find(c => c.kind === 'map')?.text, '!mp map 900000101 0')
     assert.equal(state.commands.find(c => c.kind === 'mods')?.text, '!mp mods NF HD')
     await f.session.copyCommand({ previewId: state.previewId, commandId: 'mods' })

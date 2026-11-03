@@ -9,7 +9,7 @@ import { FixtureInvites } from '../src/main/fixture-invites.ts'
 import { fixtureInviteSource } from '../src/shared/fixture-tools.ts'
 import { emptyOclrState } from '../src/shared/oclr-state.ts'
 import { panelSchema } from '../src/shared/oclr-contracts.ts'
-import { refereeCommands } from '../src/shared/oclr-website/referee-commands.ts'
+import { refereeCommands } from '../src/shared/referee-commands.ts'
 import type { OclrSession } from '../src/main/oclr.ts'
 import type { OclrRelay } from '../src/main/oclr-relay.ts'
 import type { OperationRecord } from '../src/shared/operation.ts'
@@ -41,7 +41,7 @@ async function fixture() {
   const target = () => ({roomId: 9, roomEpoch: irc.state.room!.epoch})
   await until(() => irc.state.room?.joined === true)
   irc.relayRefresh(target())
-  await until(() => irc.relayReady(target(), '!mp invite Player_A'))
+  await until(() => irc.relayReady(target(), '!mp invite #900000011'))
   const controller = new FixtureInvites(oclr as unknown as OclrSession, irc, relay as unknown as OclrRelay)
   const input = () => ({...target(), previewId: state.previewId, teamId: state.panel.workspace.teams[0].id, osuId: state.panel.workspace.teams[0].members[0].osuId})
   return {irc, state, controller, oclr, sent, saved, input, target, reads: () => reads, bind: (value: string) => {scope = value}, hold: () => {barrier = new Promise<void>(resolve => {release = resolve})}, release: () => {barrier = null; release?.()}, async close() {irc.logout(); for (const socket of sockets) socket.destroy(); await new Promise<void>(resolve => server.close(() => resolve()))}}
@@ -50,11 +50,11 @@ test('fixture invite rereads its source, previews one fixed player and sends onc
   const f = await fixture()
   try {
     const preview = await f.controller.prepare(f.input())
-    assert.equal(preview.command, '!mp invite Player_A'); assert.equal(preview.osuId, 900000011)
+    assert.equal(preview.command, '!mp invite #900000011'); assert.equal(preview.osuId, 900000011)
     assert.equal(f.sent.some(line => line.includes('!mp invite')), false)
-    const value = {...f.target(), token: preview.token, reviewed: true, playerName: preview.playerName!}
+    const value = {...f.target(), token: preview.token, reviewed: true}
     await f.controller.execute(value)
-    await until(() => f.sent.some(line => line.endsWith(':!mp invite Player_A')))
+    await until(() => f.sent.some(line => line.endsWith(':!mp invite #900000011')))
     await assert.rejects(f.controller.execute(value))
     assert.equal(f.sent.filter(line => line.includes('!mp invite')).length, 1)
     assert.equal(f.reads(), 2)
@@ -71,18 +71,20 @@ test('queued refresh completes before fixture invite preview, so confirmation st
     f.irc.relayRefresh(f.target())
     const preview = await f.controller.prepare(f.input())
     await until(() => reads() === before + 1 && f.irc.relayReady(f.target(), preview.command))
-    await f.controller.execute({...f.target(), token: preview.token, reviewed: true, playerName: preview.playerName!})
-    await until(() => f.sent.includes('PRIVMSG #mp_9 :!mp invite Player_A'))
+    await f.controller.execute({...f.target(), token: preview.token, reviewed: true})
+    await until(() => f.sent.includes('PRIVMSG #mp_9 :!mp invite #900000011'))
     assert.equal(f.sent.filter(line => line.includes('!mp invite')).length, 1)
   } finally {await f.close()}
 })
-test('manual IPC cannot execute a website invitation and missing name confirmation never writes', async () => {
+test('manual IPC cannot execute a roster invitation and unconfirmed or forged UID inputs never write', async () => {
   const f = await fixture()
   try {
     let preview = await f.controller.prepare(f.input())
     assert.throws(() => f.irc.executeLobby({...f.target(), token: preview.token, reviewed: true, playerName: preview.playerName}))
     preview = await f.controller.prepare(f.input())
-    await assert.rejects(f.controller.execute({...f.target(), token: preview.token, reviewed: true, playerName: 'Wrong player'}))
+    await assert.rejects(f.controller.execute({...f.target(), token: preview.token, reviewed: false}))
+    preview = await f.controller.prepare(f.input())
+    await assert.rejects(f.controller.execute({...f.target(), token: preview.token, reviewed: true, osuId: 900000022}))
     assert.equal(f.sent.some(line => line.includes('!mp invite')), false)
   } finally {await f.close()}
 })
@@ -99,7 +101,7 @@ test('changed roster, source revision, authorization, binding and room epoch rej
       if (mode === 'approved') f.state.fixtures[0].resultReviewState = 'approved'
       if (mode === 'assignment') f.state.fixtures = []
       if (mode === 'list-failure') f.state.error = 'Unavailable'
-      await assert.rejects(f.controller.execute({...target, token: preview.token, reviewed: true, playerName: preview.playerName!}))
+      await assert.rejects(f.controller.execute({...target, token: preview.token, reviewed: true}))
       assert.equal(f.sent.some(line => line.includes('!mp invite')), false, mode)
     } finally {await f.close()}
   }
@@ -123,7 +125,7 @@ test('assigned fixture summary is reread across pages before preparing an invita
       else {f.state.fixtures.push(wanted); f.state.hasMore = false}
     }
     const preview = await f.controller.prepare(f.input())
-    assert.deepEqual(pages, [false, true]); assert.equal(preview.command, '!mp invite Player_A')
+    assert.deepEqual(pages, [false, true]); assert.equal(preview.command, '!mp invite #900000011')
     assert.equal(f.sent.some(line => line.includes('!mp invite')), false)
   } finally {await f.close()}
 })
@@ -132,7 +134,7 @@ test('unavailable authorization clears an existing preview even if the same sour
   try {
     const preview = await f.controller.prepare(f.input()), panel = f.state.panel
     f.state.panel = null as any; f.oclr.emit('state'); f.state.panel = panel
-    await assert.rejects(f.controller.execute({...f.target(), token: preview.token, reviewed: true, playerName: preview.playerName!}))
+    await assert.rejects(f.controller.execute({...f.target(), token: preview.token, reviewed: true}))
     assert.equal(f.sent.some(line => line.includes('!mp invite')), false)
   } finally {await f.close()}
 })
@@ -140,11 +142,10 @@ test('duplicates, stale sources, missing players and disabled website commands c
   const f = await fixture()
   try {
     const original = structuredClone(f.state)
-    for (const mode of ['duplicate-id', 'duplicate-name', 'stale', 'missing', 'blocked', 'injection']) {
+    for (const mode of ['duplicate-id', 'stale', 'missing', 'blocked', 'injection']) {
       Object.assign(f.state, structuredClone(original))
       const team = f.state.panel.workspace.teams[0], member = team.members[0]
       if (mode === 'duplicate-id') f.state.panel.workspace.teams[1].members.push({...member})
-      if (mode === 'duplicate-name') f.state.panel.workspace.teams[1].members[0].username = 'Player_A'
       if (mode === 'stale') (f.state as any).panelState = 'stale'
       if (mode === 'missing') team.members = []
       if (mode === 'blocked') f.state.commands.find(command => command.kind === 'invite')!.text = null
@@ -153,6 +154,24 @@ test('duplicates, stale sources, missing players and disabled website commands c
     }
     assert.equal(f.sent.some(line => line.includes('!mp invite')), false)
   } finally {await f.close()}
+})
+test('renamed, Unicode and same-name players still invite the selected roster UID without a typed name', async () => {
+  for (const mode of ['renamed', 'unicode', 'same-name']) {
+    const f = await fixture()
+    try {
+      const member = f.state.panel.workspace.teams[0].members[0]
+      member.username = mode === 'unicode' ? '新 玩家' : 'Renamed Player'
+      if (mode === 'same-name') f.state.panel.workspace.teams[1].members[0].username = member.username
+      const w = f.state.panel.workspace
+      f.state.commands = refereeCommands({settings: w.defaultSettings, policy: w.policy?.commands || null, rules: w.rules, teams: w.teams, selectedMap: null})
+      const preview = await f.controller.prepare(f.input())
+      assert.equal(preview.command, '!mp invite #900000011')
+      assert.equal(preview.playerName, member.username)
+      await f.controller.execute({...f.target(), token: preview.token, reviewed: true})
+      await until(() => f.sent.includes('PRIVMSG #mp_9 :!mp invite #900000011'))
+      assert.equal(f.sent.filter(line => line.includes('!mp invite')).length, 1)
+    } finally {await f.close()}
+  }
 })
 test('unreviewed operations and an unbound room block new fixture invitations', async () => {
   const f = await fixture()

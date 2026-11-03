@@ -548,7 +548,7 @@ export class IrcSession extends EventEmitter {
       if (intent.kind === 'team' && !/^(?:TeamVs|TagTeamVs)\b/.test(view.room.mode ?? '')) throw new Error('目前不是已核對的分隊模式。')
     }
     const token = randomUUID()
-    const command = source === 'oclr' && intent.kind === 'invite' ? relayCommand(`!mp invite ${intent.name.replace(/\s+/gu, '_')}`) : lobbyCommand(intent)
+    const command = source === 'oclr' ? relayCommand(lobbyCommand(intent)) : lobbyCommand(intent)
     this.lobbyPreview = { source, command, playerName, token, intent, view, fingerprint: this.mpFingerprint(view.room), deadline: performance.now() + 10000 }
     return { token, channel: view.room.channel, command, kind: intent.kind, ...(playerName ? { playerName } : {}), ...(intent.kind === 'password' ? { passwordMode: intent.mode } : {}), expiresAt: new Date(Date.now() + 10000).toISOString() }
   }
@@ -559,7 +559,7 @@ export class IrcSession extends EventEmitter {
     const view = this.target(input), value = input as Record<string, unknown>
     if (!preview || preview.source !== source || preview.view !== view || preview.token !== value.token || value.reviewed !== true || performance.now() >= preview.deadline || preview.fingerprint !== this.mpFingerprint(view.room) || this.mapPlan?.active || this.roomPlan?.active) throw new Error('房間設定確認已失效。')
     this.mpReady(view, '', true); this.profileIdle(view)
-    if (preview.playerName !== undefined && value.playerName !== preview.playerName) throw new Error('請輸入預覽中的玩家名稱以確認身份。')
+    if (source === 'manual' && preview.playerName !== undefined && value.playerName !== preview.playerName) throw new Error('請輸入預覽中的玩家名稱以確認身份。')
     if (preview.intent.kind === 'close' && value.closeRoom !== view.room.channel) throw new Error('請輸入完整頻道名稱以確認關房。')
     if (preview.intent.kind === 'password' && preview.intent.mode === 'set' && value.password === undefined) throw new Error('請輸入房間密碼。')
     const command = source === 'oclr' ? preview.command : lobbyCommand(preview.intent, value.password), masked = source === 'oclr' ? preview.command : lobbyCommand(preview.intent)

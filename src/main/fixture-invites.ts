@@ -65,8 +65,8 @@ export class FixtureInvites {
   async execute(value: unknown) {
     const preview = this.preview; this.clearPreview(false); this.generation++
     try {
-      const parsed = target.extend({token: uuid, reviewed: z.literal(true), playerName: z.string().max(50)}).strict().parse(value)
-      if (!preview || parsed.token !== preview.value.token || parsed.roomId !== preview.target.roomId || parsed.roomEpoch !== preview.target.roomEpoch || parsed.playerName !== preview.value.playerName || this.scope(parsed) !== preview.scope) throw new Error('房間設定確認已失效。')
+      const parsed = target.extend({token: uuid, reviewed: z.literal(true)}).strict().parse(value)
+      if (!preview || parsed.token !== preview.value.token || parsed.roomId !== preview.target.roomId || parsed.roomEpoch !== preview.target.roomEpoch || this.scope(parsed) !== preview.scope) throw new Error('房間設定確認已失效。')
       const generation = this.generation
       await this.recheck()
       if (generation !== this.generation || this.scope(parsed) !== preview.scope || fixtureInviteSource(this.oclr.state, preview.teamId, preview.value.osuId).fingerprint !== preview.fingerprint) throw new Error('場次資料已失效，請重新同步。')

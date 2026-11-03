@@ -8,3 +8,5 @@ Source: [OCLR-website PR #409](https://github.com/OCLR-dev/OCLR-website/pull/409
 - `LICENSE`: upstream notice. A distribution notice also lives at the application root so packaging retains it when raw source is excluded.
 
 These are a pinned snapshot, not a published upstream SDK. Update source commit, attribution and command/projection tests together when the PR changes. Desktop response validation, memory lifecycle and IPC remain separate. Referee records are read-only here; shared write validators do not expose a mutation endpoint.
+
+The desktop adapter at `../referee-commands.ts` replaces roster invitation targets with validated, unique osu! UIDs (`!mp invite #<UID>`) under the 2026-11-03 user request. This does not change the pinned builder above or claim upstream behavior changed. Other generated commands and the Main permission gates remain in place.
