@@ -1,5 +1,7 @@
 # GitHub Release CI
 
+2026-11-03 v0.8.6：依使用者 bump version 及既有 tag／push 流程，整合房間設定／裁判查詢圖示區分、對局網站入口、UID 邀請與配置核對跳轉（#106、#108、#110、#112）。套件、lockfile 與介面同步為 0.8.6；三平台 PR CI 後合併並推送未使用的 v0.8.6 tag，由既有 Release CI 測試、打包及正式 macOS 簽章公證後公開。更新內容見 [v0.8.6](releases/v0.8.6.md)，發布驗收追蹤 #113，結果以本版實際提交及 run 為準。
+
 2026-11-03 v0.8.5：依使用者明確要求 bump version、tag and push，整合裁判工作臺、記錄中心、OCLR 自動背景更新、macOS 原生圖示及介面簡化。套件、lockfile 與介面同步為 0.8.5；完成測試與 PR 合併後，在對應 main 提交建立未使用的 v0.8.5 tag 並推送，由 Release CI 完成三平台與正式 macOS 簽章公證後公開 Pre-release。更新內容見 [v0.8.5](releases/v0.8.5.md)，驗收追蹤 #103；結果以本版實際提交及 run 為準。
 
 2026-11-03 v0.8.4：套件、lockfile 及介面已由 #88 升至 0.8.4，三平台 PR CI 41575636853 通過。使用者隨後明確要求推送 tag，並修正 README 格式；合併文件修正後，在該 main 提交建立未使用的 v0.8.4 tag 並推送，依既有 Release CI 完成三平台、正式 macOS 簽章公證及成品驗證後公開 Pre-release。更新內容見 [v0.8.4](releases/v0.8.4.md)，發布驗收追蹤 #89；結果以本版實際提交與 run 為準。
