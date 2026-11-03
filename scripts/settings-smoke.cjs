@@ -63,6 +63,7 @@ async function main() {
   assert.equal(await js('Boolean(document.querySelector(".sidebar-note"))'), false)
   assert.throws(() => handlers.get('app:avatar')({ sender: window.webContents, senderFrame: { url: 'https://untrusted.invalid' } }), /Untrusted/)
   await assert.rejects(handlers.get('app:settings-update')({ sender: window.webContents, senderFrame: { url: 'https://untrusted.invalid' } }, { closeToBackground: false, language: 'en', restoreIrcLogin: false, autoRefreshOclr: false }), /Untrusted/)
+  await assert.rejects(handlers.get('oclr:open-referee-panel')({ sender: window.webContents, senderFrame: { url: 'https://untrusted.invalid' } }, '00000000-0000-4000-8000-000000000101'), /Untrusted/)
   if (!restart) {
     try {
       for (const [width, height, size] of [[1440, 900, 64], [1920, 1080, 80], [1440, 700, 40]]) {

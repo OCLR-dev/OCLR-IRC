@@ -136,6 +136,25 @@ test('PKCE browser login keeps secrets in Main, requests exact read scopes and a
   } finally { f.session.dispose() }
 })
 
+test('referee panel browser links accept only assigned fixture IDs and work without the desktop panel', async () => {
+  const f = harness(request => request.path.endsWith('/panel') ? apiError('SERVICE_UNAVAILABLE', 503) : undefined)
+  try {
+    await assert.rejects(f.session.openRefereePanel(id(101)))
+    assert.deepEqual(f.opened, [])
+    await f.login()
+    for (const invalid of [null, 101, {}, id(999), fixture().reviewUrl, 'https://attacker.invalid/']) await assert.rejects(f.session.openRefereePanel(invalid))
+    assert.equal(f.opened.length, 1, 'invalid inputs must not open the browser')
+    await f.session.selectFixture(id(101))
+    assert.equal(f.session.state.panelState, 'unavailable')
+    await f.session.openRefereePanel(id(101))
+    await f.session.openRefereePanel(id(103))
+    assert.deepEqual(f.opened.slice(1), [101, 103].map(n => `${fixture(n).reviewUrl}/referee`))
+    await f.session.logout()
+    await assert.rejects(f.session.openRefereePanel(id(101)))
+    assert.equal(f.opened.length, 3, 'logout must remove the browser-link capability')
+  } finally { f.session.dispose() }
+})
+
 test('website builder parity, nullable missing policies and unknown enum rejection', () => {
   const data = panelSchema.parse(panel()).data.workspace
   const commands = refereeCommands({ settings: data.defaultSettings, teams: data.teams, rules: data.rules, policy: data.policy?.commands ?? null, selectedMap: data.maps[0] })

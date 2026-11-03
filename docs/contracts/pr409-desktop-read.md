@@ -61,6 +61,8 @@ request／exchange／refresh JSON 欄位沿用 [授權草案 §5](desktop-author
 
 reviewUrl 必須精確對應 `https://oclr.org/admin/tournaments/{edition.slug}/matches/{fixtureId}`；Main 僅接受現有列表場次的 ID，沒有任意 URL 打開代理。正式 review 頁另由瀏覽器網站登入驗權。
 
+裁判工作臺另提供「開啟 OCLR 執裁面板」：沿用同一列表／reviewUrl 驗證，在 Main 加上固定 `/referee` 後綴並交給系統瀏覽器。這是既有網站路由入口，不新增 API 欄位或擴大 Bearer scope，也不向瀏覽器傳遞桌面 token。
+
 ## Panel 1.1.0 的 wire shape
 
 成功 envelope 的 data 固定為 `viewer`、`edition`、`capturedAt`、`freshUntil`、`workspace`；meta 為前述共同 metadata，contractVersion 候選 `1.1.0`。`workspace` 是完整物件，不是 HTML、字串或第二個任意 JSON envelope。

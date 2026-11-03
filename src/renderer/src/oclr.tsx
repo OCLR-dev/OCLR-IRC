@@ -34,6 +34,7 @@ export function OclrView({ account }: { account: ReactNode }) {
   const authorized = Boolean(state.subject)
   const panel = state.panel
   const workspace = panel?.workspace
+  const selectedFixture = state.fixtures.find(fixture => fixture.fixtureId === state.selectedFixtureId)
   const settings = workspace?.session?.settings ?? workspace?.defaultSettings
   const fresh = state.panelState === 'fresh' && state.status === 'connected'
   function commands(kinds: string[]) {
@@ -65,7 +66,7 @@ export function OclrView({ account }: { account: ReactNode }) {
         </aside>
         <section className="oclr-panel" aria-label={tr("OCLR 裁判面板")}>
           {!state.selectedFixtureId ? <div className="empty-state"><h2>{tr("選擇執裁場次")}</h2></div> : <>
-            <div className="oclr-panel-heading"><div><h2>{workspace?.fixture.label ?? tr("讀取裁判面板")}</h2>{state.panelState === 'unavailable' && <span className="oclr-hint">{tr("面板目前不可用")}</span>}</div><RefreshButton label={tr("更新面板")} disabled={busy} busy={state.panelState === 'loading'} onPress={() => api && void perform(() => api.refreshPanel())} /></div>
+            <div className="oclr-panel-heading"><div><h2>{workspace?.fixture.label ?? selectedFixture?.label ?? tr("讀取裁判面板")}</h2>{state.panelState === 'unavailable' && <span className="oclr-hint">{tr("面板目前不可用")}</span>}</div><div className="oclr-panel-actions"><Button size="sm" variant="secondary" className="oclr-open-panel" isDisabled={!api || busy || !selectedFixture} onPress={() => api && selectedFixture && void perform(() => api.openRefereePanel(selectedFixture.fixtureId))}>{tr("開啟 OCLR 執裁面板")}<span aria-hidden="true">↗</span></Button><RefreshButton label={tr("更新面板")} disabled={busy} busy={state.panelState === 'loading'} onPress={() => api && void perform(() => api.refreshPanel())} /></div></div>
             {workspace && <>
               <div className="oclr-phases" role="tablist" aria-label={tr("執裁階段")}>{phases.map((name, i) => <button key={name} role="tab" id={`oclr-tab-${i}`} aria-controls="oclr-phase-content" aria-selected={phase === i} tabIndex={phase === i ? 0 : -1} onClick={() => setPhase(i)} onKeyDown={event => { const next = event.key === 'ArrowRight' ? (i + 1) % 3 : event.key === 'ArrowLeft' ? (i + 2) % 3 : event.key === 'Home' ? 0 : event.key === 'End' ? 2 : null; if (next !== null) { event.preventDefault(); setPhase(next); document.getElementById(`oclr-tab-${next}`)?.focus() } }}>{tr(name)}</button>)}</div>
               {workspace.readiness.length > 0 && <details className="oclr-issues"><summary>{tr("待核對項目（{{v0}}）", { v0: workspace.readiness.length })}</summary><ul>{workspace.readiness.map((issue, i) => <li key={i}>{tr(issue)}</li>)}</ul></details>}

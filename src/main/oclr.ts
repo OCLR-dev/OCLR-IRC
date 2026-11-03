@@ -395,6 +395,11 @@ export class OclrSession extends EventEmitter {
     if (!fixture || !this.pair) throw new OclrError('FIXTURE_NOT_AVAILABLE')
     await this.options.openExternal(this.reviewUrl(fixture))
   }
+  async openRefereePanel(input: unknown) {
+    const fixture = this.value.fixtures.find(f => f.fixtureId === input)
+    if (!fixture || !this.pair) throw new OclrError('FIXTURE_NOT_AVAILABLE')
+    await this.options.openExternal(`${this.reviewUrl(fixture)}/referee`)
+  }
   async logout() {
     const pair = this.pair
     this.reset(); const generation = this.generation
