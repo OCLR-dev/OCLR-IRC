@@ -66,10 +66,10 @@ async function main() {
   const window = BrowserWindow.getAllWindows()[0]
   // Keep virtualized UI measurement active when the test window is occluded.
   window.webContents.setBackgroundThrottling(false)
-  async function capture() {
+  async function capture(rect) {
     // Native compositor can briefly invalidate a frame during resize/show.
     for (let attempt = 0; ; attempt++) {
-      try { return await window.webContents.capturePage() }
+      try { return await window.webContents.capturePage(rect) }
       catch (error) {
         if (attempt >= 2 || !String(error).includes('UnknownVizError')) throw error
         window.show(); await delay(200)
@@ -95,6 +95,10 @@ async function main() {
     await js(`(() => {const element=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(element,${JSON.stringify(value)});element.dispatchEvent(new Event('input',{bubbles:true}));element.dispatchEvent(new Event('change',{bubbles:true}));})()`)
     await delay(100)
   }
+  function pressKey(keyCode, modifiers = []) {
+    window.webContents.sendInputEvent({ type: 'keyDown', keyCode, modifiers })
+    window.webContents.sendInputEvent({ type: 'keyUp', keyCode, modifiers })
+  }
   await fill('input[name=username]', 'SyntheticRef')
   await fill('input[name=password]', 'SYNTHETIC_PASSWORD_ONLY')
   assert.equal(await js('document.querySelector("button[type=submit]").disabled'), false)
@@ -106,9 +110,20 @@ async function main() {
   await js('document.querySelector(".join-form button[type=submit]").click()')
   await until(() => js('!document.querySelector(".query-actions button").disabled'))
   assert.deepEqual(await js('Array.from(document.querySelectorAll(".query-actions button")).map(b => [b.getAttribute("aria-label"), b.textContent.trim(), Boolean(b.querySelector("svg"))])'), [['讀取設定', '', true], ['裁判名單', '', true]])
+  const queryIcons = () => js('Array.from(document.querySelectorAll(".query-actions button svg")).map(svg => svg.innerHTML)')
+  const idleQueryIcons = await queryIcons()
+  assert.equal(new Set(idleQueryIcons).size, 2, 'room settings and referee queries must have distinct icons')
+  window.focus(); window.webContents.focus()
+  await js('document.querySelectorAll(".query-actions button")[0].focus()')
+  pressKey('Tab')
+  await until(() => js('document.activeElement?.getAttribute("aria-label") === "裁判名單" && document.querySelector("[role=tooltip]")?.textContent === "裁判名單"'))
+  pressKey('Tab', ['shift'])
+  await until(() => js('document.activeElement?.getAttribute("aria-label") === "讀取設定" && document.querySelector("[role=tooltip]")?.textContent === "讀取設定"'))
   await delay(1100)
-  await js('document.querySelectorAll(".query-actions button")[0].click()')
+  const beforeSettings = sent.length
+  pressKey('Return')
   await until(() => js('document.body.textContent.includes("History 連結相符")'))
+  assert.deepEqual(sent.slice(beforeSettings).filter(line => /:!mp (settings|listrefs)$/.test(line)), ['PRIVMSG #mp_900000001 :!mp settings'])
   await until(() => js('document.querySelectorAll(".player-slot").length === 16'))
   assert.equal(await js('document.querySelector(".player-slots header").textContent.includes("準備 1 / 2")'), true)
   assert.equal(await js('document.querySelectorAll(".player-slot.vacant").length'), 14)
@@ -116,8 +131,14 @@ async function main() {
   fs.writeFileSync(path.join(output, 'player-slots-synthetic.png'), (await capture()).toPNG())
   await delay(1100)
   await until(() => js('document.querySelectorAll(".query-actions button")[1]?.disabled === false'))
-  await js('document.querySelectorAll(".query-actions button")[1].click()')
+  window.focus(); window.webContents.focus()
+  await js('document.querySelectorAll(".query-actions button")[0].focus()')
+  pressKey('Tab')
+  await until(() => js('document.activeElement?.getAttribute("aria-label") === "裁判名單" && document.querySelector("[role=tooltip]")?.textContent === "裁判名單"'))
+  const beforeRefs = sent.length
+  pressKey('Return')
   await until(() => js('document.body.textContent.includes("已列於裁判名單")'))
+  assert.deepEqual(sent.slice(beforeRefs).filter(line => /:!mp (settings|listrefs)$/.test(line)), ['PRIVMSG #mp_900000001 :!mp listrefs'])
   await delay(1100)
   await fill('input[name=chat]', '中文輸入測試')
   const beforeIME = sent.length
@@ -165,6 +186,7 @@ async function main() {
   assert.ok(Math.abs(layout.tools.bottom-layout.main.bottom)<2)
   assert.ok(layout.tools.width>=275 && layout.tools.width<=285)
   assert.ok(layout.chat.width>100 && layout.chat.bottom<=640 && layout.heading.bottom-layout.heading.top<=56)
+  assert.equal(await js('Array.from(document.querySelectorAll(".query-actions button")).every(button => {const r=button.getBoundingClientRect();return r.width>=28 && r.left>=0 && r.right<=innerWidth && r.bottom<=innerHeight})'), true)
   await until(() => js('(async () => !(await window.oclr.snapshot()).pending)()'))
   await delay(1100)
   const geometry = () => js(`(() => {const rect = selector => {const r=document.querySelector(selector).getBoundingClientRect();return [r.x,r.y,r.width,r.height]};return [rect('.composer'),rect('.message-area'),rect('.conversation-header'),rect('.room-inspector')]})()`)
@@ -173,12 +195,19 @@ async function main() {
   await js('document.querySelectorAll(".query-actions button")[0].click()')
   await until(() => Boolean(releaseSettings))
   await until(() => js('document.querySelector(".query-status").textContent.includes("正在等待伺服器回覆")'))
+  assert.equal(await js('Array.from(document.querySelectorAll(".query-actions button")).every(button => button.disabled)'), true)
+  assert.deepEqual(await queryIcons(), idleQueryIcons, 'pending queries keep both recognizable icons')
   assert.deepEqual(await geometry(), beforeQuery, 'pending query must not move composer, messages, header or tools')
   assert.equal(await js('!document.querySelector(".app-footer, .topbar, .conversation-footer")'), true)
   assert.equal(await js('document.querySelector(".sidebar-footer").getAttribute("aria-label").includes("已連線")'), true)
   holdSettings = false; releaseSettings(); releaseSettings = null
   await until(() => js('(async () => !(await window.oclr.snapshot()).pending)()'))
+  await until(() => js('Array.from(document.querySelectorAll(".query-actions button")).every(button => !button.disabled)'))
   assert.deepEqual(await geometry(), beforeQuery, 'completed query keeps the same geometry')
+  await js('document.querySelector("input[name=chat]").focus()')
+  await js('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
+  const queryIconBounds = await js('(() => {const r=document.querySelector(".query-actions").getBoundingClientRect();return {x:Math.floor(r.x),y:Math.floor(r.y),width:Math.ceil(r.width),height:Math.ceil(r.height)}})()')
+  fs.writeFileSync(path.join(output, 'room-query-icons-synthetic.png'), (await capture(queryIconBounds)).toPNG())
   await js('document.querySelector(".tools-scroll").scrollTop = 9999')
   assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom'), layout.composer.bottom)
   await js('document.querySelector(".tools-scroll").scrollTop = 0')
