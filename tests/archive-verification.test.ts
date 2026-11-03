@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 const { distribution } = createRequire(import.meta.url)('../scripts/distribution.cjs')
-const { verifyIdentity, verifyPackagedIcons } = createRequire(import.meta.url)('../scripts/verify-archive.cjs')
+const { verifyIdentity, verifyPackagedIcons, verifyMacIconCatalog } = createRequire(import.meta.url)('../scripts/verify-archive.cjs')
 const { createPackage } = createRequire(import.meta.url)('@electron/asar')
 
 test('native archive verification rejects wrong builds and corruption before extraction or launch', async () => {
@@ -48,5 +48,14 @@ test('packaged icon verification reads native paths in both ASAR and loose packa
       writeFileSync(join(dir, 'oclr-irc.png'), 'damaged synthetic icon')
       assert.throws(() => verifyPackagedIcons(dir, 'linux'), assert.AssertionError)
     } finally { rmSync(dir, { recursive: true, force: true }) }
+  }
+})
+
+test('macOS catalog verification rejects a legacy-only catalog or missing full-resolution Liru layer', () => {
+  const stack = { AssetType: 'IconImageStack', Name: 'Icon' }
+  const layer = { AssetType: 'Image', Name: 'Icon_Assets/Liru', PixelWidth: 1024, PixelHeight: 1024 }
+  verifyMacIconCatalog([stack, layer])
+  for (const catalog of [null, [], [layer], [stack], [{ ...stack, Name: 'Other' }, layer], [stack, { ...layer, Name: 'Other' }], [stack, { ...layer, PixelWidth: 128 }]]) {
+    assert.throws(() => verifyMacIconCatalog(catalog), assert.AssertionError)
   }
 })

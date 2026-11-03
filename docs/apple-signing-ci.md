@@ -30,6 +30,8 @@ App Store Connect → 使用者與存取權限 → 整合 → App Store Connect 
 
 核心建置步驟共用 `.github/actions/desktop-build`，signed macOS job 使用獨立 Environment。Windows x64、Linux x64 不因 Apple 簽章變更發行身分。
 
+macOS runner 自 #95 改為 `macos-26`（arm64），由 Xcode 26+ 將原生圖示編入 `Assets.car`，再執行既有由內而外簽章流程。舊版 ICNS 亦保留；新增圖示目錄不能取代 App／DMG 的簽章、公證及 Gatekeeper 驗證。
+
 ## 簽章、公證與下載驗證
 
 1. 核心測試／UI smoke 通過後才在 runner 暫存目錄寫入 .p12／.p8，建立獨立 keychain，匯入私鑰並匹配唯一有效 Developer ID Application／Team ID。

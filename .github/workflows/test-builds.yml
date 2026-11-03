@@ -64,7 +64,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(inputs.sign_macos && '[{"os":"windows-2022","platform":"windows","arch":"x64","command":"package:win"},{"os":"ubuntu-22.04","platform":"linux","arch":"x64","command":"package:linux"}]' || '[{"os":"windows-2022","platform":"windows","arch":"x64","command":"package:win"},{"os":"ubuntu-22.04","platform":"linux","arch":"x64","command":"package:linux"},{"os":"macos-15","platform":"macos","arch":"arm64","command":"package:mac"}]') }}
+        include: ${{ fromJSON(inputs.sign_macos && '[{"os":"windows-2022","platform":"windows","arch":"x64","command":"package:win"},{"os":"ubuntu-22.04","platform":"linux","arch":"x64","command":"package:linux"}]' || '[{"os":"windows-2022","platform":"windows","arch":"x64","command":"package:win"},{"os":"ubuntu-22.04","platform":"linux","arch":"x64","command":"package:linux"},{"os":"macos-26","platform":"macos","arch":"arm64","command":"package:mac"}]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     steps:

@@ -8,11 +8,21 @@
 
 ## 資產與使用
 
-`resources/icons/icon.png` 為 1024×1024 透明圓角主圖；32、128、256 px PNG 供尺寸檢視、介面與 Linux 桌面入口使用。ICO 包含 16、24、32、48、64、128、256 px，供 Windows 執行檔與 NSIS 安裝／卸載程式使用。ICNS 包含標準及 Retina 圖層，供 macOS App bundle 使用。macOS 選單列使用 `trayTemplate.png`／`trayTemplate@2x.png` 的 16／32 px 黑色透明模板，讓系統適配明暗模式；其他平台使用獨立 `tray-color.png`。
+`resources/icons/icon.png` 為 1024×1024 透明圓角主圖；32、128、256 px PNG 供尺寸檢視、介面與 Linux 桌面入口使用。ICO 包含 16、24、32、48、64、128、256 px，供 Windows 執行檔與 NSIS 安裝／卸載程式使用。macOS 同時提供 `OCLR.icon` 與包含標準／Retina 圖層的 ICNS：26+ 使用 Icon Composer 原生目錄，較舊系統沿用 ICNS。macOS 選單列使用 `trayTemplate.png`／`trayTemplate@2x.png` 的 16／32 px 黑色透明模板，讓系統適配明暗模式；其他平台使用獨立 `tray-color.png`。
 
 Main 從隨包 `resources/icons` 載入視窗及系統匣資產；開發模式亦設定 macOS Dock 圖標，封裝模式沿用 bundle 的 ICNS。Renderer 靜態匯入 256 px PNG，供側欄及關於頁使用，不開放任何外部圖片來源或新 IPC。側欄預設 40×40；視窗至少 1440×800 時增至 64×64，1920×800 時增至 80×80，並放大 OCLR／IRC 文字。尺寸依可用視窗空間調整，高像素密度螢幕使用同一高解析度資產；關於頁維持 40×40，900×640 小視窗保留緊湊側欄。
 
-修改主圖後，在有顯示環境的 checkout 執行 `npx electron scripts/generate-icons.cjs [master.png]`，會從主圖重新產生 PNG、ICO、ICNS，並由可編輯 `tray-template.svg` 產生模板。這只是本機格式轉換，不重新呼叫圖像生成服務，不新增套件。常規建置直接使用已提交資產。圖像資產變更會觸發三平台 CI。
+修改主圖後，在有顯示環境的 checkout 執行 `npx electron scripts/generate-icons.cjs [master.png]`，會從主圖重新產生 PNG、ICO、ICNS，同步 `OCLR.icon/Assets/Liru.png`，並由可編輯 `tray-template.svg` 產生模板。這只是本機格式轉換，不重新呼叫圖像生成服務，不新增套件。常規建置直接使用已提交資產。圖像資產變更會觸發三平台 CI。
+
+### macOS 原生圖示與尺寸（#95）
+
+舊式 ICNS 在目前 macOS 的系統渲染中會縮在銀灰底框內。`OCLR.icon` 直接使用原本 1024 px 主圖作為全尺寸、無額外陰影／玻璃化的圖層，使用紫色底填滿系統遮罩；角色、字標和系統匣資產均未重新繪製。薄紫邊是原圖的一部分，與此次移除的系統銀灰底框不同。
+
+Packager 的 [多格式圖示支援](https://packages.electronjs.org/packager/v20.0.4/interfaces/Options.html#icon) 會在簽章前編譯 `Assets.car`，設定 `CFBundleIconName=Icon`，並保留原本 `CFBundleIconFile` 指向的 ICNS。此編譯需要 macOS／Xcode 26+，日常及正式簽章 CI 均使用 `macos-26` arm64 runner；不提升 App 的舊系統啟動門檻。詳見 [Apple Icon Composer](https://developer.apple.com/icon-composer/)。
+
+成品檢查同時核對 ICNS、原生圖示名稱、已編譯圖層及 1024 px Liru 來源，缺少原生目錄或只剩舊圖示就拒絕通過。`icons-smoke` 另核對 Composer 圖層與主圖完全相同，避免後續更新只改其中一份。
+
+2026-11-03 本機驗證：macOS 27.2／Xcode 27.2 下，Apple `ictool` 的 26／27 外觀預覽與 `NSWorkspace.icon(forFile:)` 的實際 App 系統圖示均已目視檢查；原版會出現銀灰底框，修正版填滿相同系統圖示區域。Node.js 24 型別檢查、218 核心測試、30 階段 Electron smoke（含 900×640）與 ad-hoc App strict／deep 簽章、原生目錄檢查通過。App 的 `LSMinimumSystemVersion` 仍為 13.0。這是本機圖示與合成驗證，新的正式 Developer ID／公證成品結果仍以後續 Release run 為準。
 
 驗證涵蓋圖檔解碼與透明角落、900×640 側欄／關於頁、聊天輸入區、模板 Retina，以及封裝內圖檔／macOS bundle／Windows EXE 資源與實際封裝畫面的載入；不將合成驗證當成所有實機工作列／選單列的目視驗收。
 

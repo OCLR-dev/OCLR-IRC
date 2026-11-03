@@ -25,7 +25,7 @@ concurrency:
 jobs:
   sign:
     if: github.event_name != 'pull_request'
-    runs-on: macos-15
+    runs-on: macos-26
     environment: macos-signing
     timeout-minutes: 90
     steps:

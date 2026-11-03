@@ -16,6 +16,7 @@ function checkPng(bytes, size) {
 async function main() {
   await app.whenReady()
   for (const [file, size] of [['icon.png', 1024], ['icon-32.png', 32], ['icon-128.png', 128], ['icon-256.png', 256], ['tray-color.png', 32], ['trayTemplate.png', 16], ['trayTemplate@2x.png', 32]]) checkPng(fs.readFileSync(path.join(dir, file)), size)
+  assert.ok(fs.readFileSync(path.join(dir, 'OCLR.icon/Assets/Liru.png')).equals(fs.readFileSync(path.join(dir, 'icon.png'))), 'Icon Composer artwork stays in sync with the master')
   const ico = fs.readFileSync(path.join(dir, 'icon.ico'))
   assert.equal(ico.readUInt16LE(2), 1)
   assert.equal(ico.readUInt16LE(4), 7)

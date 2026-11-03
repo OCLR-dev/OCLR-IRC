@@ -15,6 +15,8 @@
 
 日常測試包保留 ad-hoc 模式；版本 Release 現已要求 macOS Developer ID 簽章與 Apple 公證（見 [設定及驗證](apple-signing-ci.md)）。發行階段仍統一發布為 **Pre-release、非 Latest**，即使 tag 沒有 `-rc` 後綴也不宣稱正式穩定版。Release 說明保留 Linux 憑證保存與 M1 實機驗收限制。
 
+macOS 建置自 #95 使用 `macos-26` arm64 runner 與 Xcode 26+，在簽章前編譯 Icon Composer 原生圖示，並保留舊系統的 ICNS。壓縮包驗證會檢查實際 `Assets.car`／圖層及 Info.plist 圖示名稱，不能僅以 ICNS 存在視為圖示正確；App 與 DMG 簽章、公證要求沿用原流程。
+
 ## 發布保護
 
 1. 三平台 typecheck、核心測試、Electron smoke 與打包必須全數成功。
