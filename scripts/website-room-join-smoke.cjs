@@ -53,7 +53,7 @@ async function main() {
   assert.equal((await request()).roomId, 900000001)
   assert.equal((await js('window.oclr.login({username:"SyntheticRef",password:"SYNTHETIC_ONLY"})')).ok, true)
   await until(async () => (await request())?.status === 'joined')
-  await until(() => js('!!document.querySelector(".nav-item.selected[title=房間記錄]")'))
+  await until(() => js('!!document.querySelector(".nav-item.selected[data-page=room]")'))
   assert.equal((await js('window.oclr.snapshot()')).room.id, 900000001)
   app.emit('second-instance', {}, [url(900000002)])
   await until(async () => (await request())?.roomId === 900000002 && (await request())?.status === 'joined')

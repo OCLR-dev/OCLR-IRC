@@ -183,6 +183,41 @@ main { min-height: 0; overflow: auto; }
 .reconnect-notice { flex-shrink: 0; }
 
 .oclr-view { padding: 34px; min-height: 100%; }
+.referee-workbench { padding: 28px 32px; }
+.workbench-heading { margin-bottom: 24px; }
+.workbench-connections { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--field-border); }
+.workbench-account { min-width: 0; }
+.workbench-account + .workbench-account { border-left: 1px solid var(--field-border); padding-left: 32px; }
+.workbench-account-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.workbench-account-heading h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.workbench-account .login-form { margin-top: 18px; gap: 14px; }
+.workbench-account .connected-panel { flex-direction: row; flex-wrap: wrap; align-items: center; margin-top: 18px; gap: 12px; }
+.workbench-account .connected-panel h3 { min-width: 0; margin: 0; font-size: 18px; overflow-wrap: anywhere; }
+.workbench-account .connected-panel .primary-button { margin-left: auto; }
+.workbench-connection-details { margin-top: 14px; font-size: 11px; color: var(--muted); }
+.workbench-connection-details summary { cursor: pointer; width: fit-content; }
+.workbench-connection-details .connection-info { margin-top: 12px; padding: 0; border: 0; }
+.workbench-connection-details dl { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 0; }
+.workbench-connection-details dl div { margin-bottom: 8px; }
+.workbench-connection-details .info-divider { display: none; }
+.workbench-connection-details .text-button { margin-top: 0; }
+.workbench-oclr .oclr-login { margin-top: 18px; }
+.workbench-oclr .oclr-login > .primary-button { margin: 0; }
+.workbench-oclr .oclr-session { padding-bottom: 0; border: 0; flex-wrap: wrap; }
+.workbench-oclr .oclr-session > span { overflow-wrap: anywhere; min-width: 0; }
+.workbench-oclr .oclr-session > div { display: flex; gap: 6px; }
+.workbench-oclr .error-message { margin-top: 12px; }
+.workbench-binding { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 32px; border-bottom: 1px solid var(--field-border); }
+.workbench-binding .oclr-session { border: 0; padding-block: 16px; }
+.workbench-binding .account-pairing > div { display: grid; gap: 4px; overflow-wrap: anywhere; min-width: 0; }
+.workbench-binding .website-projection { flex-wrap: wrap; }
+.workbench-binding .website-projection > div { display: grid; gap: 4px; }
+@media (max-width: 1000px) {
+  .referee-workbench { padding: 22px 24px; }
+  .workbench-connections, .workbench-binding { gap: 20px; }
+  .workbench-account + .workbench-account { padding-left: 20px; }
+  .workbench-account .connected-panel .primary-button { margin-left: 0; }
+}
 .oclr-view>.error-message { margin-top: 18px; }
 .oclr-login { max-width: 520px; margin-top: 32px; font-size: 13px; line-height: 1.9; color: #c3bbcd; }
 .oclr-hint { color: #93889e; font-size: 11px; line-height: 1.8; overflow-wrap: anywhere; }

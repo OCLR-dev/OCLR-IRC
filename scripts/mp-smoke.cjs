@@ -166,7 +166,7 @@ async function main() {
       await until(() => js('document.body.textContent.includes("結果不明 · 已人工核對")'))
       await delay(200)
       fs.writeFileSync(path.join(output, 'operations-synthetic.png'), (await capture()).toPNG())
-      await js('Array.from(document.querySelectorAll("nav button")).find(b => b.textContent === "房間記錄").click()')
+      await js('document.querySelector("nav [data-page=room]").click()')
       await until(() => js('Boolean(document.querySelector(".mp-controls"))'))
       await js('document.querySelector(".mp-controls").open = true')
     } else {

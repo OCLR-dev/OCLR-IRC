@@ -96,6 +96,8 @@ async function main() {
   assert.equal((await js('window.oclr.website.stopRelay()')).ok, true)
   peer.write(`:BanchoBot PRIVMSG ${username} :Created the tournament match https://osu.ppy.sh/mp/${roomId} ${name}\n`)
   await until(() => js(`(async () => (await window.oclr.snapshot()).room?.referee === 'listed')()`))
+  await js('document.querySelector("nav [data-page=room]").click()')
+  await until(() => js('Boolean(document.querySelector(".room-inspector") && document.querySelector(".composer"))'))
   assert.equal((await js('window.oclr.website.snapshot()')).relay.status, 'off')
   peer.write(`:Player PRIVMSG #mp_${roomId} :SYNTHETIC_PRIVATE_RELAY_HISTORY\n`)
   await until(() => js('(async () => (await window.oclr.snapshot()).messages.some(m => m.text === "SYNTHETIC_PRIVATE_RELAY_HISTORY"))()'))

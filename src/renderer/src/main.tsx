@@ -36,12 +36,12 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     const api = window.oclr?.websiteLaunch
     if (!api) return
     let arrived = false
-    const receive = (value: import('../../shared/website-launch').WebsiteLaunchState | null) => { setLaunch(value); if (value) setPage('oclr') }
+    const receive = (value: import('../../shared/website-launch').WebsiteLaunchState | null) => { setLaunch(value); if (value) setPage('workbench') }
     const off = api.onState(value => { arrived = true; receive(value) })
     void api.snapshot().then(value => { if (!arrived) receive(value) }).catch(() => {})
     return off
   }, [])
-  const [page, setPage] = useState<'account' | 'room' | 'oclr' | 'journal' | 'operations' | 'settings'>('account')
+  const [page, setPage] = useState<'workbench' | 'room' | 'journal' | 'operations' | 'settings'>('workbench')
   const [roomRequest, setRoomRequest] = useState<import('../../shared/website-room-join').WebsiteRoomJoinState | null>(null)
   useEffect(() => {
     const api = window.oclr?.websiteRoomJoin
@@ -49,7 +49,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     let arrived = false
     const receive = (value: import('../../shared/website-room-join').WebsiteRoomJoinState | null) => {
       setRoomRequest(value)
-      if (value) setPage(value.status === 'pending' ? 'account' : 'room')
+      if (value) setPage(value.status === 'pending' ? 'workbench' : 'room')
     }
     const off = api.onState(value => { arrived = true; receive(value) })
     void api.snapshot().then(value => { if (!arrived) receive(value) }).catch(() => {})
@@ -80,7 +80,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     void window.oclr.snapshot().then(next => { if (!eventArrived) setState(next) })
     return off
   }, [])
-  useEffect(() => { if (online) { setPage(current => current === 'account' ? roomRequest ? 'room' : launch ? 'oclr' : 'room' : current); setFormError(null) } }, [online])
+  useEffect(() => { if (online) { setPage(current => current === 'workbench' && !launch && !website.subject ? 'room' : current); setFormError(null) } }, [online])
   async function login(event: React.FormEvent) {
     event.preventDefault()
     if (!window.oclr || busy || connecting) return
@@ -111,40 +111,11 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     try { const result = await window.oclr[kind]({ roomId: id, roomEpoch: epoch }); if (!result.ok) setFormError(result.error || '房間操作未完成。') }
     catch { setFormError('桌面服務無法回應。') }
   }
-  async function logout() { setPassword(''); setRemember(false); setCreateOpen(false); setJoinOpen(false); setFormError(null); setPage('account'); await window.oclr?.logout(); if (window.oclr) setSaved(await window.oclr.credentialStatus()) }
+  async function logout() { setPassword(''); setRemember(false); setCreateOpen(false); setJoinOpen(false); setFormError(null); setPage('workbench'); await window.oclr?.logout(); if (window.oclr) setSaved(await window.oclr.credentialStatus()) }
   const error = formError || state.error || state.credentialError
-  return <div className="app-shell">
-    <aside className="sidebar">
-      <div className="brand"><BrandIcon /><div><strong>OCLR</strong><span>IRC</span></div></div>
-      <div className="workspace-label">{tr("裁判工作台")}<span>01</span></div>
-      <nav aria-label={tr("主要導覽")}>
-        <button className={page === 'account' ? 'nav-item selected' : 'nav-item'} title={tr("帳號連線")} aria-current={page === 'account' ? 'page' : undefined} onClick={() => setPage('account')}><Icon name="connect" /><span className="nav-label">{tr("帳號連線")}</span><span className={`tiny-dot ${online ? 'active' : ''}`} /></button>
-        <button className={page === 'room' ? 'nav-item selected' : 'nav-item'} title={tr("房間記錄")} aria-current={page === 'room' ? 'page' : undefined} disabled={!online && !state.rooms.length} onClick={() => setPage('room')}><Icon name="room" /><span className="nav-label">{tr("房間記錄")}</span></button>
-        <button className={page === 'oclr' ? 'nav-item selected' : 'nav-item'} title={tr("OCLR 場次")} aria-current={page === 'oclr' ? 'page' : undefined} onClick={() => setPage('oclr')}><Icon name="trophy" /><span className="nav-label">{tr("OCLR 場次")}</span></button>
-        <button className={page === 'journal' ? 'nav-item selected' : 'nav-item'} title={tr("本機日誌")} aria-current={page === 'journal' ? 'page' : undefined} onClick={() => setPage('journal')}><Icon name="document" /><span className="nav-label">{tr("本機日誌")}</span></button>
-        <button className={page === 'operations' ? 'nav-item selected' : 'nav-item'} title={tr("操作記錄")} aria-current={page === 'operations' ? 'page' : undefined} onClick={() => setPage('operations')}><Icon name="history" /><span className="nav-label">{tr("操作記錄")}</span></button>
-      </nav>
-      <div className="sidebar-settings"><button className={page === 'settings' ? 'nav-item selected' : 'nav-item'} title={tr("設定")} aria-current={page === 'settings' ? 'page' : undefined} onClick={() => setPage('settings')}><Icon name="settings" /><span className="nav-label">{tr("設定")}</span></button></div>
-      <div className="sidebar-footer" role="status" aria-label={`${state.username || 'osu! IRC'} · ${tr(statusText[state.connection])}`} title={`${state.username || 'osu! IRC'} · ${tr(statusText[state.connection])}`}><span className={`status-dot ${online ? 'online' : connecting ? 'connecting' : ''}`} aria-hidden="true" /><div><strong>{state.username || 'osu! IRC'}</strong><span>{tr(statusText[state.connection])}</span></div>{state.username && <LogoutButton label={tr("登出 IRC")} onPress={() => void logout()} />}</div>
-    </aside>
-    <div className="workspace">
-      {state.connection !== 'online' && state.username && <div className="reconnect-notice" role="status">{tr(statusText[state.connection])}{state.retryAttempt > 0 && tr(" · 第 {{v0}}/5 次重試", { v0: state.retryAttempt })}{state.retryAt && tr(" · {{v0}} 重試", { v0: new Date(state.retryAt).toLocaleTimeString(uiLocale()) })}{state.connection === 'error' && <RefreshButton label={tr("重新連線")} onPress={() => { void window.oclr?.retry().then(result => { if (!result.ok) setFormError(result.error || '重試失敗') }).catch(() => setFormError('桌面服務無法回應。')) }} />}<LogoutButton label={tr("停止並登出")} onPress={() => void logout()} /></div>}
-      <main>
-        {roomRequest && roomRequest.status !== 'joined' && <section className="oclr-session" aria-label={tr("重新加入房間")}>
-          <div><strong>#{`mp_${roomRequest.roomId}`}</strong><span role="status">{roomRequest.status === 'pending' ? tr("請先登入 osu! IRC。") : roomRequest.status === 'error' ? tr("未能加入房間。") : tr("正在加入房間…")}</span></div>
-          {roomRequest.status === 'error' && <RefreshButton label={tr("重新加入房間")} onPress={() => void window.oclr?.websiteRoomJoin.retry(roomRequest.requestId).catch(() => setFormError('桌面服務無法回應。'))} />}
-          <Button variant="ghost" onPress={() => void window.oclr?.websiteRoomJoin.clear()}>{tr("關閉")}</Button>
-        </section>}
-        {launch && (page === 'account' || page === 'oclr') && <section className="oclr-session" aria-label={tr("網站連接請求")}>
-          <div><strong>{tr("網站連接請求")}</strong><span>{launch.fixtureId}</span><span role="status">{launch.status === 'ready' ? tr("場次已帶入，請啟用網站 IRC。") : launch.status === 'error' ? tr("無法帶入場次，請確認授權與本人指派後重試。") : launch.status === 'authorizing' ? tr("請在瀏覽器完成 OCLR 授權。") : launch.status === 'loading' ? tr("正在讀取場次…") : tr("請登入 IRC，再繼續連接此場次。")}</span></div>
-          {!['loading', 'authorizing', 'ready'].includes(launch.status) && <Button onPress={() => { if (!online) setPage('account'); else { setPage('oclr'); void window.oclr?.websiteLaunch.continue(launch.requestId).catch(() => setFormError('桌面服務無法回應。')) } }}>{online ? tr("繼續連接") : tr("帳號連線")}</Button>}
-          <Button variant="ghost" onPress={() => void window.oclr?.websiteLaunch.clear()}>{tr("關閉")}</Button>
-        </section>}
-        {page === 'settings' ? <SettingsView settings={settings} onChange={applySettings} /> : page === 'operations' ? <OperationsView key={state.username} state={state} /> : page === 'journal' ? <JournalView key={state.username} /> : page === 'oclr' ? <OclrView /> : page === 'account' ? <div className="account-view enter">
-          <section className="login-section">
-            <div className="section-kicker">ACCOUNT CONNECTION</div>
-            <h1>{online ? tr("IRC 已連線") : tr("連接 osu! IRC")}</h1>
-            {online ? <div className="connected-panel"><AccountAvatar username={state.username} /><h2>{state.username}</h2><Button className="primary-button" onPress={() => setPage('room')}>{tr("前往房間記錄")}<Icon name="arrow" /></Button></div> : <form onSubmit={login} className="login-form">
+  const ircAccount = <section className="login-section">
+            <div className="workbench-account-heading"><h2>osu! IRC</h2><span className="oclr-hint">{tr(statusText[state.connection])}</span></div>
+            {online ? <div className="connected-panel"><AccountAvatar username={state.username} /><h3>{state.username}</h3><Button className="primary-button" onPress={() => setPage('room')}>{tr("開啟 IRC 聊天")}<Icon name="arrow" /></Button></div> : <form onSubmit={login} className="login-form">
               <TextField name="username" value={username} onChange={setUsername} isRequired isDisabled={connecting || busy} className="field">
                 <Label>{tr("osu! 使用者名稱")}</Label><Input placeholder={tr("你的 osu! 名稱")} autoComplete="username" maxLength={32} /><FieldError />
               </TextField>
@@ -159,10 +130,35 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
               <Button type="submit" className="primary-button login-button" isDisabled={!desktop || connecting || busy || !username.trim() || !password}>{connecting ? <><Spinner size="sm" />{tr("正在登入…")}</> : <>{tr("登入 IRC")}<Icon name="arrow" /></>}</Button>
               {connecting && <Button variant="ghost" className="cancel-button" onPress={() => void logout()}>{tr("取消連線")}</Button>}
             </form>}
+          <details className="workbench-connection-details"><summary>{tr("連線資訊")}</summary><aside className="connection-info"><dl><div><dt>{tr("服務")}</dt><dd>osu! Bancho</dd></div><div><dt>{tr("伺服器")}</dt><dd className="mono">irc.ppy.sh</dd></div><div><dt>{tr("連接埠")}</dt><dd className="mono">6667</dd></div></dl><div className="info-divider" /><h3>{tr("取得 IRC 專用密碼")}</h3><Button variant="ghost" className="text-button" isDisabled={!desktop} onPress={() => void window.oclr?.openAccountSettings()}>{tr("開啟帳號設定")}<span aria-hidden="true">↗</span></Button></aside></details>
           </section>
-          <aside className="connection-info"><span className="small-label">{tr("連線資訊")}</span><dl><div><dt>{tr("服務")}</dt><dd>osu! Bancho</dd></div><div><dt>{tr("伺服器")}</dt><dd className="mono">irc.ppy.sh</dd></div><div><dt>{tr("連接埠")}</dt><dd className="mono">6667</dd></div></dl><div className="info-divider" /><h3>{tr("取得 IRC 專用密碼")}</h3><Button variant="ghost" className="text-button" isDisabled={!desktop} onPress={() => void window.oclr?.openAccountSettings()}>{tr("開啟帳號設定")}<span aria-hidden="true">↗</span></Button></aside>
-        </div> : <div className={`room-view enter ${toolsOpen && state.room ? 'tools-visible' : ''}`} style={{ '--tool-width': `${toolWidth}px` } as React.CSSProperties}><div className="room-main">
-          <div className="room-heading"><h1>{tr("房間記錄")}</h1><div className="room-actions">
+  return <div className="app-shell">
+    <aside className="sidebar">
+      <div className="brand"><BrandIcon /><div><strong>OCLR</strong><span>IRC</span></div></div>
+      <nav aria-label={tr("主要導覽")}>
+        <button data-page="workbench" className={page === 'workbench' ? 'nav-item selected' : 'nav-item'} title={tr("裁判工作臺")} aria-current={page === 'workbench' ? 'page' : undefined} onClick={() => setPage('workbench')}><Icon name="workbench" /><span className="nav-label">{tr("裁判工作臺")}</span></button>
+        <button data-page="room" className={page === 'room' ? 'nav-item selected' : 'nav-item'} title={tr("IRC 聊天")} aria-current={page === 'room' ? 'page' : undefined} disabled={!online && !state.rooms.length} onClick={() => setPage('room')}><Icon name="room" /><span className="nav-label">{tr("IRC 聊天")}</span></button>
+        <button data-page="journal" className={page === 'journal' ? 'nav-item selected' : 'nav-item'} title={tr("本機日誌")} aria-current={page === 'journal' ? 'page' : undefined} onClick={() => setPage('journal')}><Icon name="document" /><span className="nav-label">{tr("本機日誌")}</span></button>
+        <button data-page="operations" className={page === 'operations' ? 'nav-item selected' : 'nav-item'} title={tr("操作記錄")} aria-current={page === 'operations' ? 'page' : undefined} onClick={() => setPage('operations')}><Icon name="history" /><span className="nav-label">{tr("操作記錄")}</span></button>
+      </nav>
+      <div className="sidebar-settings"><button className={page === 'settings' ? 'nav-item selected' : 'nav-item'} title={tr("設定")} aria-current={page === 'settings' ? 'page' : undefined} onClick={() => setPage('settings')}><Icon name="settings" /><span className="nav-label">{tr("設定")}</span></button></div>
+      <div className="sidebar-footer" role="status" aria-label={`${state.username || 'osu! IRC'} · ${tr(statusText[state.connection])}`} title={`${state.username || 'osu! IRC'} · ${tr(statusText[state.connection])}`}><span className={`status-dot ${online ? 'online' : connecting ? 'connecting' : ''}`} aria-hidden="true" /><div><strong>{state.username || 'osu! IRC'}</strong><span>{tr(statusText[state.connection])}</span></div>{state.username && <LogoutButton label={tr("登出 IRC")} onPress={() => void logout()} />}</div>
+    </aside>
+    <div className="workspace">
+      {state.connection !== 'online' && state.username && <div className="reconnect-notice" role="status">{tr(statusText[state.connection])}{state.retryAttempt > 0 && tr(" · 第 {{v0}}/5 次重試", { v0: state.retryAttempt })}{state.retryAt && tr(" · {{v0}} 重試", { v0: new Date(state.retryAt).toLocaleTimeString(uiLocale()) })}{state.connection === 'error' && <RefreshButton label={tr("重新連線")} onPress={() => { void window.oclr?.retry().then(result => { if (!result.ok) setFormError(result.error || '重試失敗') }).catch(() => setFormError('桌面服務無法回應。')) }} />}<LogoutButton label={tr("停止並登出")} onPress={() => void logout()} /></div>}
+      <main>
+        {roomRequest && roomRequest.status !== 'joined' && <section className="oclr-session" aria-label={tr("重新加入房間")}>
+          <div><strong>#{`mp_${roomRequest.roomId}`}</strong><span role="status">{roomRequest.status === 'pending' ? tr("請先登入 osu! IRC。") : roomRequest.status === 'error' ? tr("未能加入房間。") : tr("正在加入房間…")}</span></div>
+          {roomRequest.status === 'error' && <RefreshButton label={tr("重新加入房間")} onPress={() => void window.oclr?.websiteRoomJoin.retry(roomRequest.requestId).catch(() => setFormError('桌面服務無法回應。'))} />}
+          <Button variant="ghost" onPress={() => void window.oclr?.websiteRoomJoin.clear()}>{tr("關閉")}</Button>
+        </section>}
+        {launch && page === 'workbench' && <section className="oclr-session" aria-label={tr("網站連接請求")}>
+          <div><strong>{tr("網站連接請求")}</strong><span>{launch.fixtureId}</span><span role="status">{launch.status === 'ready' ? tr("場次已帶入，請啟用網站 IRC。") : launch.status === 'error' ? tr("無法帶入場次，請確認授權與本人指派後重試。") : launch.status === 'authorizing' ? tr("請在瀏覽器完成 OCLR 授權。") : launch.status === 'loading' ? tr("正在讀取場次…") : tr("請登入 IRC，再繼續連接此場次。")}</span></div>
+          {!['loading', 'authorizing', 'ready'].includes(launch.status) && <Button onPress={() => { if (!online) setPage('workbench'); else { setPage('workbench'); void window.oclr?.websiteLaunch.continue(launch.requestId).catch(() => setFormError('桌面服務無法回應。')) } }}>{online ? tr("繼續連接") : tr("連接 osu! IRC")}</Button>}
+          <Button variant="ghost" onPress={() => void window.oclr?.websiteLaunch.clear()}>{tr("關閉")}</Button>
+        </section>}
+        {page === 'settings' ? <SettingsView settings={settings} onChange={applySettings} /> : page === 'operations' ? <OperationsView key={state.username} state={state} /> : page === 'journal' ? <JournalView key={state.username} /> : page === 'workbench' ? <OclrView account={ircAccount} /> : <div className={`room-view enter ${toolsOpen && state.room ? 'tools-visible' : ''}`} style={{ '--tool-width': `${toolWidth}px` } as React.CSSProperties}><div className="room-main">
+          <div className="room-heading"><h1>{tr("IRC 聊天")}</h1><div className="room-actions">
             <Button size="sm" variant="secondary" className="join-room-button" isDisabled={!online || busy} onPress={() => setJoinOpen(true)}>{tr("加入")}</Button>
             <Button size="sm" variant="secondary" className="new-room-button" isDisabled={!online || (state.rooms.length >= 8 && state.creation.status !== 'awaiting')} onPress={() => setCreateOpen(true)}>{state.creation.status === 'awaiting' ? tr("正在建立…") : tr("＋ 新建")}</Button>
             {!toolsOpen && state.room && <Button isIconOnly size="sm" variant="ghost" className="tools-toggle" aria-label={tr("展開房內工具")} aria-expanded={false} aria-controls="room-tools" onPress={() => setToolsOpen(true)}><Icon name="menu" /></Button>}
@@ -195,7 +191,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
             onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); setToolWidth(width => Math.max(280, Math.min(420, width + (event.key === 'ArrowLeft' ? 16 : -16)))) } }}
             onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId) }}
             onPointerMove={event => { if (event.currentTarget.hasPointerCapture(event.pointerId)) setToolWidth(Math.max(280, Math.min(420, event.currentTarget.parentElement!.getBoundingClientRect().right - event.clientX))) }} />
-          <div className="tools-heading"><strong>{tr("房內工具")}</strong><Button isIconOnly size="sm" variant="ghost" className="tools-toggle" aria-label={tr("收合房內工具")} aria-expanded={true} aria-controls="room-tools" onPress={() => setToolsOpen(false)}><Icon name="menu" /></Button><span className="channel-name">{state.room.channel}</span></div><div className="tools-scroll">{state.room.kind === 'match' && <FixtureSource website={website} onConnect={() => setPage('oclr')} />}{state.room?.kind === 'match' && <Tabs aria-label={tr("房內工具分類")} selectedKey={toolTab} onSelectionChange={setToolTab}><Tabs.ListContainer><Tabs.List aria-label={tr("房內工具分類")}><Tabs.Tab id="actions">{tr("操作")}<Tabs.Indicator /></Tabs.Tab><Tabs.Tab id="pool">{tr("圖池")}<Tabs.Indicator /></Tabs.Tab><Tabs.Tab id="players">{tr("玩家")}<Tabs.Indicator /></Tabs.Tab></Tabs.List></Tabs.ListContainer><Tabs.Panel id="actions" shouldForceMount><MpControls key={`mp-${state.room.epoch}`} state={state} onReveal={players => { setToolsOpen(true); setToolTab(players ? 'players' : 'actions') }} /></Tabs.Panel><Tabs.Panel id="pool" shouldForceMount><FixturePool website={website} /></Tabs.Panel><Tabs.Panel id="players" shouldForceMount><FixtureRoster key={`fixture-${state.room.epoch}`} website={website} state={state} onConnect={() => setPage('oclr')} onOperations={() => setPage('operations')} /><PlayerSlots room={state.room} /></Tabs.Panel></Tabs>}<span className="small-label">{state.room?.kind === 'match' ? tr("房間資訊") : tr("對話資訊")}</span>{state.room && state.room.kind !== 'match' ? <dl><div><dt>{tr("對話類型")}</dt><dd>{state.room.kind === 'private' ? tr("私訊") : tr("IRC 頻道")}</dd></div><div><dt>{tr("對象")}</dt><dd>{state.room.channel}</dd></div>{state.room.kind === 'channel' && <div><dt>{tr("觀測頻道成員")}</dt><dd>{state.room.members.length}</dd></div>}</dl> : <dl>{state.room?.kind === 'match' && <div><dt>{tr("狀態快照")}</dt><dd>{({ unknown: tr("尚未同步"), loading: tr("同步中"), partial: tr("部分資料"), complete: tr("完整觀測"), stale: tr("已過期，請重查") })[state.room.syncState]}</dd></div>}<div><dt>{tr("MP 編號")}</dt><dd className="mono">{state.room?.kind === 'match' ? state.room.id : '—'}</dd></div><div><dt>{tr("房間核對")}</dt><dd className={state.room?.binding === 'verified' ? 'accent-text' : ''}>{state.room?.binding === 'verified' ? tr("History 連結相符") : state.room?.binding === 'mismatch' ? tr("連結不符") : tr("尚未核對")}</dd></div><div><dt>{tr("裁判身分")}</dt><dd className={state.room?.referee === 'listed' ? 'accent-text' : ''}>{state.room?.referee === 'listed' ? tr("已列於裁判名單") : tr("尚未核對")}</dd></div><div><dt>{tr("比賽模式")}</dt><dd>{state.room?.mode || '—'}</dd></div><div><dt>{tr("房內玩家")}</dt><dd>{state.room?.players ?? '—'}</dd></div></dl>}{state.room?.kind === 'match' && <><dl><div><dt>{tr("觀測時間")}</dt><dd>{state.room.observedAt ? new Date(state.room.observedAt).toLocaleTimeString(uiLocale()) : '—'}</dd></div><div><dt>{tr("目前地圖")}</dt><dd>{state.room.beatmap ? `${state.room.beatmap.id} · ${state.room.beatmap.title}` : tr("未知")}</dd></div><div><dt>Mods</dt><dd>{state.room.mods === null ? tr("未知") : state.room.mods.join(', ') || 'None'}</dd></div><div><dt>{tr("比賽階段")}</dt><dd>{({ unknown: tr("未知"), idle: tr("未進行"), playing: tr("進行中") })[state.room.phase]}</dd></div></dl></>}</div></aside>}
+          <div className="tools-heading"><strong>{tr("房內工具")}</strong><Button isIconOnly size="sm" variant="ghost" className="tools-toggle" aria-label={tr("收合房內工具")} aria-expanded={true} aria-controls="room-tools" onPress={() => setToolsOpen(false)}><Icon name="menu" /></Button><span className="channel-name">{state.room.channel}</span></div><div className="tools-scroll">{state.room.kind === 'match' && <FixtureSource website={website} onConnect={() => setPage('workbench')} />}{state.room?.kind === 'match' && <Tabs aria-label={tr("房內工具分類")} selectedKey={toolTab} onSelectionChange={setToolTab}><Tabs.ListContainer><Tabs.List aria-label={tr("房內工具分類")}><Tabs.Tab id="actions">{tr("操作")}<Tabs.Indicator /></Tabs.Tab><Tabs.Tab id="pool">{tr("圖池")}<Tabs.Indicator /></Tabs.Tab><Tabs.Tab id="players">{tr("玩家")}<Tabs.Indicator /></Tabs.Tab></Tabs.List></Tabs.ListContainer><Tabs.Panel id="actions" shouldForceMount><MpControls key={`mp-${state.room.epoch}`} state={state} onReveal={players => { setToolsOpen(true); setToolTab(players ? 'players' : 'actions') }} /></Tabs.Panel><Tabs.Panel id="pool" shouldForceMount><FixturePool website={website} /></Tabs.Panel><Tabs.Panel id="players" shouldForceMount><FixtureRoster key={`fixture-${state.room.epoch}`} website={website} state={state} onConnect={() => setPage('workbench')} onOperations={() => setPage('operations')} /><PlayerSlots room={state.room} /></Tabs.Panel></Tabs>}<span className="small-label">{state.room?.kind === 'match' ? tr("房間資訊") : tr("對話資訊")}</span>{state.room && state.room.kind !== 'match' ? <dl><div><dt>{tr("對話類型")}</dt><dd>{state.room.kind === 'private' ? tr("私訊") : tr("IRC 頻道")}</dd></div><div><dt>{tr("對象")}</dt><dd>{state.room.channel}</dd></div>{state.room.kind === 'channel' && <div><dt>{tr("觀測頻道成員")}</dt><dd>{state.room.members.length}</dd></div>}</dl> : <dl>{state.room?.kind === 'match' && <div><dt>{tr("狀態快照")}</dt><dd>{({ unknown: tr("尚未同步"), loading: tr("同步中"), partial: tr("部分資料"), complete: tr("完整觀測"), stale: tr("已過期，請重查") })[state.room.syncState]}</dd></div>}<div><dt>{tr("MP 編號")}</dt><dd className="mono">{state.room?.kind === 'match' ? state.room.id : '—'}</dd></div><div><dt>{tr("房間核對")}</dt><dd className={state.room?.binding === 'verified' ? 'accent-text' : ''}>{state.room?.binding === 'verified' ? tr("History 連結相符") : state.room?.binding === 'mismatch' ? tr("連結不符") : tr("尚未核對")}</dd></div><div><dt>{tr("裁判身分")}</dt><dd className={state.room?.referee === 'listed' ? 'accent-text' : ''}>{state.room?.referee === 'listed' ? tr("已列於裁判名單") : tr("尚未核對")}</dd></div><div><dt>{tr("比賽模式")}</dt><dd>{state.room?.mode || '—'}</dd></div><div><dt>{tr("房內玩家")}</dt><dd>{state.room?.players ?? '—'}</dd></div></dl>}{state.room?.kind === 'match' && <><dl><div><dt>{tr("觀測時間")}</dt><dd>{state.room.observedAt ? new Date(state.room.observedAt).toLocaleTimeString(uiLocale()) : '—'}</dd></div><div><dt>{tr("目前地圖")}</dt><dd>{state.room.beatmap ? `${state.room.beatmap.id} · ${state.room.beatmap.title}` : tr("未知")}</dd></div><div><dt>Mods</dt><dd>{state.room.mods === null ? tr("未知") : state.room.mods.join(', ') || 'None'}</dd></div><div><dt>{tr("比賽階段")}</dt><dd>{({ unknown: tr("未知"), idle: tr("未進行"), playing: tr("進行中") })[state.room.phase]}</dd></div></dl></>}</div></aside>}
         </div>}
       </main>
     </div>

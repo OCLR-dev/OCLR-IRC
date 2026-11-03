@@ -1,5 +1,6 @@
-export function Icon({ name }: { name: 'connect' | 'room' | 'trophy' | 'document' | 'history' | 'arrow' | 'logout' | 'key' | 'eye' | 'menu' | 'settings' | 'refresh' }) {
+export function Icon({ name }: { name: 'workbench' | 'connect' | 'room' | 'trophy' | 'document' | 'history' | 'arrow' | 'logout' | 'key' | 'eye' | 'menu' | 'settings' | 'refresh' }) {
   const paths = {
+    workbench: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18M9 9v11m4-7h4m-4 3h3" /></>,
     connect: <><path d="M8 7V3m8 4V3M6 7h12v4a6 6 0 0 1-12 0V7Zm6 10v4" /></>,
     room: <><path d="M4 5h16v12H9l-5 4V5Z" /><path d="M8 9h8M8 13h5" /></>,
     trophy: <><path d="M7 3h10v5a5 5 0 0 1-10 0V3ZM7 5H3v2a4 4 0 0 0 4 4m10-6h4v2a4 4 0 0 1-4 4" /><path d="M12 13v5m-4 3h8m-7-3h6v3H9v-3Z" /></>,
