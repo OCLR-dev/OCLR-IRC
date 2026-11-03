@@ -123,13 +123,16 @@ async function main() {
   await until(() => js('Boolean(document.querySelector(".fixture-invite-confirm"))'))
   assert.equal(sent.some(line => line.includes('!mp invite')), false, 'preview is not dispatch')
   assert.equal(await js('document.querySelector(".fixture-invite-confirm").textContent.includes("Team A")'), true)
-  await js(`(() => {const e=document.querySelector('input[name=fixtureConfirmName]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'Player A');e.dispatchEvent(new Event('input',{bubbles:true}));})()`)
-  await js('document.querySelector(".fixture-invite-confirm input[type=checkbox]").click()')
+  assert.equal(await js('document.querySelector(".fixture-invite-confirm code").textContent'), '!mp invite #900000011')
+  assert.equal(await js('Boolean(document.querySelector(".fixture-invite-confirm input"))'), false, 'UID invitations need no typed name or identity checkbox')
   await until(() => js('!document.querySelector(".fixture-invite-confirm .primary-button").disabled'))
+  await js('document.querySelector(".fixture-invite-confirm").scrollIntoView({block:"nearest"})')
+  fs.mkdirSync(path.resolve('artifacts'), {recursive: true})
+  fs.writeFileSync(path.resolve('artifacts/fixture-uid-invite-synthetic.png'), (await window.webContents.capturePage()).toPNG())
   await js('document.querySelector(".fixture-invite-confirm .primary-button").click()')
   await until(() => inviteOutcomes.length > 0)
   assert.equal(inviteOutcomes[0].ok, true, `Synthetic invitation rejected: ${inviteOutcomes[0].error}`)
-  await until(() => sent.includes(`PRIVMSG #mp_${roomId} :!mp invite Player_A`))
+  await until(() => sent.includes(`PRIVMSG #mp_${roomId} :!mp invite #900000011`))
   assert.equal(sent.filter(line => line.includes('!mp invite')).length, 1)
   assert.equal((await js('window.oclr.snapshot()')).room.players, 0, 'invitation does not imply arrival')
   assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
@@ -157,7 +160,7 @@ async function main() {
   const db = new DatabaseSync(path.join(profile, 'operation-recovery.sqlite'), {readOnly: true})
   try { assert.equal(db.prepare('SELECT COUNT(*) AS count FROM operations').get().count, 0) } finally { db.close() }
   assert.equal(sent.filter(line => line.startsWith('PRIVMSG BanchoBot :!mp make ')).length, 1)
-  console.log(JSON.stringify({evidence: 'synthetic-relay-creation', passed: ['single make despite duplicate command ID', 'sent receipt at dispatch boundary', 'late creation after relay stop still joins and reads settings/listrefs', 'round pool and both team rosters in room tools', 'pool selection and command copy send no IRC', 'bound room and typed player confirmation before a single invitation', 'invitation never means player arrival', '900x640 composer and independent tools', 'logout clears private roster and pool', 'website operation history stays memory only', ...(process.platform !== 'linux' ? ['private room excluded before first journal message', 'ordinary IRC history positive control'] : ['Linux journal remains memory only'])], limitation: 'Synthetic HTTP/IRC and crypto provider; real OAuth, Bancho and native provider acceptance remain separate.'}))
+  console.log(JSON.stringify({evidence: 'synthetic-relay-creation', passed: ['single make despite duplicate command ID', 'sent receipt at dispatch boundary', 'late creation after relay stop still joins and reads settings/listrefs', 'round pool and both team rosters in room tools', 'pool selection and command copy send no IRC', 'bound room and automatic roster UID before one explicit invitation without name input', 'invitation never means player arrival', '900x640 composer and independent tools', 'logout clears private roster and pool', 'website operation history stays memory only', ...(process.platform !== 'linux' ? ['private room excluded before first journal message', 'ordinary IRC history positive control'] : ['Linux journal remains memory only'])], limitation: 'Synthetic HTTP/IRC and crypto provider; real OAuth, Bancho and native provider acceptance remain separate.'}))
   app.exit(0)
 }
 main().catch(async error => {

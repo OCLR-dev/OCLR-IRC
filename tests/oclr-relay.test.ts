@@ -20,8 +20,8 @@ function harness(receiptReasons = true, bpSync = false) {
 }
 
 test('relay allowlist rejects raw IRC, secret commands and line injection', () => {
-  for (const value of ['!mp map 42 0', '!mp invite Player_Name', '!mp timer 30', '!mp start 5', '!mp abort', '!mp mods NF HD']) assert.equal(relayCommand(value), value)
-  for (const value of ['PASS secret', '!mp password secret', '!mp make Test', '!mp map 42\r\nQUIT', '!mp invite player with space', '!mp start 0', '!mp map 4\u202e']) assert.throws(() => relayCommand(value))
+  for (const value of ['!mp map 42 0', '!mp invite Player_Name', '!mp invite #3367476', '!mp invite #9007199254740991', '!mp timer 30', '!mp start 5', '!mp abort', '!mp mods NF HD']) assert.equal(relayCommand(value), value)
+  for (const value of ['PASS secret', '!mp password secret', '!mp make Test', '!mp map 42\r\nQUIT', '!mp invite player with space', '!mp invite #0', '!mp invite #-1', '!mp invite #9007199254740992', '!mp invite #42\n!mp close', '!mp invite #42 extra', '!mp start 0', '!mp map 4\u202e']) assert.throws(() => relayCommand(value))
 })
 test('local fixture actions require the exact active paired binding and no remote command in flight', async () => {
   const f = harness()

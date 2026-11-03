@@ -10,10 +10,9 @@ export function fixtureInviteSource(state: OclrSnapshot, teamId: string, osuId: 
   if (!fixture?.operational || fixture.resultReviewState === 'approved' || fixture.status === 'cancelled') throw new Error('此場次不能準備邀請。')
   const team = workspace.teams.find(team => team.id === teamId), player = team?.members.find(player => player.osuId === osuId)
   const members = workspace.teams.flatMap(team => team.members)
-  const nick = (name: string) => name.trim().replace(/\s+/gu, '_').toLowerCase()
-  if (!team || !player || members.filter(member => member.osuId === osuId).length !== 1 || members.filter(member => nick(member.username) === nick(player.username)).length !== 1) throw new Error('隊員資料有缺漏或重複，請在網站核對。')
+  if (!team || !player || !Number.isSafeInteger(osuId) || osuId <= 0 || members.filter(member => member.osuId === osuId).length !== 1 || !player.username.trim() || player.username.length > 50 || /[\p{Cc}\p{Cf}\u2028\u2029]/u.test(player.username)) throw new Error('隊員資料有缺漏或重複，請在網站核對。')
   const command = state.commands.find(command => command.id === `invite:${teamId}:${osuId}`)
-  const expected = relayCommand(`!mp invite ${player.username.trim().replace(/\s+/gu, '_')}`)
+  const expected = relayCommand(`!mp invite #${player.osuId}`)
   if (!command?.text || command.kind !== 'invite' || command.text !== expected) throw new Error(command?.reason || '此場次不能準備邀請。')
   return { player, team, command: expected, fingerprint: includeFingerprint ? JSON.stringify([state.subject, workspace]) : '' }
 }

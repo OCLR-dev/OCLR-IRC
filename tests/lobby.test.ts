@@ -54,8 +54,8 @@ test('queued room refresh fences readiness until both reads and shared throttle 
     await until(() => f.session.relayReady(f.target(), '!mp invite New_Player'))
     assert.equal(f.sent.filter(line => line.endsWith(':!mp settings')).length, priorReads + 1)
     const preview = f.session.previewWebsiteInvite({...f.target(), intent: {kind: 'invite', osuId: '999', name: 'New Player'}})
-    f.session.executeWebsiteInvite({...f.target(), token: preview.token, reviewed: true, playerName: 'New Player'})
-    await until(() => f.sent.includes('PRIVMSG #mp_9 :!mp invite New_Player'))
+    f.session.executeWebsiteInvite({...f.target(), token: preview.token, reviewed: true})
+    await until(() => f.sent.includes('PRIVMSG #mp_9 :!mp invite #999'))
     assert.equal(f.sent.filter(line => line.includes('!mp invite')).length, 1)
   } finally {await f.close()}
 })
