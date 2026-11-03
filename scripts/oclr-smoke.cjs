@@ -16,7 +16,7 @@ const fixtures = JSON.parse(fs.readFileSync('tests/fixtures/oclr-fixtures.json',
 const meta = fixtures.meta
 const nativeFetch = global.fetch
 const sent = [], requests = [], opened = [], errors = []
-let authRequest, unavailable = true, stale = false, revoked = false, panelGate = null, holdWelcome = false, welcome = null
+let authRequest, unavailable = true, panelUnavailable = false, stale = false, revoked = false, panelGate = null, holdWelcome = false, welcome = null
 const access = 'oclr_desk_at_' + 'A'.repeat(43), refresh = 'oclr_desk_rt_' + 'D'.repeat(43)
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-OCLR-Desktop-Contract': '1.1.0', 'X-OCLR-Referee-Contract': '1.1.0', 'X-Request-Id': meta.requestId } })
 global.fetch = async (url, init = {}) => {
@@ -40,6 +40,7 @@ global.fetch = async (url, init = {}) => {
   if (revoked) return json({ error: { code: 'REFEREE_ACCESS_REVOKED', message: 'SYNTHETIC_SERVER_MESSAGE_NOT_FOR_UI', requestId: meta.requestId, retryable: false } }, 403)
   if (target.pathname.includes('/me/fixtures')) return json(fixtures)
   if (target.pathname.endsWith('/panel')) {
+    if (panelUnavailable) return json({ error: { code: 'SERVICE_UNAVAILABLE', message: 'SYNTHETIC', requestId: meta.requestId, retryable: true } }, 503)
     if (panelGate) await panelGate
     const value = structuredClone(panel)
     if (stale) value.data.freshUntil = value.data.capturedAt
@@ -133,6 +134,24 @@ async function main() {
   await until(() => js('document.querySelector(".account-pairing")?.textContent.includes("已自動核對")'))
   assert.equal((await js('window.oclr.website.snapshot()')).pairing.status, 'nickname_matched')
   assert.equal(await js('Boolean(document.querySelector(".account-pairing input[type=checkbox]"))'), false)
+  assert.equal(await js('Boolean(document.querySelector(".oclr-open-panel"))'), false)
+  await js('document.querySelector(".oclr-fixture").click()')
+  await until(() => js('Boolean(document.querySelector(".oclr-settings"))'))
+  await until(() => js('document.querySelector(".oclr-open-panel")?.disabled === false'))
+  const beforePanelOpen = opened.length
+  await js('document.querySelector(".oclr-open-panel").click()')
+  await until(() => opened.length === beforePanelOpen + 1)
+  assert.equal(opened.at(-1), fixtures.data.items[0].reviewUrl + '/referee')
+  await until(() => js('!document.querySelector(".oclr-open-panel").disabled'))
+  panelUnavailable = true
+  await js('document.querySelectorAll(".oclr-fixture")[1].click()')
+  await until(() => js(`document.querySelector('.oclr-panel-heading h2')?.textContent === ${JSON.stringify(fixtures.data.items[1].label)} && document.querySelector('.oclr-panel-heading').textContent.includes('面板目前不可用')`))
+  await until(() => js('!document.querySelector(".oclr-open-panel").disabled'))
+  await js('document.querySelector(".oclr-open-panel").click()')
+  await until(() => opened.length === beforePanelOpen + 2)
+  assert.equal(opened.at(-1), fixtures.data.items[1].reviewUrl + '/referee')
+  panelUnavailable = false
+  await until(() => js('!document.querySelector(".oclr-open-panel").disabled'))
   await js('document.querySelector(".oclr-fixture").click()')
   await until(() => js('Boolean(document.querySelector(".oclr-settings"))'))
   window.setSize(900, 640)
@@ -140,6 +159,17 @@ async function main() {
   assert.equal(await js('document.documentElement.scrollWidth <= innerWidth'), true)
   assert.equal(await js('Array.from(document.querySelectorAll(".workbench-account")).every(section=>{const r=section.getBoundingClientRect();return r.left>=0 && r.right<=innerWidth && r.bottom<=innerHeight})'), true)
   fs.writeFileSync(path.join(output, 'referee-workbench-compact-synthetic.png'), (await window.webContents.capturePage()).toPNG())
+  const preferences = (await js('window.oclr.settings.snapshot()')).preferences
+  for (const [language, label] of [['zh-Hant', '開啟 OCLR 執裁面板'], ['zh-Hans', '打开 OCLR 执裁面板'], ['en', 'Open OCLR referee panel']]) {
+    assert.equal((await js(`window.oclr.settings.update(${JSON.stringify({ ...preferences, language })})`)).ok, true)
+    await until(() => js(`document.querySelector('.oclr-open-panel')?.textContent.includes(${JSON.stringify(label)})`))
+    await js('document.querySelector(".oclr-panel-heading").scrollIntoView({block:"center"})')
+    assert.equal(await js('(() => {const r=document.querySelector(".oclr-open-panel").getBoundingClientRect();return r.width>=32 && r.left>=0 && r.right<=innerWidth && r.top>=0 && r.bottom<=innerHeight && document.documentElement.scrollWidth<=innerWidth})()'), true)
+  }
+  assert.equal((await js(`window.oclr.settings.update(${JSON.stringify(preferences)})`)).ok, true)
+  await until(() => js('document.querySelector(".oclr-open-panel")?.textContent.includes("開啟 OCLR 執裁面板")'))
+  await js('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
+  fs.writeFileSync(path.join(output, 'oclr-referee-link-compact-synthetic.png'), (await window.webContents.capturePage()).toPNG())
   window.setSize(1180, 780)
   const beforeRefresh = requests.length
   await until(() => js('!document.querySelector(\'.refresh-button[aria-label="更新面板"]\').disabled'))
@@ -215,9 +245,10 @@ async function main() {
   await js('document.querySelector("main").scrollTop=0')
   await js('document.querySelector("#oclr-tab-2").click()')
   await until(() => js('document.body.textContent.includes("裁判暫記比分")'))
+  const beforeReview = opened.length
   await js(`Array.from(document.querySelectorAll('.oclr-phase-content button')).find(b => b.textContent.includes('網站 MP 審核')).click()`)
-  await until(() => opened.length === 2)
-  assert.equal(opened[1], fixtures.data.items[0].reviewUrl)
+  await until(() => opened.length === beforeReview + 1)
+  assert.equal(opened.at(-1), fixtures.data.items[0].reviewUrl)
   const beforeReload = requests.filter(r => r.path.endsWith('/auth/exchange')).length
   const rendererReloaded = new Promise(resolve => window.webContents.once('did-finish-load', resolve))
   window.webContents.reload()
@@ -255,6 +286,10 @@ async function main() {
   assert.equal(await js('Boolean(document.querySelector(\'.logout-button[aria-label="登出 OCLR"] svg\'))'), true)
   await js('document.querySelector(\'.logout-button[aria-label="登出 OCLR"]\').click()')
   await until(() => js('Boolean(document.querySelector(".oclr-login"))'))
+  assert.equal(await js('Boolean(document.querySelector(".oclr-open-panel"))'), false)
+  const beforeLoggedOutOpen = opened.length
+  assert.equal((await js(`window.oclr.website.openRefereePanel(${JSON.stringify(fixtures.data.items[0].fixtureId)})`)).ok, false)
+  assert.equal(opened.length, beforeLoggedOutOpen)
   assert.equal((await js('window.oclr.website.snapshot()')).panel, null)
   assert.equal((await js('window.oclr.snapshot()')).connection, 'online')
   assert.equal(await js('Boolean(document.querySelector(".referee-workbench .connected-panel") && document.querySelector(".referee-workbench .oclr-login"))'), true)

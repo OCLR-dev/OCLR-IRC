@@ -236,7 +236,10 @@ main { min-height: 0; overflow: auto; }
 .oclr-fixture small, .oclr-fixture>span { color: #93869f; font-size: 10px; }
 .oclr-fixture strong { font-size: 12px; line-height: 1.6; font-weight: 550; }
 .oclr-panel { min-width: 0; }
-.oclr-panel-heading { display: flex; align-items: start; justify-content: space-between; gap: 10px; }
+.oclr-panel-heading { display: flex; align-items: start; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.oclr-panel-heading > div:first-child { min-width: 0; flex: 1 1 160px; }
+.oclr-panel-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; max-width: 100%; }
+.oclr-open-panel { height: auto; min-height: 32px; white-space: normal; }
 .oclr-panel h2 { margin: 0 0 5px; font-size: 19px; font-weight: 600; overflow-wrap: anywhere; }
 .oclr-panel h3 { font-size: 13px; font-weight: 550; color: #d2c8df; margin: 20px 0 10px; }
 .oclr-phases { display: flex; gap: 14px; border-bottom: 1px solid #302a36; margin: 20px 0 10px; }
