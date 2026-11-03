@@ -204,7 +204,7 @@ app.whenReady().then(() => {
     catch (error) { return {ok: false, error: !(error instanceof OclrError) && error instanceof Error && error.name === 'Error' ? error.message : publicOclrError(error)} }
   })
   ipcMain.handle('oclr:open-review', (event, id: unknown) => websiteAction(event, () => oclr.openReview(id)))
-  ipcMain.handle('oclr:open-referee-panel', (event, id: unknown) => websiteAction(event, () => oclr.openRefereePanel(id)))
+  ipcMain.handle('oclr:open-referee-panel', (event, id: unknown, section: unknown) => websiteAction(event, () => oclr.openRefereePanel(id, section)))
   irc.on('authenticated', () => {
     const generation = loginGeneration
     const value = pendingSave; pendingSave = null

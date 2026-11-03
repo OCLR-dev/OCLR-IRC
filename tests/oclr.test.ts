@@ -149,10 +149,12 @@ test('referee panel browser links accept only assigned fixture IDs and work with
     assert.equal(f.session.state.panelState, 'unavailable')
     await f.session.openRefereePanel(id(101))
     await f.session.openRefereePanel(id(103))
-    assert.deepEqual(f.opened.slice(1), [101, 103].map(n => `${fixture(n).reviewUrl}/referee`))
+    for (const section of [null, {}, '#other', 'https://attacker.invalid/']) await assert.rejects(f.session.openRefereePanel(id(101), section))
+    await f.session.openRefereePanel(id(101), 'dependencies')
+    assert.deepEqual(f.opened.slice(1), [...[101, 103].map(n => `${fixture(n).reviewUrl}/referee`), `${fixture().reviewUrl}/referee#referee-dependencies`])
     await f.session.logout()
     await assert.rejects(f.session.openRefereePanel(id(101)))
-    assert.equal(f.opened.length, 3, 'logout must remove the browser-link capability')
+    assert.equal(f.opened.length, 4, 'logout must remove the browser-link capability')
   } finally { f.session.dispose() }
 })
 

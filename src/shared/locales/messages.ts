@@ -7,6 +7,7 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
   "IRC 聊天": {"zh-Hans": "IRC 聊天", "en": "IRC chat"},
   "開啟 IRC 聊天": {"zh-Hans": "打开 IRC 聊天", "en": "Open IRC chat"},
   "開啟 OCLR 執裁面板": {"zh-Hans": "打开 OCLR 执裁面板", "en": "Open OCLR referee panel"},
+  "前往網站核對配置": {"zh-Hans": "前往网站核对配置", "en": "Recheck configuration on website"},
   "連線帳號": {"zh-Hans": "连接账号", "en": "Connected accounts"},
   "OCLR 網站": {"zh-Hans": "OCLR 网站", "en": "OCLR website"},
   "自動更新 OCLR 網站資料": {"zh-Hans": "自动更新 OCLR 网站数据", "en": "Automatically update OCLR website data"},

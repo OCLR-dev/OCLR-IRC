@@ -77,7 +77,7 @@ const api: DesktopAPI = {
     previewInvite: input => ipcRenderer.invoke('oclr:invite-preview', input),
     executeInvite: input => ipcRenderer.invoke('oclr:invite-execute', input),
     openReview: input => ipcRenderer.invoke('oclr:open-review', input),
-    openRefereePanel: input => ipcRenderer.invoke('oclr:open-referee-panel', input),
+    openRefereePanel: (input, section) => ipcRenderer.invoke('oclr:open-referee-panel', input, section),
     onState: listener => {
       const handler = (_event: Electron.IpcRendererEvent, state: OclrSnapshot) => listener(state)
       ipcRenderer.on('oclr:state', handler)

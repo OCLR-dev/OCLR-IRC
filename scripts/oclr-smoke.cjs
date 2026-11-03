@@ -16,7 +16,7 @@ const fixtures = JSON.parse(fs.readFileSync('tests/fixtures/oclr-fixtures.json',
 const meta = fixtures.meta
 const nativeFetch = global.fetch
 const sent = [], requests = [], opened = [], errors = []
-let authRequest, unavailable = true, panelUnavailable = false, stale = false, revoked = false, panelGate = null, holdWelcome = false, welcome = null
+let authRequest, unavailable = true, panelUnavailable = false, stale = false, dependenciesChanged = false, revoked = false, panelGate = null, holdWelcome = false, welcome = null
 const access = 'oclr_desk_at_' + 'A'.repeat(43), refresh = 'oclr_desk_rt_' + 'D'.repeat(43)
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-OCLR-Desktop-Contract': '1.1.0', 'X-OCLR-Referee-Contract': '1.1.0', 'X-Request-Id': meta.requestId } })
 global.fetch = async (url, init = {}) => {
@@ -44,6 +44,10 @@ global.fetch = async (url, init = {}) => {
     if (panelGate) await panelGate
     const value = structuredClone(panel)
     if (stale) value.data.freshUntil = value.data.capturedAt
+    if (dependenciesChanged) {
+      const w = value.data.workspace
+      w.session = {revision: w.events.length, firstBanTeamId: null, firstPickTeamId: null, settings: w.defaultSettings, dependencyFingerprint: 'b'.repeat(64), basis: {policy: w.policy, teamIds: w.teams.map(t => t.id), maps: w.maps.map(({metadata, ...map}) => map), series: w.series, tiedMapPolicy: w.rules?.tiedMapPolicy ?? 'require_replay'}}
+    }
     value.data.workspace.unexpectedSecret = 'SYNTHETIC_UNEXPECTED_FIELD_NOT_FOR_RENDERER'
     return json(value)
   }
@@ -276,6 +280,16 @@ async function main() {
   assert.equal((await js('(async () => window.oclr.settings.update({...((await window.oclr.settings.snapshot()).preferences),autoRefreshOclr:true}))()')).ok, true)
   await until(() => requests.filter(r => r.path.startsWith('/api/referee/')).length >= beforePausedReads + 2)
   await js('window.oclr.website.refreshPanel()')
+  dependenciesChanged = true
+  await js('window.oclr.website.refreshPanel()')
+  await until(() => js('document.querySelectorAll(".fixture-dependency-check").length === 1'))
+  const beforeRecheck = opened.length
+  await js('document.querySelector(".fixture-dependency-check button").click()')
+  await until(() => opened.length === beforeRecheck + 1)
+  assert.equal(opened.at(-1), fixtures.data.items[0].reviewUrl + '/referee#referee-dependencies')
+  dependenciesChanged = false
+  await js('window.oclr.website.refreshPanel()')
+  await until(() => js('!document.querySelector(".fixture-dependency-check")'))
   stale = true
   await js('window.oclr.website.refreshPanel()')
   await until(() => js('(async () => (await window.oclr.website.snapshot()).panelState === "stale")()'))
@@ -297,7 +311,7 @@ async function main() {
   assert.ok(!sent.some(line => line.includes('!mp')))
   assert.deepEqual(errors, [])
   const report = { evidence: 'synthetic-oclr-desktop-integration', source: 'OCLR-website PR409@1abbab1ddd981025249af727d748e70e23b9096b', platform: process.platform, arch: process.arch, electron: process.versions.electron, recordedAt: new Date().toISOString(),
-    passed: ['automatic case/space/underscore pairing requires own 001, mismatch blocks relay, no confirmation checkbox/bridge, relogin pairs automatically', 'undeployed HTML endpoint fails closed without opening browser', 'browser authorization comparison code', 'real one-shot 127.0.0.1 callback and S256 exchange', 'assigned fixtures and native preparation panel', 'Main-only constrained clipboard copy', 'pool preview uses shared website Mods builder', 'remote metadata renders as escaped text', '900x640 has no horizontal overflow', 'review URL opens fixed OCLR origin', 'renderer reload preserves Main session', 'no tokens/state/unexpected response fields in renderer snapshot', 'close-to-background preserves OCLR session and restore', 'stale panel disables copying', 'logout clears OCLR data while IRC remains connected', 'no referee business writes or IRC commands sent', 'no renderer console errors'],
+    passed: ['automatic case/space/underscore pairing requires own 001, mismatch blocks relay, no confirmation checkbox/bridge, relogin pairs automatically', 'undeployed HTML endpoint fails closed without opening browser', 'browser authorization comparison code', 'real one-shot 127.0.0.1 callback and S256 exchange', 'assigned fixtures and native preparation panel', 'Main-only constrained clipboard copy', 'pool preview uses shared website Mods builder', 'remote metadata renders as escaped text', '900x640 has no horizontal overflow', 'review URL opens fixed OCLR origin', 'dependency mismatch opens assigned-fixture recheck anchor and clears after refresh without writes', 'renderer reload preserves Main session', 'no tokens/state/unexpected response fields in renderer snapshot', 'close-to-background preserves OCLR session and restore', 'stale panel disables copying', 'logout clears OCLR data while IRC remains connected', 'no referee business writes or IRC commands sent', 'no renderer console errors'],
     limitation: 'OCLR HTTPS API, browser approval, identities and IRC are synthetic. No real website authorization/deployment, production data, live IRC command or true IME acceptance.', requests }
   fs.writeFileSync(path.join(output, 'oclr-smoke.json'), JSON.stringify(report, null, 2) + '\n')
   console.log(JSON.stringify(report, null, 2)); app.exit(0)

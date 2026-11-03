@@ -13,7 +13,8 @@ require('./mock-system-locale.cjs')
 safeStorage.isAsyncEncryptionAvailable = async () => true
 safeStorage.encryptStringAsync = async value => Buffer.from(value)
 safeStorage.decryptStringAsync = async value => ({ result: value.toString(), shouldReEncrypt: false })
-shell.openExternal = async () => {}
+const opened = []
+shell.openExternal = async url => {opened.push(url)}
 const fixtures = JSON.parse(fs.readFileSync('tests/fixtures/oclr-fixtures.json', 'utf8'))
 const panel = JSON.parse(fs.readFileSync('tests/fixtures/oclr-panel.json', 'utf8'))
 const meta = fixtures.meta, fixtureId = fixtures.data.items[0].fixtureId
@@ -22,7 +23,7 @@ const commandId = '00000000-0000-4000-8000-000000000090'
 const command = {id: commandId, text: `!mp make ${name}`, target: 'BanchoBot'}
 const json = (data, status = 200) => new Response(JSON.stringify({data, meta}), {status, headers: {'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-OCLR-Desktop-Contract': '1.1.0', 'X-OCLR-Referee-Contract': '1.1.0', 'X-Request-Id': meta.requestId}})
 const nativeFetch = global.fetch, syncs = [], sent = []
-let auth, peer, username, invitePhase = false
+let auth, peer, username, invitePhase = false, dependenciesChanged = false
 const inviteOutcomes = []
 const handle = ipcMain.handle.bind(ipcMain)
 ipcMain.handle = (channel, listener) => handle(channel, channel === 'oclr:invite-execute' ? async (...args) => {
@@ -40,7 +41,14 @@ global.fetch = async (value, init = {}) => {
   if (url.pathname.endsWith('/auth/exchange')) return json({token_type: 'Bearer', access_token: 'oclr_desk_at_' + 'A'.repeat(43), refresh_token: 'oclr_desk_rt_' + 'D'.repeat(43), expires_in: 600, access_expires_at: '2026-10-28T08:10:00.000Z', refresh_expires_at: '2026-10-28T10:00:00.000Z', session_expires_at: '2026-10-28T20:00:00.000Z', session_id: meta.requestId, scope: auth.scope, subject: panel.data.viewer})
   if (url.pathname.endsWith('/auth/revoke')) return new Response(null, {status: 204})
   if (url.pathname.includes('/me/fixtures')) return json(fixtures.data)
-  if (url.pathname.endsWith('/panel')) return json(panel.data)
+  if (url.pathname.endsWith('/panel')) {
+    const data = structuredClone(panel.data)
+    if (dependenciesChanged) {
+      const w = data.workspace
+      w.session = {revision: w.events.length, firstBanTeamId: null, firstPickTeamId: null, settings: w.defaultSettings, dependencyFingerprint: 'b'.repeat(64), basis: {policy: w.policy, teamIds: w.teams.map(t => t.id), maps: w.maps.map(({metadata, ...map}) => map), series: w.series, tiedMapPolicy: w.rules?.tiedMapPolicy ?? 'require_replay'}}
+    }
+    return json(data)
+  }
   if (url.pathname.endsWith('/relay')) {
     const body = JSON.parse(init.body)
     if (body.action === 'sync') syncs.push(body)
@@ -140,6 +148,25 @@ async function main() {
   await js('document.querySelector(".tools-scroll").scrollTop=0')
   fs.mkdirSync(path.resolve('artifacts'), {recursive: true})
   fs.writeFileSync(path.resolve('artifacts/fixture-tools-compact-synthetic.png'), (await window.webContents.capturePage()).toPNG())
+  // Contextual website recheck opens a fixed anchor without dispatching or reconfirming here.
+  dependenciesChanged = true
+  await js('window.oclr.website.refreshPanel()')
+  await until(() => js('document.querySelectorAll(".fixture-dependency-check").length === 1'))
+  await js('Array.from(document.querySelectorAll("[role=tab]")).find(b => b.textContent === "圖池").click()')
+  await until(() => js('document.querySelectorAll(".fixture-map-commands button").length === 2'))
+  assert.equal(await js('Array.from(document.querySelectorAll(".fixture-map-commands button")).every(b => b.disabled)'), true)
+  assert.equal(await js('document.querySelector(".fixture-map-commands").textContent.includes("網站場次依賴已變更")'), false)
+  const beforeRecheck = opened.length, beforeSend = sent.filter(line => line.startsWith('PRIVMSG ')).length
+  await js('document.querySelector(".fixture-dependency-check button").click()')
+  await until(() => opened.length === beforeRecheck + 1)
+  assert.equal(opened.at(-1), fixtures.data.items[0].reviewUrl + '/referee#referee-dependencies')
+  assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight && document.documentElement.scrollWidth <= innerWidth'), true)
+  await js('document.querySelector(".tools-scroll").scrollTop=0')
+  fs.writeFileSync(path.resolve('artifacts/dependency-recheck-compact-synthetic.png'), (await window.webContents.capturePage()).toPNG())
+  dependenciesChanged = false
+  await js('window.oclr.website.refreshPanel()')
+  await until(() => js('!document.querySelector(".fixture-dependency-check") && Array.from(document.querySelectorAll(".fixture-map-commands button")).every(b => !b.disabled)'))
+  assert.equal(sent.filter(line => line.startsWith('PRIVMSG ')).length, beforeSend, 'dependency refresh and website navigation never resend commands')
   await js('window.oclr.website.logout()')
   await until(() => js('!document.querySelector(".fixture-team, .fixture-map")'))
   // Once the intent is closed, a duplicate reply becomes ordinary private Bot chat.
@@ -160,7 +187,7 @@ async function main() {
   const db = new DatabaseSync(path.join(profile, 'operation-recovery.sqlite'), {readOnly: true})
   try { assert.equal(db.prepare('SELECT COUNT(*) AS count FROM operations').get().count, 0) } finally { db.close() }
   assert.equal(sent.filter(line => line.startsWith('PRIVMSG BanchoBot :!mp make ')).length, 1)
-  console.log(JSON.stringify({evidence: 'synthetic-relay-creation', passed: ['single make despite duplicate command ID', 'sent receipt at dispatch boundary', 'late creation after relay stop still joins and reads settings/listrefs', 'round pool and both team rosters in room tools', 'pool selection and command copy send no IRC', 'bound room and automatic roster UID before one explicit invitation without name input', 'invitation never means player arrival', '900x640 composer and independent tools', 'logout clears private roster and pool', 'website operation history stays memory only', ...(process.platform !== 'linux' ? ['private room excluded before first journal message', 'ordinary IRC history positive control'] : ['Linux journal remains memory only'])], limitation: 'Synthetic HTTP/IRC and crypto provider; real OAuth, Bancho and native provider acceptance remain separate.'}))
+  console.log(JSON.stringify({evidence: 'synthetic-relay-creation', passed: ['single make despite duplicate command ID', 'sent receipt at dispatch boundary', 'late creation after relay stop still joins and reads settings/listrefs', 'round pool and both team rosters in room tools', 'pool selection and command copy send no IRC', 'bound room and automatic roster UID before one explicit invitation without name input', 'invitation never means player arrival', '900x640 composer and independent tools', 'one dependency recheck CTA opens fixed assigned-fixture anchor; refresh restores copying without IRC resend', 'logout clears private roster and pool', 'website operation history stays memory only', ...(process.platform !== 'linux' ? ['private room excluded before first journal message', 'ordinary IRC history positive control'] : ['Linux journal remains memory only'])], limitation: 'Synthetic HTTP/IRC and crypto provider; real OAuth, Bancho and native provider acceptance remain separate.'}))
   app.exit(0)
 }
 main().catch(async error => {

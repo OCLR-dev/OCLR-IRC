@@ -103,7 +103,7 @@ export interface DesktopAPI {
     previewInvite(input: RoomTarget & {previewId: string; teamId: string; osuId: number}): Promise<{ok: boolean; preview?: import('./fixture-tools.ts').FixtureInvitePreview; error?: string}>
     executeInvite(input: RoomTarget & {token: string; reviewed: boolean}): Promise<{ok: boolean; error?: string}>
     openReview(id: string): Promise<{ ok: boolean; error?: string }>
-    openRefereePanel(id: string): Promise<{ ok: boolean; error?: string }>
+    openRefereePanel(id: string, section?: 'dependencies'): Promise<{ ok: boolean; error?: string }>
     onState(listener: (state: OclrSnapshot) => void): () => void
   }
   snapshot(): Promise<Snapshot>
