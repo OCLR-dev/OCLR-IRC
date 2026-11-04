@@ -64,6 +64,10 @@
 - [文件索引](docs/README.md)：功能說明、架構、契約及開發進度。
 - [已知限制與剩餘工作](docs/desktop-backlog.md)：尚待完成與驗收的項目。
 
+## 靈感來源
+
+- [refsu](https://github.com/V1laZ/refsu)（V1laZ）：為 osu! 裁判與賽事主辦者設計的跨平台 IRC 客戶端。
+
 ## 授權
 
 自有程式碼採 [MIT License](LICENSE)。Liru 圖標採 [CC BY 4.0](resources/icons/LICENSE.txt)。第三方依賴與授權見 [第三方聲明](THIRD_PARTY_NOTICES.md)。
