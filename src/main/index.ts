@@ -261,7 +261,7 @@ app.whenReady().then(() => {
   ipcMain.handle('irc:select-room', (event, value: unknown) => action(event, () => irc.selectRoom(value)))
   ipcMain.handle('irc:leave-room', (event, value: unknown) => action(event, () => irc.leaveRoom(value)))
   ipcMain.handle('irc:operation-review', (event, input: unknown) => action(event, () => irc.reviewOperation(input)))
-  ipcMain.handle('irc:query', (event, value: unknown) => action(event, () => irc.query(value)))
+  ipcMain.handle('irc:query', (event, value: unknown) => action(event, () => irc.requestQuery(value)))
   ipcMain.handle('irc:manual-pool-replace', (event, input: unknown) => action(event, () => irc.replaceManualPool(input)))
   ipcMain.handle('irc:pool-entry-preview', (event, input: unknown) => {
     trusted(event)
@@ -290,7 +290,11 @@ app.whenReady().then(() => {
     catch (error) { return { ok: false, error: error instanceof Error ? error.message : '無法預覽操作。' } }
   })
   ipcMain.handle('irc:mp-execute', (event, value: unknown) => action(event, () => irc.executeMp(value)))
-  ipcMain.handle('irc:chat', (event, value: unknown) => action(event, () => irc.chat(value)))
+  ipcMain.handle('irc:chat', async (event, value: unknown) => {
+    trusted(event)
+    try { return await irc.chatBatch(value) }
+    catch (error) { return {ok: false, error: error instanceof Error ? error.message : '訊息未送出。'} }
+  })
   ipcMain.handle('irc:open-message-link', async (event, value: unknown) => {
     trusted(event)
     try {

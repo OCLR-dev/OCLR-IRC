@@ -9,7 +9,7 @@ import type { OclrSnapshot } from './oclr-contracts.ts'
 import type { AppPreferences, AppSettings } from './preferences.ts'
 
 export type Connection = 'offline' | 'connecting' | 'online' | 'error' | 'reconnecting' | 'suspended'
-export interface Message { id: number; time: string; sender: string; text: string; kind: 'system' | 'bot' | 'chat' | 'self'; delivery?: 'sent' | 'unconfirmed' }
+export interface Message { id: number; time: string; sender: string; text: string; kind: 'system' | 'bot' | 'chat' | 'self'; delivery?: 'sent' | 'unconfirmed' | 'unknown' }
 export interface RoomTarget { roomId: number; roomEpoch: number }
 export interface PlayerSlot { slot: number; osuId: number; username: string; status: string; team: 'red' | 'blue' | null; host: boolean }
 export interface Room { timer?: Countdown | null; startCountdown?: Countdown | null; duration?: { beatmapId: number; milliseconds: number } | null; slotsVerified?: boolean; match?: { startedAt: string; beatmap: { id: number; title: string } | null; mods: string[] | null } | null; id: number; epoch: number; channel: string; joined: boolean; binding: 'unknown' | 'verified' | 'mismatch'; referee: 'unknown' | 'listed'; name: string | null; mode: string | null; players: number | null; kind: 'match' | 'channel' | 'private'; members: string[]; syncState: 'unknown' | 'loading' | 'partial' | 'complete' | 'stale'; observedAt: string | null; beatmap: { id: number; title: string } | null; mods: string[] | null; slots: PlayerSlot[]; phase: 'unknown' | 'idle' | 'playing' }
@@ -121,7 +121,7 @@ export interface DesktopAPI {
   query(input: RoomTarget & { kind: 'settings' | 'listrefs' }): Promise<{ ok: boolean; error?: string }>
   previewMp(input: RoomTarget & { intent: MpIntent }): Promise<{ ok: boolean; preview?: MpPreview; error?: string }>
   executeMp(input: RoomTarget & { token: string; reviewed: boolean }): Promise<{ ok: boolean; error?: string }>
-  chat(input: RoomTarget & { text: string }): Promise<{ ok: boolean; error?: string }>
+  chat(input: RoomTarget & { text: string }): Promise<{ ok: boolean; error?: string; remainingText?: string }>
   openMessageLink(input: string): Promise<{ ok: boolean; error?: string }>
   openAccountSettings(): Promise<void>
   onState(listener: (state: Snapshot) => void): () => void

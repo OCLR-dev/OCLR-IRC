@@ -30,16 +30,17 @@ export class Operations {
     catch { this.failed = true; throw new Error('操作恢復記錄保存失敗，請先檢查本機儲存。') }
   }
   hasUnreviewed(roomId: number | null) { return this.records.some(r => r.roomId === roomId && (r.state === 'awaiting' || r.state === 'unknown' && !r.reviewed)) }
+  hasPending(roomId: number | null) { return this.records.some(r => r.roomId === roomId && r.state === 'awaiting') }
   begin(source: OperationRecord['source'], kind: string, roomId: number | null, roomEpoch: number, generation: number, command: string, deadlineMs = this.deadlineMs) {
     if (!this.account) throw new Error('請先登入。')
     const emergency = kind === 'abort' || kind === 'aborttimer'
     if (emergency && roomId !== null) this.interrupt(roomId)
-    if (!emergency && this.hasUnreviewed(roomId)) throw new Error('此房間有待核對操作，請先在操作記錄核對結果。')
-    if (this.records.filter(r => r.state === 'awaiting' || r.state === 'unknown' && !r.reviewed).length >= 100) throw new Error('待核對操作過多，請先核對歷史記錄。')
+    if (!emergency && (this.hasPending(roomId) || roomId === null && this.hasUnreviewed(null))) throw new Error('房間正在自動核對上一筆操作，請稍候。')
+    if (this.records.filter(r => r.state === 'awaiting').length >= 100) throw new Error('待核對操作過多，請先核對歷史記錄。')
     const record: OperationRecord = { id: randomUUID(), source, kind, roomId, roomEpoch, state: 'awaiting', createdAt: Date.now(), reviewed: false }
     this.save(record) // Must succeed before socket write.
     this.records.push(record)
-    if (this.records.length > 100) this.records = this.records.filter((r, index) => index >= this.records.length - 100 || r.state === 'awaiting' || r.state === 'unknown' && !r.reviewed)
+    if (this.records.length > 100) this.records = this.records.filter((r, index) => index >= this.records.length - 100 || r.state === 'awaiting' || r.kind === 'make' && r.state === 'unknown' && !r.reviewed)
     const timer = setTimeout(() => this.finish(record.id, 'unknown'), Math.min(60000, Math.max(1, deadlineMs)))
     timer.unref()
     this.active.set(record.id, { command, generation, timer })
@@ -68,8 +69,19 @@ export class Operations {
       const active = this.active.get(record.id)
       if (!active || record.roomId !== roomId || record.roomEpoch !== roomEpoch || active.generation !== generation) continue
       // Only exact scoped supported replies count as an observed effect.
-      // Generic errors and unsupported semantics remain unknown for manual review.
+      // Generic errors and unsupported semantics remain unknown without blocking later intents forever.
       if (relayReply(active.command, body) === 'confirmed') this.finish(record.id, 'observed')
+    }
+  }
+  observeRoom(roomId: number, roomEpoch: number, generation: number, evidence: {referees?: string[]; players?: {osuId:number;username:string}[]}) {
+    const nick = (name: string) => name.trim().replaceAll(' ', '_').toLowerCase()
+    for (const record of this.records) {
+      const active = this.active.get(record.id)
+      if (!active || record.roomId !== roomId || record.roomEpoch !== roomEpoch || active.generation !== generation) continue
+      const addref = /^!mp addref (\S+)$/.exec(active.command), invite = /^!mp invite (\S+)$/.exec(active.command)
+      const listed = addref && evidence.referees?.some(name => nick(name) === nick(addref[1]))
+      const present = invite && evidence.players?.some(player => invite[1].startsWith('#') ? player.osuId === Number(invite[1].slice(1)) : nick(player.username) === nick(invite[1]))
+      if (listed || present) this.finish(record.id, 'observed')
     }
   }
   review(input: unknown) {

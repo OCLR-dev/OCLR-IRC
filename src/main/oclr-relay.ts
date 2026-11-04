@@ -38,6 +38,12 @@ export class OclrRelay {
   constructor(oclr: OclrSession, irc: IrcSession) {
     this.oclr = oclr; this.irc = irc
     irc.on('state', () => this.refreshPairing())
+    irc.on('manual-command', ({roomId, roomEpoch}: {roomId:number;roomEpoch:number}) => {
+      if (!this.pending || this.binding?.roomId !== roomId || this.binding.roomEpoch !== roomEpoch) return
+      // A typed mutation ends the original correlation before its reply can arrive.
+      this.receipts.push({commandId:this.pending.id,status:'unknown'})
+      this.pending = null
+    })
     irc.on('room-created', (created: {source: string; requestId: string; generation: number; roomId: number}) => {
       if (created.source === 'oclr' && this.creation?.requestId === created.requestId && this.creation.generation === created.generation) this.creation.roomId = created.roomId
     })
@@ -156,7 +162,7 @@ export class OclrRelay {
             const text = relayCommand(command.text)
             const target = {roomId: binding.roomId, roomEpoch: binding.roomEpoch}
             reason = 'pending_operation'
-            if (this.irc.relayBlocked(target, text)) throw new Error('Unreviewed operation')
+            if (this.irc.relayBlocked(target, text)) throw new Error('Pending operation')
             reason = 'room_checks'
             if (!this.irc.relayReady(target, text)) {
               this.irc.relayRefresh(target)
@@ -164,7 +170,7 @@ export class OclrRelay {
               while (!this.irc.relayReady(target, text) && performance.now() < deadline && generation === this.generation && this.sameRoom(this.irc.state)) await new Promise(resolve => setTimeout(resolve, 50))
             }
             if (!this.pairingReady() || generation !== this.generation || !this.sameRoom(this.irc.state) || !this.irc.relayReady(target, text)) throw new Error('Local room checks failed')
-            if (this.irc.relayBlocked(target, text)) { reason = 'pending_operation'; throw new Error('Unreviewed operation') }
+            if (this.irc.relayBlocked(target, text)) { reason = 'pending_operation'; throw new Error('Pending operation') }
             reason = 'local_rejected'
             this.irc.relaySend({roomId: binding.roomId, roomEpoch: binding.roomEpoch, text}, () => {
               this.pending = {id: command.id, text, after: this.irc.state.messages.at(-1)?.id ?? 0, deadline: performance.now() + 15000}

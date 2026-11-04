@@ -17,6 +17,7 @@ export function relayCommand(value: unknown): string {
 export function relayReply(command: string, text: string): 'confirmed' | 'failed' | null {
   if (/^(?:You (?:are not|must be)|Invalid |Failed to |User not found|No user found|Beatmap not found|The beatmap could not be found)/i.test(text)) return 'failed'
   if (confirmsMods(command, text)) return 'confirmed'
+  if (confirmsSettings(command, text) || confirmsMods(command, text)) return 'confirmed'
   const timer = /^!mp timer ([1-9]\d{0,3})$/.exec(command)
   if (timer) {
     const event = countdownEvent(text, 0)
@@ -62,4 +63,13 @@ export function confirmsMods(command: string, reply: string): boolean {
   // Bancho can omit NF from the global room Mods when FreeMod is enabled.
   // This acknowledges the room setting only; individual NF remains unverified.
   return matches(desired) || freemod && desired.includes("NF") && matches(desired.filter(mod => mod !== "NF"));
+}
+
+/** Match every requested setting; occupied player count never proves room capacity. */
+export function confirmsSettings(command: string, reply: string): boolean {
+  const requested = /^!mp set ([0-3]) ([0-3])(?: (1[0-6]|[1-9]))?$/.exec(command)
+  const observed = /^Changed match settings to (?:(\d{1,2}) slots, )?(HeadToHead|TagCoop|TeamVs|TagTeamVs)(?:, (Score|Accuracy|Combo|ScoreV2))?\.?$/.exec(reply)
+  if (!requested || !observed) return false
+  const teams = ['HeadToHead', 'TagCoop', 'TeamVs', 'TagTeamVs'], scores = ['Score', 'Accuracy', 'Combo', 'ScoreV2']
+  return observed[2] === teams[Number(requested[1])] && observed[3] === scores[Number(requested[2])] && (!requested[3] || Number(observed[1]) === Number(requested[3]))
 }

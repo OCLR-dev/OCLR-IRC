@@ -530,3 +530,5 @@ main { min-height: 0; overflow: auto; }
 .fixture-dependency-check .button { white-space: normal; height: auto; min-height: 32px; }
 @keyframes refresh-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .refresh-button[aria-busy="true"] svg { animation: none; } }
+
+.chat-field textarea { min-height: 40px; max-height: 100px; height: auto; resize: vertical; overflow-y: auto; padding-block: 9px; line-height: 20px; }

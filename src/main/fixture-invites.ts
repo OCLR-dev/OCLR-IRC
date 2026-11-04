@@ -49,7 +49,7 @@ export class FixtureInvites {
     await this.recheck()
     const current = fixtureInviteSource(this.oclr.state, parsed.teamId, parsed.osuId)
     if (generation !== this.generation || scope !== this.scope(parsed) || source.fingerprint !== current.fingerprint) throw new Error('場次資料已失效，請重新同步。')
-    if (this.irc.relayBlocked(parsed, current.command)) throw new Error('此房間有待核對操作，請先在操作記錄核對結果。')
+    if (this.irc.relayBlocked(parsed, current.command)) throw new Error('房間正在自動核對上一筆操作，請稍候。')
     if (!this.irc.relayReady(parsed, current.command)) {
       this.irc.relayRefresh(parsed)
       const deadline = performance.now() + 8000

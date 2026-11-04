@@ -42,10 +42,11 @@
 - 保留 CRLF／bare LF、分段資料、UTF-8 長度、心跳及全連線節流處理。
 - MP ID、`#mp_<id>` 與 settings History 必須相符。IRC NAMES 不代表玩家槽位、到場或裁判資格；listrefs 需限定在對應查詢與可信來源。
 - 不將 unknown／partial／stale 轉成已確認。玩家槽位來自 settings 快照，固定 16 個顯示位置不代表開放容量。
-- 一般聊天不能成為任意命令入口。房內變更使用結構化 intent，由 Main 固定目標與生成命令。
+- 2026-11-04 使用者要求聊天輸入框可直接發送 `!mp` 等文字指令，取代原先全面禁止指令的限制。Main 將每一行固定為當前對話的 PRIVMSG body，最多 10 行、逐行檢查 UTF-8 長度與節流；換行不得成為原始 IRC 協議代理。直接文字指令顯示執行結果待核對，不自動重送。快捷工具仍使用結構化 intent、Main 預覽與原 gate；BanchoBot 開房仍經專用持久化流程。
 - 手動快捷操作目前包含 map、mods、立即 start、abort。遵守 [快捷操作邊界](docs/m1/manual-mp-controls.md)：房間 epoch、近期設定與裁判資格、一次性預覽、目標及影響確認、互斥 Mods 檢查。
 - 保留開始前的人工核對；不得把未知比賽階段、個人 Mods、陣容或直播政策宣稱為自動驗證完成。
 - 送出 echo／socket write 不等於 Bancho 已執行。未知結果保持 unknown／未確認，不自動重送變更指令，不在重連後重放聊天或操作。
+- 2026-11-04 使用者要求自動核對房內操作並解除未知結果的永久阻塞：僅 awaiting 的有界等待期間互斥，逾時保留 unknown 且允許新意圖，不自動重送或把 unknown 改為成功。精確回覆與同房間／epoch／世代的新 settings、listrefs 可核對活躍操作；開房未知鎖定另行保留。
 - 開房保留送前最小持久化防重送記錄及未知結果鎖定，詳見 [開房流程](docs/m1/create-match-room.md)。離開分頁是 PART，不是 `!mp close`。
 - 開發測試預設用本機模擬 IRC；只有使用者明確指定真實帳號、房間與操作範圍時才進行真實操作。歷史唯讀授權不能延伸為 start／abort／close 等變更授權。
 

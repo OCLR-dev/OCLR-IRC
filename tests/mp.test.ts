@@ -32,9 +32,16 @@ async function fixture(empty: boolean | 'no-mods' = false, durationLookup: (id: 
   const target = () => ({ roomId: session.state.room!.id, roomEpoch: session.state.room!.epoch })
   session.join('9'); await until(() => Boolean(session.state.room?.joined))
   async function refresh() {
-    await delay(20); session.query({ ...target(), kind: 'settings' }); await until(() => session.state.room?.syncState === (empty ? 'partial' : 'complete'))
-    await delay(20); session.query({ ...target(), kind: 'listrefs' }); await until(() => session.state.room?.referee === 'listed'); await delay(20)
+    for (const kind of ['settings', 'listrefs']) {
+      const before=sent.filter(line=>line.endsWith(':!mp '+kind)).length
+      const reading=session.state.pending===kind
+      session.requestQuery({...target(),kind})
+      if (!reading) await until(()=>sent.filter(line=>line.endsWith(':!mp '+kind)).length>before)
+      await until(()=>!session.state.pending)
+    }
+    await until(()=>session.relayReady(target(),'!mp timer 30'))
   }
+
   return { session, sent, target, refresh, peer: () => peer, async close() { session.logout(); for (const socket of sockets) socket.destroy(); await new Promise<void>(resolve => server.close(() => resolve())) } }
 }
 
@@ -391,6 +398,29 @@ test('Mods reply confirms only matching Mods and freemod, not a generic success'
   assert.equal(relayReply('!mp mods NF', 'Enabled NoFail, enabled FreeMod'), null)
   assert.equal(relayReply('!mp mods NF', 'Enabled Unknown, disabled FreeMod'), null)
 })
+
+
+test('expired unknown room operation does not permanently block a new intent or replay the previous command', async () => {
+  const f=await fixture(true)
+  try {
+    await f.refresh()
+    f.session.relaySend({...f.target(),text:'!mp addref SyntheticRef'})
+    await until(()=>f.sent.includes('PRIVMSG #mp_9 :!mp addref SyntheticRef'))
+    assert.equal(f.session.relayBlocked(f.target(),'!mp timer 30'),true)
+    const pending=f.session.state.operations!.records.at(-1)!
+    const tracker=(f.session as unknown as {operations:import('../src/main/operations.ts').Operations}).operations
+    tracker.extend(pending.id,30)
+    await until(()=>f.session.state.operations!.records.at(-1)?.state==='unknown')
+    assert.equal(f.session.relayBlocked(f.target(),'!mp timer 30'),false)
+    await until(()=>f.session.relayReady(f.target(),'!mp timer 30'))
+    f.session.relaySend({...f.target(),text:'!mp timer 30'})
+    await until(()=>f.sent.includes('PRIVMSG #mp_9 :!mp timer 30'))
+    assert.equal(f.sent.filter(line=>line.endsWith(':!mp addref SyntheticRef')).length,1)
+    assert.equal(f.session.state.operations!.records.find(r=>r.id===pending.id)?.state,'unknown')
+    assert.equal(f.session.state.operations!.records.find(r=>r.id===pending.id)?.reviewed,false)
+  } finally {await f.close()}
+})
+
 test('BP notice readiness fences pending reads, cooldown and queued reads without mutating state', async () => {
   const f = await fixture()
   try {

@@ -1,5 +1,15 @@
 // Application-authored text only. Interpolation values and external content remain literal.
 export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
+  "房間正在自動核對上一筆操作，請稍候。": {"zh-Hans": "房间正在自动核对上一笔操作，请稍候。", "en": "The previous room operation is being checked automatically. Please wait."},
+  "草稿過長，請分批傳送。": {"zh-Hans": "草稿过长，请分批发送。", "en": "The draft is too long. Send it in smaller batches."},
+  "訊息不能包含控制字元。": {"zh-Hans": "消息不能包含控制字符。", "en": "Messages cannot contain control characters."},
+  "每次最多傳送 10 行訊息。": {"zh-Hans": "每次最多发送 10 行消息。", "en": "Send up to 10 lines at a time."},
+  "單行訊息過長，請縮短後再送出。": {"zh-Hans": "单行消息过长，请缩短后再发送。", "en": "A message line is too long. Shorten it before sending."},
+  "訊息正在傳送中，請稍候。": {"zh-Hans": "消息正在发送中，请稍候。", "en": "Messages are being sent. Please wait."},
+  "傳送已停止，尚未傳送的內容保留在草稿。": {"zh-Hans": "发送已停止，未发送的内容保留在草稿中。", "en": "Sending stopped. Unsent messages remain in the draft."},
+  "傳送等待逾時，尚未傳送的內容保留在草稿。": {"zh-Hans": "发送等待超时，未发送的内容保留在草稿中。", "en": "Sending timed out. Unsent messages remain in the draft."},
+  "傳送結果待核對": {"zh-Hans": "发送结果待核对", "en": "Send outcome unconfirmed"},
+  "Enter 傳送 · Shift+Enter 換行": {"zh-Hans": "Enter 发送 · Shift+Enter 换行", "en": "Enter to send · Shift+Enter for a new line"},
   "記錄中心": {"zh-Hans": "记录中心", "en": "Records"},
   "記錄分類": {"zh-Hans": "记录分类", "en": "Record categories"},
   "聊天日誌": {"zh-Hans": "聊天日志", "en": "Chat logs"},
