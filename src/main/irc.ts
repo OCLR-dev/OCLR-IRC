@@ -755,11 +755,20 @@ export class IrcSession extends EventEmitter {
     catch (error) { this.operations.finish(operationId, 'unknown'); throw error }
     finally { this.enqueue(view, 'settings'); this.enqueue(view, 'listrefs'); this.publish() }
   }
+  relayNoticeReady(input: RoomTarget) {
+    try {
+      const view = this.target(input)
+      if (view.room.kind !== 'match' || view.room.binding !== 'verified' || view.room.referee !== 'listed' || this.work.length || this.workTimer) return false
+      this.ready(view)
+      return true
+    } catch { return false }
+  }
   relayNotice(input: RoomTarget & { text: string }, onDispatch?: () => void) {
     const view = this.target(input)
     if (!isBpNotice(input.text) || view.room.kind !== 'match' || view.room.binding !== 'verified' || view.room.referee !== 'listed') throw new Error('無效的 BP 通知或房間權限。')
     const text = chatText(input.text, view.room.channel)
     this.ready(view)
+    this.lastQueryAt = Date.now()
     onDispatch?.()
     this.send(`PRIVMSG ${view.room.channel} :${text}`)
     this.note(view, text, 'self', this.username, 'sent'); this.publish()

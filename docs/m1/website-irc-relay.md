@@ -91,13 +91,19 @@ bind 回應可附 receiptReasons:true；只有收到此能力的新桌面才送�
 
 Main 僅讓固定 `[OCLR BP #數字]`、操作／圖池編號／隊名與官方譜面連結格式走 `relayNotice`，另核對當前房間 epoch、加入／History／裁判及帳號配對。通知沿用既有 chatText 的命令阻擋、UTF-8 長度與全連線節流，不放寬一般聊天成為命令入口，也不建立一筆會等待 Bancho 效果的 MP 操作。通知 handed-to-local-transport 以 `notified` 回報，不冒稱伺服器已收到或房間已變更。
 
-換圖／Mods 沿用原 MP 驗證、送前消耗 ID、共同操作阻擋及未知結果不重送。網站計畫只在上一筆成功後派送下一筆。新增有限 Mods 回覆比對：`Enabled ... / Disabled all mods, enabled/disabled FreeMod` 必須與原命令的 Mods 集合及 Freemod 完全一致；未知名稱、其他集合、其他房間或舊回覆不能確認。格式參考 [bancho.js 的 BanchoLobbyRegexes](https://github.com/ThePooN/bancho.js/blob/master/lib/Multiplayer/BanchoLobbyRegexes.js)。
+換圖／Mods 沿用原 MP 驗證、送前消耗 ID、共同操作阻擋及未知結果不重送。網站計畫只在上一筆成功後派送下一筆。有限 Mods 回覆比對使用 `Enabled ... / Disabled all mods, enabled/disabled FreeMod`；Mods 集合及 Freemod 必須一致，僅在 FreeMod 啟用時容許省略已請求的全域 NF（見下方 #118）。未知名稱、其他集合、其他房間或舊回覆不能確認。格式參考 [bancho.js 的 BanchoLobbyRegexes](https://github.com/ThePooN/bancho.js/blob/master/lib/Multiplayer/BanchoLobbyRegexes.js)。
 
 合成驗證包含網站隔離 DB 的計畫順序／去重／失敗停步及撤回，桌面 relay 不重送，以及真實 IrcSession 加本機 TCP 模擬 IRC 的通知送線／注入／epoch 邊界。未操作真實房間；此切片不建立 start/abort 自動化，不代表完整 MVP 或三平台實機驗收完成。
 
 ## 2026-10-31：開房送出邊界與來源隔離（#2／#6／#40）
 
 網站 make 也以 Main 的送線邊界回呼區分 failed／unknown；名稱、節流、既有在途操作或儲存檢查未通過，回報 failed／local_rejected，不能因另一筆開房處於 awaiting／blocked 就冒稱本筆結果不明。相同 command ID 仍先消耗、不重試；拒絕另一筆請求不覆寫原在途請求的關聯。
+
+## 2026-11-04：BP 通知等待與 NF FreeMod 回覆（#118）
+
+尚未送出的合法 BP 通知會先等待目前房間的 settings／listrefs 與全連線節流完成，最多八秒。等待期間持續核對帳號配對、房間與 epoch；停止、切房或登入世代變更會放棄原通知。送出後納入相同節流時鐘；已嘗試寫線的未知結果不重送。超時仍回報未送出的 room_checks，而非無限排隊。
+
+主辦提供 `!mp mods NF Freemod` 的 BanchoBot 回覆為 `Disabled all mods, enabled FreeMod`。桌面與網站 #784 同步容許 FreeMod 啟用時僅省略已請求的全域 NF，其餘 Mods（包括速度 Mods）仍逐項核對。此確認只證明房間設定，不證明玩家個人已選 NF，也不放寬開賽或正式成績審核。詳細合成驗證與限制見 [#118 驗證](bp-relay-reliability-2026-11-04.md)。
 
 Main 提供固定來源的內部 createWebsiteRoom，relay 與候選 FixtureCreation 共用；既有 renderer createRoom 仍固定 manual，不能靠輸入 source 變更來源。網站操作僅記憶體保存，最小 room-creation.sqlite 防重送資料仍在送線前保存。操作記錄初始化失敗會同步鎖定開房，不能留下可再次提交的假狀態。
 

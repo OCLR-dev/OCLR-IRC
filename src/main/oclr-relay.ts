@@ -136,12 +136,19 @@ export class OclrRelay {
         } else if (!same || irc.connection !== 'online' || command.target !== `#mp_${binding.roomId}` || this.pending) this.receipts.push({commandId: command.id, status: 'failed', reason: this.pending ? 'pending_operation' : 'target_changed'})
         else if (isBpNotice(command.text)) {
           let dispatched = false
+          let reason: FailureReason = 'local_rejected'
           try {
             if (!binding.bpSync || !this.pairingReady() || !this.sameRoom(this.irc.state)) throw new Error('Invalid BP notice binding')
+            const target = {roomId: binding.roomId, roomEpoch: binding.roomEpoch}
+            reason = 'room_checks'
+            const deadline = performance.now() + 8000
+            while (!this.irc.relayNoticeReady(target) && performance.now() < deadline && generation === this.generation && this.pairingReady() && this.sameRoom(this.irc.state)) await new Promise(resolve => setTimeout(resolve, 50))
+            if (generation !== this.generation || !this.pairingReady() || !this.sameRoom(this.irc.state) || !this.irc.relayNoticeReady(target)) throw new Error('Local BP notice checks failed')
+            reason = 'local_rejected'
             this.irc.relayNotice({roomId: binding.roomId, roomEpoch: binding.roomEpoch, text: command.text}, () => { dispatched = true })
             // This is local transport evidence, never a Bancho room-effect confirmation.
             this.receipts.push({commandId: command.id, status: 'notified'})
-          } catch { this.receipts.push({commandId: command.id, status: dispatched ? 'unknown' : 'failed', reason: dispatched ? 'reply_timeout' : 'local_rejected'}) }
+          } catch { if (generation === this.generation) this.receipts.push({commandId: command.id, status: dispatched ? 'unknown' : 'failed', reason: dispatched ? 'reply_timeout' : reason}) }
         }
         else {
           let reason: FailureReason = 'invalid_command'

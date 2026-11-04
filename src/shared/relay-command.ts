@@ -57,5 +57,9 @@ export function confirmsMods(command: string, reply: string): boolean {
   if (freemod !== (observed[2].toLowerCase() === "enabled")) return false;
   const desired = words.filter(m => !["None", "Freemod"].includes(m)).map(normalize);
   const actual = observed[1] ? observed[1].split(/,\s*/).map(normalize) : [];
-  return !desired.includes(null) && !actual.includes(null) && new Set(actual).size === actual.length && desired.sort().join(",") === actual.sort().join(",");
+  if (desired.includes(null) || actual.includes(null) || new Set(actual).size !== actual.length) return false;
+  const matches = (expected: (string | null)[]) => expected.sort().join(",") === actual.sort().join(",");
+  // Bancho can omit NF from the global room Mods when FreeMod is enabled.
+  // This acknowledges the room setting only; individual NF remains unverified.
+  return matches(desired) || freemod && desired.includes("NF") && matches(desired.filter(mod => mod !== "NF"));
 }
