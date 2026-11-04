@@ -78,7 +78,7 @@ export function FixtureRoster({website, state, onConnect, onOperations}: {websit
   const sourceKey = useMemo(() => JSON.stringify([website.subject, workspace]), [website.subject, workspace])
   const fresh = website.status === 'connected' && website.panelState === 'fresh'
   const linked = website.relay.status === 'connected' && website.relay.roomId === state.room?.id && state.room?.joined && website.pairing.status === 'nickname_matched'
-  const unreviewed = state.operations?.records.some(record => record.roomId === state.room?.id && (record.state === 'awaiting' || record.state === 'unknown' && !record.reviewed))
+  const unreviewed = state.operations?.records.some(record => record.roomId === state.room?.id && record.state === 'awaiting')
   function clear() {setPreview(null)}
   useEffect(() => {generation.current++; clear(); setMessage('')}, [sourceKey, state.room?.id, state.room?.epoch, state.connection])
   useEffect(() => {if (preview && (!fresh || !linked)) clear()}, [fresh, linked, preview])
@@ -110,7 +110,7 @@ export function FixtureRoster({website, state, onConnect, onOperations}: {websit
       })}</section>)}
     </>}
     {preview && <div className="mp-confirm fixture-invite-confirm"><strong>{preview.fixtureLabel} · {preview.teamName}</strong><span>{preview.channel} · {preview.playerName} · #{preview.osuId}</span><code>{preview.command}</code><Button size="sm" className="primary-button" isDisabled={busy || !fresh || !linked} onPress={() => void execute()}>{tr("確認邀請")}</Button><Button size="sm" variant="ghost" onPress={clear}>{tr("取消預覽")}</Button></div>}
-    {unreviewed && <Button size="sm" variant="ghost" onPress={onOperations}>{tr("前往操作記錄核對")}</Button>}
+    {unreviewed && <Button size="sm" variant="ghost" onPress={onOperations}>{tr("操作記錄")}</Button>}
     {message && <p role="status">{tr(message)}</p>}
   </section>
 }

@@ -92,12 +92,15 @@ async function main() {
   async function refresh() {
     for (const kind of ['settings', 'listrefs']) {
       await delay(1100)
+      const before = sent.filter(line => line.endsWith(':!mp '+kind)).length
       await until(async () => (await js(`(async () => { const s = await window.oclr.snapshot(); return window.oclr.query({roomId:s.room.id,roomEpoch:s.room.epoch,kind:${JSON.stringify(kind)}}) })()`)).ok)
+      await until(() => sent.filter(line => line.endsWith(':!mp '+kind)).length > before)
       await until(() => js('(async () => !(await window.oclr.snapshot()).pending)()'))
     }
     await delay(1100)
   }
   async function button(text) {
+    await until(() => js(`Array.from(document.querySelectorAll('.mp-controls button')).some(b => b.textContent === ${JSON.stringify(text)} && !b.disabled)`))
     await js(`Array.from(document.querySelectorAll('.mp-controls button')).find(b => b.textContent === ${JSON.stringify(text)}).click()`)
   }
   const beforeTools = sent.length

@@ -343,7 +343,7 @@ test('local pre-dispatch rejection reports failed with its reason, while a socke
     } finally {await f.relay.stop()}
   }
 })
-test('unreviewed operations are rejected before refreshing or attempting a socket write', async () => {
+test('pending operations are rejected before refreshing or attempting a socket write', async () => {
   const f = harness(); f.irc.relayBlocked = () => true
   try {
     await f.relay.start(); f.command({id: id(96), text: '!mp timer 30', target: '#mp_123'})
@@ -386,4 +386,23 @@ test('legacy servers never negotiate BP notices and malformed notice text remain
     assert.equal(f.writes.length, 0)
     assert.ok(f.requests.every(r => r.bpSync === undefined))
   } finally { await f.relay.stop() }
+})
+
+
+test('a typed room mutation ends website reply correlation without replay or false confirmation', async () => {
+  const f=harness()
+  try {
+    await f.relay.start();f.command({id:id(50),text:'!mp map 42',target:'#mp_123'})
+    await until(()=>f.writes.length===1)
+    f.irc.emit('manual-command',{roomId:999,roomEpoch:1})
+    f.irc.emit('manual-command',{roomId:123,roomEpoch:2})
+    assert.throws(()=>f.relay.localBinding({roomId:123,roomEpoch:1}))
+    f.irc.emit('manual-command',{roomId:123,roomEpoch:1})
+    f.irc.emit('message',{roomId:123,roomEpoch:1,message:{id:1,kind:'bot',sender:'BanchoBot',text:'Changed beatmap to https://osu.ppy.sh/b/42 Song'}})
+    await until(()=>f.requests.some(r=>r.receipts?.some((receipt:any)=>receipt.status==='unknown')))
+    const receipts=f.requests.flatMap(r=>r.receipts??[])
+    assert.deepEqual(receipts.map(r=>r.status),['sent','unknown'])
+    assert.equal(f.writes.length,1)
+    assert.ok(f.relay.localBinding({roomId:123,roomEpoch:1}))
+  } finally {await f.relay.stop()}
 })

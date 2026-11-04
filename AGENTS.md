@@ -46,6 +46,7 @@
 - 手動快捷操作目前包含 map、mods、立即 start、abort。遵守 [快捷操作邊界](docs/m1/manual-mp-controls.md)：房間 epoch、近期設定與裁判資格、一次性預覽、目標及影響確認、互斥 Mods 檢查。
 - 保留開始前的人工核對；不得把未知比賽階段、個人 Mods、陣容或直播政策宣稱為自動驗證完成。
 - 送出 echo／socket write 不等於 Bancho 已執行。未知結果保持 unknown／未確認，不自動重送變更指令，不在重連後重放聊天或操作。
+- 2026-11-04 使用者要求自動核對房內操作並解除未知結果的永久阻塞：僅 awaiting 的有界等待期間互斥，逾時保留 unknown 且允許新意圖，不自動重送或把 unknown 改為成功。精確回覆與同房間／epoch／世代的新 settings、listrefs 可核對活躍操作；開房未知鎖定另行保留。
 - 開房保留送前最小持久化防重送記錄及未知結果鎖定，詳見 [開房流程](docs/m1/create-match-room.md)。離開分頁是 PART，不是 `!mp close`。
 - 開發測試預設用本機模擬 IRC；只有使用者明確指定真實帳號、房間與操作範圍時才進行真實操作。歷史唯讀授權不能延伸為 start／abort／close 等變更授權。
 

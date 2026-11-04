@@ -42,7 +42,10 @@ test('chat commands and multiline drafts validate every line before creating any
 test('typed MP commands and multiline content are sent once to the fixed room with shared flood control', async () => {
   const f = await fixture()
   try {
+    const overrides: unknown[]=[]
+    f.session.on('manual-command', target=>overrides.push(target))
     const result = await f.session.chatBatch({...f.target(),text:'!mp map 3645174 0\r\nready\nQUIT'})
+    assert.deepEqual(overrides,[f.target()])
     assert.equal(result.ok,true)
     await until(() => f.sent.some(s => s.line.endsWith(':QUIT')))
     const messages = f.sent.filter(s => /:(?:!mp map 3645174 0|ready|QUIT)$/.test(s.line))
@@ -130,5 +133,18 @@ test('automatic reads leave an active preview valid and typed settings use the c
     assert.equal((await f.session.chatBatch({...f.target(),text:'!mp settings'})).ok,true)
     await until(()=>f.session.state.room?.binding==='verified' && !f.session.state.pending)
     assert.equal(f.sent.filter(s=>s.line.endsWith(':!mp settings')).length,before+1)
+  } finally {await f.close()}
+})
+
+
+test('explicit reads queue behind shared flood control without dropping the request', async () => {
+  const f=await fixture()
+  try {
+    await f.session.chatBatch({...f.target(),text:'hello'})
+    f.session.requestQuery({...f.target(),kind:'settings'})
+    await until(()=>f.sent.some(s=>s.line.endsWith(':!mp settings')) && f.session.state.room?.binding==='verified' && !f.session.state.pending)
+    assert.equal(f.sent.filter(s=>s.line.endsWith(':!mp settings')).length,1)
+    assert.throws(()=>f.session.requestQuery({...f.target(),roomEpoch:-1,kind:'settings'}))
+    assert.throws(()=>f.session.requestQuery({...f.target(),kind:'start'}))
   } finally {await f.close()}
 })

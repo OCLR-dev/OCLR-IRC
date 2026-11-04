@@ -47,8 +47,8 @@ app.on('web-contents-created', (_event, contents) => {
   contents.on('preload-error', () => errors.push('preload failed'))
 })
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
-async function until(fn) {
-  for (let i = 0; i < 60; i++) { if (await fn()) return; await delay(100) }
+async function until(fn, attempts = 60) {
+  for (let i = 0; i < attempts; i++) { if (await fn()) return; await delay(100) }
   throw new Error('UI condition timed out')
 }
 async function main() {
@@ -66,6 +66,7 @@ async function main() {
   const window = BrowserWindow.getAllWindows()[0]
   // Keep virtualized UI measurement active when the test window is occluded.
   window.webContents.setBackgroundThrottling(false)
+  window.setAlwaysOnTop(true)
   async function capture(rect) {
     // Native compositor can briefly invalidate a frame during resize/show.
     for (let attempt = 0; ; attempt++) {
@@ -113,10 +114,10 @@ async function main() {
   const queryIcons = () => js('Array.from(document.querySelectorAll(".query-actions button svg")).map(svg => svg.innerHTML)')
   const idleQueryIcons = await queryIcons()
   assert.equal(new Set(idleQueryIcons).size, 2, 'room settings and referee queries must have distinct icons')
-  window.focus(); window.webContents.focus()
+  app.focus({steal:true}); window.show(); window.focus(); window.webContents.focus(); await until(() => window.isFocused())
   await js('document.querySelectorAll(".query-actions button")[0].focus()')
   pressKey('Tab')
-  await until(() => js('document.activeElement?.getAttribute("aria-label") === "裁判名單" && document.querySelector("[role=tooltip]")?.textContent === "裁判名單"'))
+  await until(() => js('document.activeElement?.getAttribute("aria-label") === "裁判名單" && document.querySelector("[role=tooltip]")?.textContent === "裁判名單"')).catch(async error => {console.error(await js('JSON.stringify({active:document.activeElement?.outerHTML,tooltips:Array.from(document.querySelectorAll("[role=tooltip]")).map(e=>e.textContent),focus:document.hasFocus(),buttons:Array.from(document.querySelectorAll(".query-actions button")).map(e=>({label:e.ariaLabel,disabled:e.disabled}))})'));throw error})
   pressKey('Tab', ['shift'])
   await until(() => js('document.activeElement?.getAttribute("aria-label") === "讀取設定" && document.querySelector("[role=tooltip]")?.textContent === "讀取設定"'))
   await delay(1100)
@@ -131,10 +132,10 @@ async function main() {
   fs.writeFileSync(path.join(output, 'player-slots-synthetic.png'), (await capture()).toPNG())
   await delay(1100)
   await until(() => js('document.querySelectorAll(".query-actions button")[1]?.disabled === false'))
-  window.focus(); window.webContents.focus()
+  app.focus({steal:true}); window.show(); window.focus(); window.webContents.focus(); await until(() => window.isFocused())
   await js('document.querySelectorAll(".query-actions button")[0].focus()')
   pressKey('Tab')
-  await until(() => js('document.activeElement?.getAttribute("aria-label") === "裁判名單" && document.querySelector("[role=tooltip]")?.textContent === "裁判名單"'))
+  await until(() => js('document.activeElement?.getAttribute("aria-label") === "裁判名單" && document.querySelector("[role=tooltip]")?.textContent === "裁判名單"')).catch(async error => {console.error(await js('JSON.stringify({active:document.activeElement?.outerHTML,tooltips:Array.from(document.querySelectorAll("[role=tooltip]")).map(e=>e.textContent),focus:document.hasFocus(),buttons:Array.from(document.querySelectorAll(".query-actions button")).map(e=>({label:e.ariaLabel,disabled:e.disabled}))})'));throw error})
   const beforeRefs = sent.length
   pressKey('Return')
   await until(() => js('document.body.textContent.includes("已列於裁判名單")'))
@@ -151,7 +152,7 @@ async function main() {
   await until(() => js('document.body.textContent.includes("已送出")'))
   await fill('[name=chat]', '!mp map 3645174 0')
   assert.equal(await js('document.querySelector(".composer button[type=submit]").disabled'), false)
-  window.focus(); window.webContents.focus()
+  app.focus({steal:true}); window.show(); window.focus(); window.webContents.focus(); await until(() => window.isFocused())
   await js('document.querySelector("[name=chat]").focus()')
   window.webContents.sendInputEvent({type:'keyDown',keyCode:'ENTER'})
   window.webContents.sendInputEvent({type:'keyUp',keyCode:'ENTER'})
@@ -162,15 +163,16 @@ async function main() {
   assert.equal((await js('window.oclr.snapshot()')).messages.find(m => m.text === '!mp map 3645174 0').delivery, 'unconfirmed')
   await fill('[name=chat]', 'SYNTHETIC first')
   await js('document.querySelector("[name=chat]").focus()')
-  window.webContents.sendInputEvent({type:'keyDown',keyCode:'ENTER',modifiers:['shift']})
-  window.webContents.sendInputEvent({type:'keyUp',keyCode:'ENTER',modifiers:['shift']})
-  await until(() => js('document.querySelector("[name=chat]").value.endsWith("\\n")'))
+  window.webContents.sendInputEvent({type:'keyDown',keyCode:'Return',modifiers:['shift']})
+  window.webContents.sendInputEvent({type:'char',keyCode:'\r',modifiers:['shift']})
+  window.webContents.sendInputEvent({type:'keyUp',keyCode:'Return',modifiers:['shift']})
+  await until(() => js('document.querySelector("[name=chat]").value.endsWith(String.fromCharCode(10))'))
   window.webContents.insertText('SYNTHETIC second')
   await until(() => js('document.querySelector("[name=chat]").value.endsWith("second")'))
   window.setSize(900,640)
   assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'),true)
   fs.writeFileSync(path.join(output, 'composer-commands-synthetic.png'), (await capture()).toPNG())
-  window.focus(); window.webContents.focus()
+  app.focus({steal:true}); window.show(); window.focus(); window.webContents.focus(); await until(() => window.isFocused())
   await js('document.querySelector("[name=chat]").focus()')
   window.webContents.sendInputEvent({type:'keyDown',keyCode:'ENTER'})
   window.webContents.sendInputEvent({type:'keyUp',keyCode:'ENTER'})
@@ -198,10 +200,9 @@ async function main() {
   assert.equal((await js('window.oclr.snapshot()')).messages.length, 1000)
   assert.ok(await js('document.querySelectorAll(".message-row").length < 100'))
   await js('document.querySelector("[data-virtuoso-scroller]").scrollTop = 0')
-  await delay(300)
-  await until(() => js('Boolean(document.querySelector(".jump-latest"))'))
+  await until(() => js('Boolean(document.querySelector(".jump-latest")) && document.querySelector("[data-virtuoso-scroller]").scrollTop < 40'))
   peer.write(':Player PRIVMSG #mp_900000001 :SYNTHETIC newer row\n')
-  await delay(300)
+  await until(() => js('document.body.textContent.includes("SYNTHETIC row") && document.querySelector("[data-virtuoso-scroller]").scrollTop < 500'))
   assert.ok(await js('document.querySelector("[data-virtuoso-scroller]").scrollTop < 500'))
   await js('document.querySelector(".jump-latest").click()')
   await until(() => js('document.body.textContent.includes("SYNTHETIC newer row")'))
@@ -221,7 +222,7 @@ async function main() {
   const beforeQuery = await geometry()
   holdSettings = true
   await js('document.querySelectorAll(".query-actions button")[0].click()')
-  await until(() => Boolean(releaseSettings))
+  await until(() => Boolean(releaseSettings), 120)
   await until(() => js('document.querySelector(".query-status").textContent.includes("正在等待伺服器回覆")'))
   assert.equal(await js('Array.from(document.querySelectorAll(".query-actions button")).every(button => button.disabled)'), true)
   assert.deepEqual(await queryIcons(), idleQueryIcons, 'pending queries keep both recognizable icons')
@@ -297,7 +298,7 @@ async function main() {
   assert.deepEqual(afterRecovery.room.mods, [])
   assert.equal(sent.filter(line => line.endsWith(':中文輸入測試')).length, 1)
   assert.equal((await js(`window.oclr.chat(${JSON.stringify({ roomId: beforeRecovery.room.id, roomEpoch: beforeRecovery.room.epoch, text: 'old draft' })})`)).ok, false)
-  await until(() => js('document.body.textContent.includes("完整觀測")'))
+  await until(() => js('document.querySelector(".room-inspector").textContent.includes("History 連結相符") && !document.body.textContent.includes("狀態快照")'))
   fs.writeFileSync(path.join(output, 'workspace-recovered-synthetic.png'), (await capture()).toPNG())
   powerMonitor.emit('suspend')
   await until(() => js('(async () => (await window.oclr.snapshot()).connection === "suspended")()'))

@@ -391,3 +391,25 @@ test('Mods reply confirms only matching Mods and freemod, not a generic success'
   assert.equal(relayReply('!mp mods NF', 'Enabled NoFail, enabled FreeMod'), null)
   assert.equal(relayReply('!mp mods NF', 'Enabled Unknown, disabled FreeMod'), null)
 })
+
+
+test('expired unknown room operation does not permanently block a new intent or replay the previous command', async () => {
+  const f=await fixture(true)
+  try {
+    await f.refresh()
+    f.session.relaySend({...f.target(),text:'!mp addref SyntheticRef'})
+    await until(()=>f.sent.includes('PRIVMSG #mp_9 :!mp addref SyntheticRef'))
+    assert.equal(f.session.relayBlocked(f.target(),'!mp timer 30'),true)
+    const pending=f.session.state.operations!.records.at(-1)!
+    const tracker=(f.session as unknown as {operations:import('../src/main/operations.ts').Operations}).operations
+    tracker.extend(pending.id,30)
+    await until(()=>f.session.state.operations!.records.at(-1)?.state==='unknown')
+    assert.equal(f.session.relayBlocked(f.target(),'!mp timer 30'),false)
+    await f.refresh()
+    f.session.relaySend({...f.target(),text:'!mp timer 30'})
+    await until(()=>f.sent.includes('PRIVMSG #mp_9 :!mp timer 30'))
+    assert.equal(f.sent.filter(line=>line.endsWith(':!mp addref SyntheticRef')).length,1)
+    assert.equal(f.session.state.operations!.records.find(r=>r.id===pending.id)?.state,'unknown')
+    assert.equal(f.session.state.operations!.records.find(r=>r.id===pending.id)?.reviewed,false)
+  } finally {await f.close()}
+})

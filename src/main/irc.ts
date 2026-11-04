@@ -453,6 +453,7 @@ export class IrcSession extends EventEmitter {
     this.clearTimer(view); view.pending = null; view.error = null; view.room.joined = true
     // Bancho may auto-join during make, before the queued JOIN is written.
     this.work = this.work.filter(job => job.view !== view || job.kind !== 'join')
+    this.refreshAfter.set(view, Date.now() + this.timing.roomRefreshMs)
     this.note(view, '已加入頻道。')
     if (view.needsSync && view.room.kind === 'match') {
       view.needsSync = false; this.enqueue(view, 'settings'); this.enqueue(view, 'listrefs')
@@ -519,6 +520,16 @@ export class IrcSession extends EventEmitter {
     else { view.room.referee = 'unknown'; this.refereeSeen.delete(view) }
     this.note(view, `!mp ${kind}`, 'self', this.username)
     this.timeout(view, '尚未收到完整回覆；請稍後重新查詢，不代表沒有權限。'); this.publish()
+  }
+  requestQuery(input: unknown) {
+    const view = this.target(input), kind = (input as {kind?: unknown}).kind
+    if (kind !== 'settings' && kind !== 'listrefs') throw new Error('初版僅提供讀取設定與裁判名單。')
+    if (view.room.kind !== 'match' || !view.room.joined || this.connection !== 'online') throw new Error('請先加入可用的比賽房間。')
+    if (view.pending === kind) return
+    // Explicit reads join the existing bounded queue instead of racing its throttle.
+    this.work = this.work.filter(job => !(job.view === view && job.auto))
+    if (!view.pending && !this.work.length && Date.now() - this.lastQueryAt >= this.timing.floodMs) this.query(input)
+    else this.enqueue(view, kind)
   }
   private mpReady(view: RoomView, command = '', roomOnly = false) {
     this.ready(view)
@@ -749,7 +760,7 @@ export class IrcSession extends EventEmitter {
     catch (error) { this.operations.finish(operationId, 'unknown'); throw error }
     finally { this.publish() }
   }
-  relayBlocked(input: RoomTarget, text: string) { return !/^!mp (?:abort|aborttimer)$/.test(text) && this.operations.hasUnreviewed(this.target(input).room.id) }
+  relayBlocked(input: RoomTarget, text: string) { return !/^!mp (?:abort|aborttimer)$/.test(text) && this.operations.hasPending(this.target(input).room.id) }
   relayReady(input: RoomTarget, text?: string) {
     // A still-fresh snapshot is not ready if queued reads are about to replace
     // it. Fence both the queue and its scheduled pump before creating a preview.
@@ -801,6 +812,7 @@ export class IrcSession extends EventEmitter {
       // A directly typed command supersedes pending previews/plans, not their observations.
       this.mapPlan?.cancel(); this.roomPlan?.cancel(); this.mpPreview = null; this.lobbyPreview = null; this.profilePreview = null; this.roomPlanPreview = null
       this.operations.interrupt(view.room.id)
+      this.emit('manual-command', {roomId:view.room.id, roomEpoch:view.room.epoch})
       this.clearFresh(view); view.room.syncState = 'stale'; this.refreshAfter.set(view, 0)
     }
     onDispatch?.()
@@ -931,12 +943,13 @@ export class IrcSession extends EventEmitter {
     const readingRefs = bot && view.pending === 'listrefs'
     if (observing) {
       if (view.collector?.feed(body)) {
-        view.collector.apply(room); this.loadDuration(view); this.settingsEvidence.set(view, view.collector.observations(room.epoch)); this.expire(view); view.collector = null; this.clearTimer(view); view.pending = null
+        view.collector.apply(room); if (room.binding === 'verified' && room.slotsVerified) this.operations.observeRoom(room.id, room.epoch, this.generation, {players:room.slots}); this.loadDuration(view); this.settingsEvidence.set(view, view.collector.observations(room.epoch)); this.expire(view); view.collector = null; this.clearTimer(view); view.pending = null
       }
     } else if (bot && view.pending === 'listrefs') {
       const header = /^(?:Match referees|Referees):\s*(.*)$/.exec(body)
       if (header) view.refsHeader = true
       const names = header ? header[1].split(',') : view.refsHeader ? [body] : []
+      this.operations.observeRoom(room.id, room.epoch, this.generation, {referees:names.filter(name => /^[A-Za-z0-9_\[\] -]{1,50}$/.test(name.trim()))})
       if (names.some(name => normalize(name.trim()) === normalize(this.username))) {
         this.refereeSeen.set(view, performance.now()); room.referee = 'listed'; this.clearTimer(view); view.pending = null; view.refsHeader = false
       }

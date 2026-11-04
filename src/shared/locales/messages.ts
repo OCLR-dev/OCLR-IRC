@@ -1,5 +1,6 @@
 // Application-authored text only. Interpolation values and external content remain literal.
 export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
+  "房間正在自動核對上一筆操作，請稍候。": {"zh-Hans": "房间正在自动核对上一笔操作，请稍候。", "en": "The previous room operation is being checked automatically. Please wait."},
   "草稿過長，請分批傳送。": {"zh-Hans": "草稿过长，请分批发送。", "en": "The draft is too long. Send it in smaller batches."},
   "訊息不能包含控制字元。": {"zh-Hans": "消息不能包含控制字符。", "en": "Messages cannot contain control characters."},
   "每次最多傳送 10 行訊息。": {"zh-Hans": "每次最多发送 10 行消息。", "en": "Send up to 10 lines at a time."},

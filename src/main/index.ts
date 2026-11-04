@@ -261,7 +261,7 @@ app.whenReady().then(() => {
   ipcMain.handle('irc:select-room', (event, value: unknown) => action(event, () => irc.selectRoom(value)))
   ipcMain.handle('irc:leave-room', (event, value: unknown) => action(event, () => irc.leaveRoom(value)))
   ipcMain.handle('irc:operation-review', (event, input: unknown) => action(event, () => irc.reviewOperation(input)))
-  ipcMain.handle('irc:query', (event, value: unknown) => action(event, () => irc.query(value)))
+  ipcMain.handle('irc:query', (event, value: unknown) => action(event, () => irc.requestQuery(value)))
   ipcMain.handle('irc:manual-pool-replace', (event, input: unknown) => action(event, () => irc.replaceManualPool(input)))
   ipcMain.handle('irc:pool-entry-preview', (event, input: unknown) => {
     trusted(event)

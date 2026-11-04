@@ -173,12 +173,12 @@ test('renamed, Unicode and same-name players still invite the selected roster UI
     } finally {await f.close()}
   }
 })
-test('unreviewed operations and an unbound room block new fixture invitations', async () => {
+test('pending operations and an unbound room block new fixture invitations', async () => {
   const f = await fixture()
   try {
     f.bind(''); await assert.rejects(f.controller.prepare(f.input())); f.bind('bound')
     f.irc.relaySend({...f.target(), text: '!mp timer 30'})
-    await assert.rejects(f.controller.prepare(f.input()), /待核對操作/)
+    await assert.rejects(f.controller.prepare(f.input()), /正在自動核對/)
     assert.equal(f.sent.some(line => line.includes('!mp invite')), false)
   } finally {await f.close()}
 })

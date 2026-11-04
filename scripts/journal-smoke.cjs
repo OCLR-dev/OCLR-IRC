@@ -69,7 +69,7 @@ async function main() {
     await until(() => js('!Array.from(document.querySelectorAll(".chat-journal-view button")).find(button=>button.textContent==="清除所選範圍").disabled'))
     await js('Array.from(document.querySelectorAll(".chat-journal-view button")).find(button=>button.textContent==="清除所選範圍").click()')
     await until(() => js('Boolean(document.querySelector(".chat-journal-view .journal-confirm"))'))
-    window.show(); window.focus(); window.webContents.focus()
+    window.setAlwaysOnTop(true); app.focus({steal:true}); window.show(); window.focus(); window.webContents.focus()
     await until(() => js('document.hasFocus()'))
     await js('document.querySelector("[data-records-tab=chat]").focus()')
     window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Right' })

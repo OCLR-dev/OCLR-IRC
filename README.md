@@ -66,3 +66,5 @@
 ## 授權
 
 自有程式碼採 [MIT License](LICENSE)。Liru 圖標採 [CC BY 4.0](resources/icons/LICENSE.txt)。第三方依賴與授權見 [第三方聲明](THIRD_PARTY_NOTICES.md)。
+
+房內操作會自動比對本次可用回覆與裁判／玩家觀測；結果未知保留在記錄中心，但不再永久阻擋後續新指令。開房的未知結果防重送鎖定仍保留，任何未知指令均不會自動重送。
