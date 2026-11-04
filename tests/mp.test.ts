@@ -32,9 +32,15 @@ async function fixture(empty: boolean | 'no-mods' = false, durationLookup: (id: 
   const target = () => ({ roomId: session.state.room!.id, roomEpoch: session.state.room!.epoch })
   session.join('9'); await until(() => Boolean(session.state.room?.joined))
   async function refresh() {
-    await delay(20); session.query({ ...target(), kind: 'settings' }); await until(() => session.state.room?.syncState === (empty ? 'partial' : 'complete'))
-    await delay(20); session.query({ ...target(), kind: 'listrefs' }); await until(() => session.state.room?.referee === 'listed'); await delay(20)
+    for (const kind of ['settings', 'listrefs']) {
+      const before=sent.filter(line=>line.endsWith(':!mp '+kind)).length
+      session.requestQuery({...target(),kind})
+      await until(()=>sent.filter(line=>line.endsWith(':!mp '+kind)).length>before)
+      await until(()=>!session.state.pending)
+    }
+    await until(()=>session.relayReady(target(),'!mp timer 30'))
   }
+
   return { session, sent, target, refresh, peer: () => peer, async close() { session.logout(); for (const socket of sockets) socket.destroy(); await new Promise<void>(resolve => server.close(() => resolve())) } }
 }
 
