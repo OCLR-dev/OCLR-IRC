@@ -130,7 +130,9 @@ test('automatic reads leave an active preview valid and typed settings use the c
     await until(()=>f.sent.some(s=>s.line.endsWith(':!mp map 3645174')))
     await until(()=>f.session.state.room?.referee==='listed' && !f.session.state.pending)
     const before=f.sent.filter(s=>s.line.endsWith(':!mp settings')).length
+    const echoes=f.session.state.messages.filter(m=>m.text==='!mp settings').length
     assert.equal((await f.session.chatBatch({...f.target(),text:'!mp settings'})).ok,true)
+    assert.equal(f.session.state.messages.filter(m=>m.text==='!mp settings').length,echoes+1,'typed reads have only one local echo')
     await until(()=>f.session.state.room?.binding==='verified' && !f.session.state.pending)
     assert.equal(f.sent.filter(s=>s.line.endsWith(':!mp settings')).length,before+1)
   } finally {await f.close()}

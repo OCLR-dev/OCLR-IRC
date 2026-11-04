@@ -806,7 +806,7 @@ export class IrcSession extends EventEmitter {
     const read = /^!mp (settings|listrefs)$/i.exec(text)
     if (read && view.room.kind === 'match') {
       onDispatch?.(); this.query({roomId: view.room.id, roomEpoch: view.room.epoch, kind: read[1].toLowerCase()})
-      this.note(view, text, 'self', this.username, 'sent'); this.publish(); return
+      return // query() already records and publishes the single local echo.
     }
     if (/^!mp(?:\s|$)/i.test(text)) {
       // A directly typed command supersedes pending previews/plans, not their observations.
