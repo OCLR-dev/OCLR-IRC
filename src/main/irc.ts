@@ -37,8 +37,8 @@ interface RoomView {
   timer: ReturnType<typeof setTimeout> | null
 }
 const MAX_ROOMS = 8
-interface Timing { retryBaseMs: number; retryMaxMs: number; stableMs: number; floodMs: number; queryMs: number; creationMs: number; loginMs: number; heartbeatMs: number; heartbeatTimeoutMs: number }
-const defaults: Timing = { retryBaseMs: 1000, retryMaxMs: 30000, stableMs: 60000, floodMs: 1000, queryMs: 8000, creationMs: 15000, loginMs: 15000, heartbeatMs: 30000, heartbeatTimeoutMs: 15000 }
+interface Timing { retryBaseMs: number; retryMaxMs: number; stableMs: number; floodMs: number; queryMs: number; creationMs: number; loginMs: number; heartbeatMs: number; heartbeatTimeoutMs: number; roomRefreshMs: number }
+const defaults: Timing = { retryBaseMs: 1000, retryMaxMs: 30000, stableMs: 60000, floodMs: 1000, queryMs: 8000, creationMs: 15000, loginMs: 15000, heartbeatMs: 30000, heartbeatTimeoutMs: 15000, roomRefreshMs: 7000 }
 
 export class IrcSession extends EventEmitter {
   private connection: Connection = 'offline'
@@ -67,8 +67,10 @@ export class IrcSession extends EventEmitter {
   private heartbeat: ReturnType<typeof setInterval> | null = null
   private pongTimer: ReturnType<typeof setTimeout> | null = null
   private pingToken: string | null = null
+  private roomRefreshTimer: ReturnType<typeof setInterval> | null = null
+  private refreshAfter = new Map<RoomView, number>()
   private workTimer: ReturnType<typeof setTimeout> | null = null
-  private work: Array<{ view: RoomView; epoch: number; kind: 'join' | 'settings' | 'listrefs' | 'part' }> = []
+  private work: Array<{ view: RoomView; epoch: number; kind: 'join' | 'settings' | 'listrefs' | 'part'; auto?: boolean }> = []
   private nextLocalId = -1
   private freshTimers = new Map<RoomView, ReturnType<typeof setTimeout>>()
   private creation: RoomCreation = { status: 'unreviewed', requestId: '', roomId: null, message: null }
@@ -146,6 +148,8 @@ export class IrcSession extends EventEmitter {
   private disconnect() {
     this.roomPlan?.cancel(); this.roomPlanPreview = null; this.mapPlan?.cancel(); this.profilePreview = null; this.lobbyPreview = null
     this.operations.interrupt()
+    if (this.roomRefreshTimer) clearInterval(this.roomRefreshTimer)
+    this.roomRefreshTimer = null; this.refreshAfter.clear()
     this.creationJoins.clear()
     this.mpPreview = null
     if (this.creation.status === 'awaiting') this.creationUnknown('開房時連線中斷，結果不明。請核對既有房間；不會自動重送。')
@@ -239,6 +243,8 @@ export class IrcSession extends EventEmitter {
     this.operations.authenticate(this.username)
     this.prepareCreation()
     this.emit('authenticated')
+    this.roomRefreshTimer = setInterval(() => this.refreshCurrentRoom(), Math.max(10, Math.min(500, this.timing.roomRefreshMs / 4)))
+    this.roomRefreshTimer.unref()
     const generation = this.generation
     this.stableTimer = setTimeout(() => { if (generation === this.generation) { this.retryAttempt = 0; this.publish() } }, this.timing.stableMs)
     this.heartbeat = setInterval(() => {
@@ -253,8 +259,8 @@ export class IrcSession extends EventEmitter {
     }
     this.publish()
   }
-  private enqueue(view: RoomView, kind: 'join' | 'settings' | 'listrefs' | 'part') {
-    if (!this.work.some(job => job.view === view && job.kind === kind)) this.work.push({ view, kind, epoch: view.room.epoch })
+  private enqueue(view: RoomView, kind: 'join' | 'settings' | 'listrefs' | 'part', auto = false) {
+    if (!this.work.some(job => job.view === view && job.kind === kind)) this.work.push({ view, kind, epoch: view.room.epoch, auto })
     this.pump()
   }
   private pump() {
@@ -266,6 +272,7 @@ export class IrcSession extends EventEmitter {
       const job = this.work.shift()
       if (!job) return
       const { view, kind } = job
+      if (job.auto && (this.selected !== view.room.id || this.roomRefreshPaused(view))) { this.pump(); return }
       if (kind === 'part') {
         if (this.departing.has(view.room.channel)) { try { this.send('PART ' + view.room.channel); this.lastQueryAt = Date.now() } catch { this.lost('離開頻道時連線中斷。'); return } }
         this.pump(); return
@@ -303,7 +310,7 @@ export class IrcSession extends EventEmitter {
       this.departing.add(view.room.channel)
       if (this.departing.size > 32) { this.fail('過多離開請求尚未確認，已中斷連線。請重新登入。'); return }
     }
-    this.clearFresh(view); this.clearTimer(view); view.restore = false; this.work = this.work.filter(job => job.view !== view); this.views.delete(view.room.id)
+    this.clearFresh(view); this.clearTimer(view); view.restore = false; this.work = this.work.filter(job => job.view !== view); this.views.delete(view.room.id); this.refreshAfter.delete(view)
     if (part) this.enqueue(view, 'part')
     if (this.selected === view.room.id) {
       this.selected = this.views.keys().next().value ?? null
@@ -485,6 +492,16 @@ export class IrcSession extends EventEmitter {
       view.room.syncState = 'stale'; this.publish()
     }, 10000))
   }
+  private roomRefreshPaused(view: RoomView) {
+    return this.chatSending || Boolean(this.mapPlan?.active || this.roomPlan?.active) || [this.mpPreview, this.lobbyPreview, this.profilePreview, this.roomPlanPreview].some(p => p?.view === view && p.deadline > performance.now())
+  }
+  private refreshCurrentRoom() {
+    const view = this.selected === null ? undefined : this.views.get(this.selected)
+    if (!view || this.connection !== 'online' || !view.room.joined || view.room.kind !== 'match' || this.roomRefreshPaused(view) || view.pending || this.work.length || this.workTimer) return
+    if (Date.now() < (this.refreshAfter.get(view) ?? 0) || Date.now() - this.lastQueryAt < this.timing.floodMs) return
+    this.refreshAfter.set(view, Date.now() + this.timing.roomRefreshMs)
+    this.enqueue(view, 'settings', true); this.enqueue(view, 'listrefs', true)
+  }
   private ready(view: RoomView) {
     if (this.connection !== 'online' || !view.room.joined) throw new Error('請先加入可用的比賽房間。')
     if (view.pending || Date.now() - this.lastQueryAt < this.timing.floodMs) throw new Error('請稍候再查詢或送出訊息。')
@@ -496,6 +513,7 @@ export class IrcSession extends EventEmitter {
     if (view.room.kind !== 'match') throw new Error('此分頁不是比賽房間。')
     this.ready(view)
     this.send(`PRIVMSG ${view.room.channel} :!mp ${kind}`); this.lastQueryAt = Date.now()
+    if (kind === 'listrefs') this.refreshAfter.set(view, Date.now() + this.timing.roomRefreshMs)
     view.pending = kind; view.error = null; view.refsHeader = false
     if (kind === 'settings') { this.settingsEvidence.delete(view); this.clearFresh(view); view.collector = new SettingsCollector(view.room.id, this.generation); Object.assign(view.room, blankObservation(), { syncState: 'loading', phase: view.room.phase, match: view.room.match, duration: view.room.duration, timer: view.room.timer, startCountdown: view.room.startCountdown }); view.room.binding = 'unknown'; view.room.name = null; view.room.mode = null; view.room.players = null }
     else { view.room.referee = 'unknown'; this.refereeSeen.delete(view) }
@@ -774,11 +792,16 @@ export class IrcSession extends EventEmitter {
     if (view.room.kind === 'private' && normalize(view.room.channel) === 'banchobot') throw new Error('BanchoBot 私訊僅供讀取。')
     const text = chatText(value, view.room.channel)
     this.ready(view)
+    const read = /^!mp (settings|listrefs)$/i.exec(text)
+    if (read && view.room.kind === 'match') {
+      onDispatch?.(); this.query({roomId: view.room.id, roomEpoch: view.room.epoch, kind: read[1].toLowerCase()})
+      this.note(view, text, 'self', this.username, 'sent'); this.publish(); return
+    }
     if (/^!mp(?:\s|$)/i.test(text)) {
       // A directly typed command supersedes pending previews/plans, not their observations.
       this.mapPlan?.cancel(); this.roomPlan?.cancel(); this.mpPreview = null; this.lobbyPreview = null; this.profilePreview = null; this.roomPlanPreview = null
       this.operations.interrupt(view.room.id)
-      this.clearFresh(view); view.room.syncState = 'stale'
+      this.clearFresh(view); view.room.syncState = 'stale'; this.refreshAfter.set(view, 0)
     }
     onDispatch?.()
     this.send(`PRIVMSG ${view.room.channel} :${text}`); this.lastQueryAt = Date.now()

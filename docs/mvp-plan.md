@@ -327,3 +327,5 @@ OCLR 房名帶入：新建房間表單訂閱已選場次的唯讀 panel，優先
 2026-11-03 RELEASE 增量（#113）：依使用者 bump version 與先前版本／tag／push 流程，將 #106、#108、#110、#112 打包為 v0.8.6。套件、lockfile 與介面版本同步；通過三平台 PR CI 後合併並推送該 main 的新 tag，由 Release CI 完成三平台、macOS 簽章公證與公開資產驗證。這是預覽版本發布，真實 Bancho／OCLR 聯調及完整平台 gate 保持各自狀態，不因此宣告 MVP 完成。
 
 2026-11-04 UX／IRC 增量（#115）：依使用者要求取消 composer 全面禁止指令的限制，支援目前對話的文字指令及最多 10 行的逐行 PRIVMSG。Main 完整驗證後依共用節流發送，切房／世代／斷線變更停止；已嘗試但傳輸不明的行不自動重送，只保留未送出部分。使用免費 HeroUI TextArea、分對話草稿、Enter／Shift+Enter 與 IME guard。文字指令標示執行結果待核對，普通聊天維持已送出；快捷工具保留原預覽 gate，BanchoBot 開房仍走專用流程。
+
+2026-11-04 STATE 增量（#116）：Main 在目前已加入的 MP 背景自動讀取 settings／listrefs，共用節流、有界排程；預覽、計畫或多行傳送期間暫緩，切房只讀目前房間，離房／斷線清理。文字 MP 指令送出後安排新讀取；settings／listrefs 文字入口使用既有 collector，不重複送出。移除房內資訊例行過期／手動重查列，保留真正錯誤及原有新鮮度 gate。

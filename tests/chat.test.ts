@@ -9,7 +9,7 @@ async function until(check: () => boolean) {
   for (let i = 0; i < 300; i++) { if (check()) return; await new Promise(r => setTimeout(r, 5)) }
   throw new Error('Synthetic chat condition timed out')
 }
-async function fixture() {
+async function fixture(timing: {roomRefreshMs?: number} = {}) {
   const sockets = new Set<net.Socket>(), sent: {line: string; time: number}[] = []
   let after: ((line: string) => void) | undefined
   const server = net.createServer(socket => {
@@ -19,13 +19,13 @@ async function fixture() {
       sent.push({line, time: Date.now()})
       if (line.startsWith('USER ')) socket.write(':server 001 Example :Welcome\n')
       if (line.startsWith('JOIN ')) socket.write(`:Example!x JOIN :${line.slice(5)}\n`)
-      if (line.endsWith(':!mp settings')) socket.write(':BanchoBot PRIVMSG #mp_9 :Room name: Synthetic, History: https://osu.ppy.sh/mp/9\n:BanchoBot PRIVMSG #mp_9 :Players: 0\n')
+      if (line.endsWith(':!mp settings')) socket.write(':BanchoBot PRIVMSG #mp_9 :Room name: Synthetic, History: https://osu.ppy.sh/mp/9\n:BanchoBot PRIVMSG #mp_9 :Beatmap: https://osu.ppy.sh/b/75 Synthetic map\n:BanchoBot PRIVMSG #mp_9 :Team mode: TeamVs, Win condition: ScoreV2\n:BanchoBot PRIVMSG #mp_9 :Active mods: None\n:BanchoBot PRIVMSG #mp_9 :Players: 0\n')
       if (line.endsWith(':!mp listrefs')) socket.write(':BanchoBot PRIVMSG #mp_9 :Match referees: Example\n')
       after?.(line)
     } })
   })
   await new Promise<void>(r => server.listen(0, '127.0.0.1', r))
-  const session = new IrcSession(() => net.createConnection({host:'127.0.0.1', port:(server.address() as net.AddressInfo).port}), {floodMs:30, queryMs:100, retryBaseMs:20, loginMs:1000})
+  const session = new IrcSession(() => net.createConnection({host:'127.0.0.1', port:(server.address() as net.AddressInfo).port}), {floodMs:30, queryMs:100, retryBaseMs:20, loginMs:1000, ...timing})
   session.login({username:'Example', password:'SYNTHETIC_ONLY'})
   await until(() => session.state.connection === 'online')
   session.join('9')
@@ -92,5 +92,43 @@ test('a transport failure consumes the attempted line as unknown and never retri
     assert.equal(result.ok,false);assert.equal(result.remainingText,'second');assert.equal(attempts,1)
     assert.equal(f.session.state.messages.at(-1)?.delivery,'unknown')
     assert.equal(f.sent.some(s => s.line.includes(':!mp map 3645174 0')),false)
+  } finally {await f.close()}
+})
+
+
+test('current room settings and refs refresh automatically, pause on another conversation and stop offline', async () => {
+  const f=await fixture({roomRefreshMs:130})
+  const count=()=>f.sent.filter(s=>s.line.endsWith(':!mp settings')).length
+  try {
+    await until(()=>count()>=3 && f.session.state.room?.referee==='listed' && !f.session.state.pending)
+    f.session.openConversation({kind:'private',name:'Other'})
+    const before=count()
+    await new Promise(r=>setTimeout(r,350))
+    assert.equal(count(),before,'background room must not keep polling')
+    f.session.selectRoom(f.target())
+    await until(()=>count()>before)
+    f.session.suspend()
+    const stopped=count()
+    await new Promise(r=>setTimeout(r,250))
+    assert.equal(count(),stopped,'suspend must stop automatic reads')
+  } finally {await f.close()}
+})
+
+test('automatic reads leave an active preview valid and typed settings use the collector once', async () => {
+  const f=await fixture({roomRefreshMs:130})
+  try {
+    await until(()=>f.session.state.room?.referee==='listed' && !f.session.state.pending)
+    await until(()=>f.session.relayReady(f.target(),'!mp map 3645174'))
+    const preview=f.session.previewMp({...f.target(),intent:{kind:'map',beatmapId:'3645174'}})
+    const reads=f.sent.filter(s=>s.line.endsWith(':!mp settings')).length
+    await new Promise(r=>setTimeout(r,350))
+    assert.equal(f.sent.filter(s=>s.line.endsWith(':!mp settings')).length,reads)
+    f.session.executeMp({...f.target(),token:preview.token,reviewed:true})
+    await until(()=>f.sent.some(s=>s.line.endsWith(':!mp map 3645174')))
+    await until(()=>f.session.state.room?.referee==='listed' && !f.session.state.pending)
+    const before=f.sent.filter(s=>s.line.endsWith(':!mp settings')).length
+    assert.equal((await f.session.chatBatch({...f.target(),text:'!mp settings'})).ok,true)
+    await until(()=>f.session.state.room?.binding==='verified' && !f.session.state.pending)
+    assert.equal(f.sent.filter(s=>s.line.endsWith(':!mp settings')).length,before+1)
   } finally {await f.close()}
 })

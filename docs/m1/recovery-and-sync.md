@@ -80,3 +80,9 @@ settings 收集在 `Players` 與所需 slot 數滿足時結束，8 秒逾時保�
 2026-10-28 CI 增量：Windows Server 2022 x64、Ubuntu 22.04 x64、macOS 15 arm64 各自通過 26 項核心測試、合成 Electron smoke 及打包上傳；見 [下載與 CI 結果](ci-test-builds.md)。上述實機 IME／休眠／金鑰鏈及真實 Bancho 缺口仍保留。
 
 2026-10-28 Apple CI：Developer ID／Hardened Runtime／公證／staple／Gatekeeper 與隔離副本啟動驗證已通過，見 [證據及下載](../apple-signing-ci.md)。此結果補足簽章發行流程的證據，不取代真實 IME、休眠、IRC 或金鑰鏈升版驗收。
+
+## 房間狀態背景更新（2026-11-04，#116）
+
+Main 對目前已加入的 MP 自動安排 settings／listrefs，每輪沿用共用節流及 query timeout，約每 8 秒更新。非目前房間、普通頻道、私訊與離線狀態不建立週期讀取；切房、離房或斷線會丟棄不再適用的自動排程。預覽確認、執行中計畫及 composer 批次期間暫緩自動讀取，避免改變正在確認的來源。
+
+文字 MP 指令後安排新查詢，文字 settings／listrefs 本身使用既有 collector，單次只送一筆。工具資訊不再顯示例行「快照已過期，請重查」，玩家面板在待更新時顯示同步中；真正錯誤與底層新鮮度 gate 仍保留。讀取失敗不轉成已核對，也不重送變更指令。

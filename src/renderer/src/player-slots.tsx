@@ -5,7 +5,7 @@ import type { Room } from '../../shared/types'
 export function PlayerSlots({ room }: { room: Room }) {
   const current = (room.syncState === 'complete' || room.syncState === 'partial') && room.slotsVerified === true && room.binding === 'verified' && room.joined
   const ready = room.slots.filter(slot => /^ready$/i.test(slot.status)).length
-  const state = { unknown: tr("尚未同步"), loading: tr("同步中"), partial: tr("資料不完整"), complete: tr("設定快照"), stale: tr("資料已過期") }[room.syncState]
+  const state = { unknown: tr("尚未同步"), loading: tr("同步中"), partial: tr("資料不完整"), complete: tr("設定快照"), stale: tr("同步中") }[room.syncState]
   return <section className="player-slots" aria-label={tr("玩家槽位")}>
     <header><h2>{tr("玩家槽位")}</h2><span>{current ? tr("準備 {{v0}} / {{v1}}", { v0: ready, v1: room.slots.length }) : tr("準備 — / —")}</span></header>
     <p className="slots-caption">{state}</p>
