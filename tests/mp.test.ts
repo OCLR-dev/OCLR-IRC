@@ -34,8 +34,9 @@ async function fixture(empty: boolean | 'no-mods' = false, durationLookup: (id: 
   async function refresh() {
     for (const kind of ['settings', 'listrefs']) {
       const before=sent.filter(line=>line.endsWith(':!mp '+kind)).length
+      const reading=session.state.pending===kind
       session.requestQuery({...target(),kind})
-      await until(()=>sent.filter(line=>line.endsWith(':!mp '+kind)).length>before)
+      if (!reading) await until(()=>sent.filter(line=>line.endsWith(':!mp '+kind)).length>before)
       await until(()=>!session.state.pending)
     }
     await until(()=>session.relayReady(target(),'!mp timer 30'))
@@ -411,7 +412,7 @@ test('expired unknown room operation does not permanently block a new intent or 
     tracker.extend(pending.id,30)
     await until(()=>f.session.state.operations!.records.at(-1)?.state==='unknown')
     assert.equal(f.session.relayBlocked(f.target(),'!mp timer 30'),false)
-    await f.refresh()
+    await until(()=>f.session.relayReady(f.target(),'!mp timer 30'))
     f.session.relaySend({...f.target(),text:'!mp timer 30'})
     await until(()=>f.sent.includes('PRIVMSG #mp_9 :!mp timer 30'))
     assert.equal(f.sent.filter(line=>line.endsWith(':!mp addref SyntheticRef')).length,1)
