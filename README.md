@@ -9,6 +9,7 @@
 ## 下載
 
 - [GitHub Releases](https://github.com/OCLR-dev/OCLR-IRC/releases)：已發布的預覽版、校驗碼與建置資訊。
+- [v0.8.7 更新說明](docs/releases/v0.8.7.md)：BP 同步可靠性、聊天指令、房間自動更新與未知操作恢復；下載及簽章狀態以對應 Release 為準。
 - [Desktop test builds](https://github.com/OCLR-dev/OCLR-IRC/actions/workflows/test-builds.yml)：指定提交的測試包；需登入 GitHub，Artifacts 保留 30 天。
 
 | 平台 | 架構 | 安裝版 | 可攜式 |
