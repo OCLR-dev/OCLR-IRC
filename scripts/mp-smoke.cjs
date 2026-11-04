@@ -101,7 +101,7 @@ async function main() {
     await js(`Array.from(document.querySelectorAll('.mp-controls button')).find(b => b.textContent === ${JSON.stringify(text)}).click()`)
   }
   const beforeTools = sent.length
-  await js(`document.querySelector('.mp-controls').open = false; document.querySelector('input[name=chat]').focus(); document.querySelector('input[name=chat]').dispatchEvent(new KeyboardEvent('keydown', {key:'k',ctrlKey:true,bubbles:true}))`)
+  await js(`document.querySelector('.mp-controls').open = false; document.querySelector('[name=chat]').focus(); document.querySelector('[name=chat]').dispatchEvent(new KeyboardEvent('keydown', {key:'k',ctrlKey:true,bubbles:true}))`)
   assert.equal(await js('document.querySelector(".mp-controls").open'), false)
   await js(`document.activeElement.blur(); window.dispatchEvent(new KeyboardEvent('keydown', {key:'k',ctrlKey:true,isComposing:true,bubbles:true}))`)
   assert.equal(await js('document.querySelector(".mp-controls").open'), false)
@@ -124,7 +124,7 @@ async function main() {
   assert.equal(sent.length,beforeTools,'panel navigation sends nothing')
   await js('document.querySelector(".composer-templates").open = true')
   await js('Array.from(document.querySelectorAll(".composer-templates button")).find(b => b.textContent === "插入草稿").click()')
-  await until(() => js('document.querySelector("input[name=chat]").value.includes("Ready")'))
+  await until(() => js('document.querySelector("[name=chat]").value.includes("Ready")'))
   assert.equal(sent.length, beforeTools, 'search and templates never send commands or chat')
   await js('document.querySelector(".composer-templates").open = false')
   async function choose(kind) {

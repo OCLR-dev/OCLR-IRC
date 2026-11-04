@@ -42,7 +42,7 @@
 - 保留 CRLF／bare LF、分段資料、UTF-8 長度、心跳及全連線節流處理。
 - MP ID、`#mp_<id>` 與 settings History 必須相符。IRC NAMES 不代表玩家槽位、到場或裁判資格；listrefs 需限定在對應查詢與可信來源。
 - 不將 unknown／partial／stale 轉成已確認。玩家槽位來自 settings 快照，固定 16 個顯示位置不代表開放容量。
-- 一般聊天不能成為任意命令入口。房內變更使用結構化 intent，由 Main 固定目標與生成命令。
+- 2026-11-04 使用者要求聊天輸入框可直接發送 `!mp` 等文字指令，取代原先全面禁止指令的限制。Main 將每一行固定為當前對話的 PRIVMSG body，最多 10 行、逐行檢查 UTF-8 長度與節流；換行不得成為原始 IRC 協議代理。直接文字指令顯示執行結果待核對，不自動重送。快捷工具仍使用結構化 intent、Main 預覽與原 gate；BanchoBot 開房仍經專用持久化流程。
 - 手動快捷操作目前包含 map、mods、立即 start、abort。遵守 [快捷操作邊界](docs/m1/manual-mp-controls.md)：房間 epoch、近期設定與裁判資格、一次性預覽、目標及影響確認、互斥 Mods 檢查。
 - 保留開始前的人工核對；不得把未知比賽階段、個人 Mods、陣容或直播政策宣稱為自動驗證完成。
 - 送出 echo／socket write 不等於 Bancho 已執行。未知結果保持 unknown／未確認，不自動重送變更指令，不在重連後重放聊天或操作。

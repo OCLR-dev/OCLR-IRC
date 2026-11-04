@@ -1,3 +1,4 @@
+import { chatLines, isChatCommand } from '../shared/chat.ts'
 import { isBpNotice } from '../shared/bp-notice.ts'
 import { ManualPool } from './manual-pool.ts'
 import { roomPlan, roomPlanMatches } from '../shared/room-plan.ts'
@@ -45,6 +46,8 @@ export class IrcSession extends EventEmitter {
   private error: string | null = null
   private views = new Map<number, RoomView>()
   private selected: number | null = null
+  private chatSending = false
+  private chatSelection = 0
   private socket: net.Socket | null = null
   private generation = 0
   private loginTimer: ReturnType<typeof setTimeout> | null = null
@@ -288,6 +291,7 @@ export class IrcSession extends EventEmitter {
   selectRoom(input: unknown) {
     this.mpPreview = null
     const view = this.target(input)
+    if (this.selected !== view.room.id) this.chatSelection++
     this.selected = view.room.id; view.unread = 0; view.mentions = 0; this.publish()
   }
   leaveRoom(input: unknown) {
@@ -764,14 +768,54 @@ export class IrcSession extends EventEmitter {
     this.send(`PRIVMSG ${view.room.channel} :${text}`)
     this.note(view, text, 'self', this.username, 'sent'); this.publish()
   }
-  chat(input: unknown) {
+  chat(input: unknown, onDispatch?: () => void) {
     const view = this.target(input)
     const { text: value } = input as Record<string, unknown>
     if (view.room.kind === 'private' && normalize(view.room.channel) === 'banchobot') throw new Error('BanchoBot 私訊僅供讀取。')
     const text = chatText(value, view.room.channel)
     this.ready(view)
+    if (/^!mp(?:\s|$)/i.test(text)) {
+      // A directly typed command supersedes pending previews/plans, not their observations.
+      this.mapPlan?.cancel(); this.roomPlan?.cancel(); this.mpPreview = null; this.lobbyPreview = null; this.profilePreview = null; this.roomPlanPreview = null
+      this.operations.interrupt(view.room.id)
+      this.clearFresh(view); view.room.syncState = 'stale'
+    }
+    onDispatch?.()
     this.send(`PRIVMSG ${view.room.channel} :${text}`); this.lastQueryAt = Date.now()
-    this.note(view, text, 'self', this.username, 'sent'); view.error = null; this.publish()
+    this.note(view, text, 'self', this.username, isChatCommand(text) ? 'unconfirmed' : 'sent'); view.error = null; this.publish()
+  }
+  async chatBatch(input: unknown): Promise<{ok: boolean; error?: string; remainingText?: string}> {
+    const view = this.target(input), lines = chatLines((input as {text?: unknown}).text, view.room.channel)
+    if (this.chatSending) throw new Error('訊息正在傳送中，請稍候。')
+    if (this.selected !== view.room.id) throw new Error('房間已切換或關閉，請確認目標後重新操作。')
+    if (view.room.kind === 'private' && normalize(view.room.channel) === 'banchobot') throw new Error('BanchoBot 私訊僅供讀取。')
+    const generation = this.generation, epoch = view.room.epoch, selection = this.chatSelection
+    const deadline = performance.now() + 30000
+    let consumed = 0
+    this.chatSending = true
+    try {
+      for (const text of lines) {
+        while (true) {
+          if (this.generation !== generation || this.views.get(view.room.id) !== view || view.room.epoch !== epoch || this.selected !== view.room.id || this.chatSelection !== selection || this.connection !== 'online' || !view.room.joined) throw new Error('傳送已停止，尚未傳送的內容保留在草稿。')
+          if (performance.now() >= deadline) throw new Error('傳送等待逾時，尚未傳送的內容保留在草稿。')
+          if (!view.pending && Date.now() - this.lastQueryAt >= this.timing.floodMs) break
+          await new Promise(resolve => setTimeout(resolve, 25))
+        }
+        let attempted = false
+        try { this.chat({roomId: view.room.id, roomEpoch: epoch, text}, () => {attempted = true}); consumed++ }
+        catch (error) {
+          if (attempted) {
+            consumed++
+            this.note(view, text, 'self', this.username, 'unknown'); this.publish()
+            throw new Error('送出結果不明，請先核對房間訊息；不會自動重送。')
+          }
+          throw error
+        }
+      }
+      return {ok: true, remainingText: ''}
+    } catch (error) {
+      return {ok: false, error: error instanceof Error ? error.message : '訊息未送出。', remainingText: lines.slice(consumed).join('\n')}
+    } finally { this.chatSending = false }
   }
   private unavailable(view: RoomView, message: string) {
     this.operations.interrupt(view.room.id)

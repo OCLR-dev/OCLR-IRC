@@ -125,14 +125,16 @@ test('cancel immediately prevents late welcome from restoring a logged-out accou
 })
 
 
-test('chat validates UTF-8 wire bytes and forbids command/control injection', () => {
+test('chat validates UTF-8 wire bytes and rejects control/framing injection', () => {
   const channel = '#mp_900000001'
   const available = 510 - Buffer.byteLength(`PRIVMSG ${channel} :`)
   assert.equal(chatText('x'.repeat(available), channel).length, available)
   assert.throws(() => chatText('x'.repeat(available + 1), channel))
   assert.throws(() => chatText('測'.repeat(Math.floor(available / 3) + 1), channel))
-  for (const text of ['!mp start', ' !MP close', '/join #other', '／join', '\u0001ACTION wave\u0001', 'a\r\nQUIT', 'a\t!mp close', '']) assert.throws(() => chatText(text, channel))
+  for (const text of ['\u0001ACTION wave\u0001', 'a\r\nQUIT', 'a\t!mp close', '']) assert.throws(() => chatText(text, channel))
   assert.equal(chatText('  比賽準備中  ', channel), '比賽準備中')
+  assert.equal(chatText('!mp map 3645174 0', channel), '!mp map 3645174 0')
+  assert.equal(chatText('/join #other', channel), '/join #other')
 })
 
 test('message links must be safe HTTP(S) URLs still present in retained messages', () => {

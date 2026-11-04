@@ -150,7 +150,7 @@ async function main() {
     await until(() => js('(async () => { const s=await window.oclr.snapshot(); return s.room.referee==="listed" && !s.pending })()'))
     peer.write(':系統 PRIVMSG #mp_900000008 :已連線 原文\n')
     await until(() => js('document.querySelector(".message-area").textContent.includes("已連線 原文")'))
-    await js('(() => { const el=document.querySelector("input[name=chat]"); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set.call(el,"Draft 未知"); el.dispatchEvent(new Event("input",{bubbles:true})) })()')
+    await js('(() => { const el=document.querySelector("[name=chat]"); Object.getOwnPropertyDescriptor((el instanceof HTMLTextAreaElement ? HTMLTextAreaElement : HTMLInputElement).prototype,"value").set.call(el,"Draft 未知"); el.dispatchEvent(new Event("input",{bubbles:true})) })()')
     const before = sent.length
     await js('window.oclr.settings.update({autoRefreshOclr:false,restoreIrcLogin:false,closeToBackground:false,language:"zh-Hans"})')
     await until(() => js('document.documentElement.lang==="zh-Hans"'))
@@ -158,7 +158,7 @@ async function main() {
     assert.ok((await js('document.querySelector(".match-status").textContent')).includes('歌曲 原文'))
     assert.equal(await js('document.querySelector(".slot-player strong").textContent'), '未知')
     assert.ok((await js('document.querySelector(".message-area").textContent')).includes('已連線 原文'))
-    assert.equal(await js('document.querySelector("input[name=chat]").value'), 'Draft 未知')
+    assert.equal(await js('document.querySelector("[name=chat]").value'), 'Draft 未知')
     assert.equal(sent.length, before)
     await js('window.oclr.settings.update({autoRefreshOclr:false,restoreIrcLogin:false,closeToBackground:false,language:"en"})')
     await until(() => js('document.querySelector(".tools-heading").textContent.includes("Room tools")'))
