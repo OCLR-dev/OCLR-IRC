@@ -420,3 +420,25 @@ test('expired unknown room operation does not permanently block a new intent or 
     assert.equal(f.session.state.operations!.records.find(r=>r.id===pending.id)?.reviewed,false)
   } finally {await f.close()}
 })
+
+test('BP notice readiness fences pending reads, cooldown and queued reads without mutating state', async () => {
+  const f = await fixture()
+  try {
+    await f.refresh()
+    assert.equal(f.session.relayNoticeReady(f.target()), true)
+    const before = f.session.state.operations!.records.length
+    f.session.query({...f.target(),kind:'settings'})
+    assert.equal(f.session.relayNoticeReady(f.target()), false)
+    await until(() => f.session.relayNoticeReady(f.target()))
+    const text='[OCLR BP #58] PICK DT4 | Synthetic | https://osu.ppy.sh/b/2145491'
+    f.session.relayNotice({...f.target(),text})
+    assert.equal(f.session.relayNoticeReady(f.target()), false)
+    assert.equal(f.session.relayNoticeReady({...f.target(),roomEpoch:-1}),false)
+    await until(() => f.session.relayNoticeReady(f.target()))
+    f.session.relayRefresh(f.target())
+    assert.equal(f.session.relayNoticeReady(f.target()), false)
+    await until(() => f.session.relayNoticeReady(f.target()))
+    assert.equal(f.session.state.operations!.records.length,before)
+    assert.equal(f.sent.filter(line=>line.includes('[OCLR BP #58]')).length,1)
+  } finally {await f.close()}
+})
