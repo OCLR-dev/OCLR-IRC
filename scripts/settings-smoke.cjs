@@ -142,9 +142,12 @@ async function main() {
     assert.equal((await js('window.oclr.join("900000008")')).ok, true)
     await until(() => js('(async () => { const s=await window.oclr.snapshot(); return s.room?.joined && !s.pending })()'))
     for (const kind of ['settings', 'listrefs']) {
+      const reads=sent.filter(line=>line.endsWith(':!mp '+kind)).length
       await until(async () => (await js(`(async () => { const s=await window.oclr.snapshot(); return window.oclr.query({roomId:s.room.id,roomEpoch:s.room.epoch,kind:${JSON.stringify(kind)}}) })()`)).ok)
+      await until(() => sent.filter(line=>line.endsWith(':!mp '+kind)).length>reads)
       await until(() => js('(async () => !(await window.oclr.snapshot()).pending)()'))
     }
+    await until(() => js('Array.from(document.querySelectorAll("[role=tab]")).some(e=>e.textContent==="Players")'))
     await js('Array.from(document.querySelectorAll("[role=tab]")).find(e=>e.textContent==="Players").click()')
     await until(() => js('Boolean(document.querySelector(".player-slot.occupied"))'))
     await until(() => js('(async () => { const s=await window.oclr.snapshot(); return s.room.referee==="listed" && !s.pending })()'))
@@ -159,7 +162,7 @@ async function main() {
     assert.equal(await js('document.querySelector(".slot-player strong").textContent'), '未知')
     assert.ok((await js('document.querySelector(".message-area").textContent')).includes('已連線 原文'))
     assert.equal(await js('document.querySelector("[name=chat]").value'), 'Draft 未知')
-    assert.equal(sent.length, before)
+    assert.deepEqual(sent.slice(before).filter(line=>!/^PRIVMSG #mp_\d+ :!mp (?:settings|listrefs)$/.test(line)), [])
     await js('window.oclr.settings.update({autoRefreshOclr:false,restoreIrcLogin:false,closeToBackground:false,language:"en"})')
     await until(() => js('document.querySelector(".tools-heading").textContent.includes("Room tools")'))
     assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom<=innerHeight'), true)

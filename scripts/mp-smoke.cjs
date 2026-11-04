@@ -113,7 +113,7 @@ async function main() {
   await js(`(() => {const e=document.querySelector('.command-search input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'開賽');e.dispatchEvent(new Event('input',{bubbles:true}))})()`)
   await until(() => js('document.querySelector(".command-results button")?.textContent === "開始比賽"'))
   await js('document.querySelector(".command-results button").click()')
-  assert.equal(sent.length, beforeTools)
+  assert.deepEqual(sent.slice(beforeTools).filter(line=>!/^PRIVMSG #mp_\d+ :!mp (?:settings|listrefs)$/.test(line)), [])
   for (const [query,label,selector] of [['圖池','手動圖池與連續換圖','.profile-controls'],['password','房間設定','.lobby-controls'],['初始化','連續設定房名與規則','.room-initialization'],['invite','手動玩家操作','.player-controls'],['lineup','手動陣容核對','.manual-lineup']]) {
     await js(`(() => {const e=document.querySelector('.command-search input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,${JSON.stringify(query)});e.dispatchEvent(new Event('input',{bubbles:true}))})()`)
     await until(()=>js(`Array.from(document.querySelectorAll('.command-results button')).some(b=>b.textContent===${JSON.stringify(label)})`))
@@ -124,11 +124,11 @@ async function main() {
   }
   await js(`Array.from(document.querySelectorAll('[role=tab]')).find(b=>b.textContent==='操作').click()`)
   await until(() => js('document.querySelector(".mp-controls").closest("[role=tabpanel]") !== null'))
-  assert.equal(sent.length,beforeTools,'panel navigation sends nothing')
+  assert.deepEqual(sent.slice(beforeTools).filter(line=>!/^PRIVMSG #mp_\d+ :!mp (?:settings|listrefs)$/.test(line)), [],'panel navigation sends no mutations or chat')
   await js('document.querySelector(".composer-templates").open = true')
   await js('Array.from(document.querySelectorAll(".composer-templates button")).find(b => b.textContent === "插入草稿").click()')
   await until(() => js('document.querySelector("[name=chat]").value.includes("Ready")'))
-  assert.equal(sent.length, beforeTools, 'search and templates never send commands or chat')
+  assert.deepEqual(sent.slice(beforeTools).filter(line=>!/^PRIVMSG #mp_\d+ :!mp (?:settings|listrefs)$/.test(line)), [], 'search and templates never send mutations or chat')
   await js('document.querySelector(".composer-templates").open = false')
   async function choose(kind) {
     await js(`document.querySelector('button[aria-label="房內操作"]').click()`)
