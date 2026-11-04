@@ -11,7 +11,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 async function until(predicate: () => boolean) { for (let i = 0; i < 400; i++) { if (predicate()) return; await delay(10) } throw Error('Timed out') }
 function harness(receiptReasons = true, bpSync = false) {
   const requests: any[] = [], writes: any[] = []
-  const irc = Object.assign(new EventEmitter(), {sessionGeneration: 1, state: {connection: 'online', username: 'Ref_Name', creation: {status: 'unreviewed', requestId: id(80), roomId: null}, room: {id: 123, epoch: 1, joined: true, kind: 'match', binding: 'verified', referee: 'listed'}, messages: [] as any[]}, relayNotice(input: unknown, onDispatch?: () => void) {onDispatch?.(); writes.push(input)}, relayReady() {return true}, relayRefresh() {}, relayBlocked(): boolean {return false}, relaySend(input: unknown, onDispatch?: () => void) {onDispatch?.(); writes.push(input)}})
+  const irc = Object.assign(new EventEmitter(), {sessionGeneration: 1, state: {connection: 'online', username: 'Ref_Name', creation: {status: 'unreviewed', requestId: id(80), roomId: null}, room: {id: 123, epoch: 1, joined: true, kind: 'match', binding: 'verified', referee: 'listed'}, messages: [] as any[]}, relayNoticeReady(): boolean {return true}, relayNotice(input: unknown, onDispatch?: () => void) {onDispatch?.(); writes.push(input)}, relayReady() {return true}, relayRefresh() {}, relayBlocked(): boolean {return false}, relaySend(input: unknown, onDispatch?: () => void) {onDispatch?.(); writes.push(input)}})
   let command: any = null, fail = false
   const oclr = Object.assign(new EventEmitter(), {sessionGeneration: 1, updatePairing(value: unknown) { this.state.pairing = value }, state: {pairing: null as any, subject: {osuId: 100, username: 'Ref Name'}, selectedFixtureId: id(101), panelState: 'fresh', relay: null as any}, updateRelay(state: unknown) {this.state.relay = state; (this as unknown as EventEmitter).emit('state')}, async relayRequest(_id: string, body: any) {requests.push(body); if (fail) throw Error('network failure'); return {value: {data: {...(receiptReasons ? {receiptReasons: true} : {}), ...(bpSync ? {bpSync: true} : {}), connectionId: id(40), sequence: body.sequence ?? 0, command: body.action === 'sync' ? command : null}, meta: meta()}}}})
   const relay = new OclrRelay(oclr as unknown as OclrSession, irc as unknown as IrcSession)
@@ -376,6 +376,99 @@ test('BP notices use the bound chat route once, without waiting for a Bancho rep
     await delay(1200)
     assert.equal(f.writes.length, 1)
   } finally { await f.relay.stop() }
+})
+test('BP notice waits through local read/throttle activity before one dispatch', async () => {
+  const f = harness(true, true)
+  let ready = false, checked = 0
+  f.irc.relayNoticeReady = () => {checked++; return ready}
+  try {
+    await f.relay.start()
+    f.command({id: id(120), text: '[OCLR BP #58] PICK DT4 | Synthetic | https://osu.ppy.sh/b/2145491', target: '#mp_123'})
+    await until(() => checked > 1)
+    assert.equal(f.writes.length, 0)
+    ready = true
+    await until(() => f.requests.some(r => r.receipts?.some((v: any) => v.status === 'notified')))
+    assert.equal(f.writes.length, 1)
+    assert.equal(f.requests.flatMap(r => r.receipts ?? []).some((v: any) => v.status === 'failed'), false)
+    await until(() => f.requests.filter(r => r.action === 'sync').length >= 3)
+    assert.equal(f.writes.length, 1)
+  } finally {await f.relay.stop()}
+})
+test('a stopped or replaced binding never sends a waiting BP notice to the new session', async () => {
+  for (const change of ['stop', 'room', 'subject', 'irc-login']) {
+    const f = harness(true, true)
+    let checked = 0
+    f.irc.relayNoticeReady = () => {checked++; return false}
+    try {
+      await f.relay.start()
+      f.command({id: id(121), text: '[OCLR BP #66] PICK DT2 | Synthetic | https://osu.ppy.sh/b/3558567', target: '#mp_123'})
+      await until(() => checked > 1)
+      if (change === 'stop') await f.relay.stop()
+      else if (change === 'room') f.irc.state.room.epoch++
+      else if (change === 'subject') {f.oclr.state.subject.osuId++; f.oclr.emit('state')}
+      else {f.irc.sessionGeneration++; f.irc.emit('state')}
+      f.irc.relayNoticeReady = () => true
+      await until(() => f.oclr.state.relay.status === 'off')
+      assert.equal(f.writes.length, 0)
+    } finally {await f.relay.stop()}
+  }
+})
+test('a BP socket attempt that throws stays unknown and is never replayed', async () => {
+  const f = harness(true, true)
+  let attempts = 0
+  f.irc.relayNotice = (_input: unknown, dispatch?: () => void) => {attempts++;dispatch?.();throw Error('synthetic socket failure')}
+  try {
+    await f.relay.start()
+    f.command({id: id(122), text: '[OCLR BP #68] TB TB1 | TB | https://osu.ppy.sh/b/1751858', target: '#mp_123'})
+    await until(() => f.requests.some(r => r.receipts?.length))
+    assert.equal(f.requests.flatMap(r => r.receipts ?? [])[0].status, 'unknown')
+    await until(() => f.requests.filter(r => r.action === 'sync').length >= 3)
+    assert.equal(attempts, 1)
+  } finally {await f.relay.stop()}
+})
+test('Bancho FreeMod room acknowledgement may omit global NF without dropping speed Mods', () => {
+  assert.equal(relayReply('!mp mods NF Freemod', 'Disabled all mods, enabled FreeMod'), 'confirmed')
+  assert.equal(relayReply('!mp mods NF DT Freemod', 'Enabled DoubleTime, enabled FreeMod'), 'confirmed')
+  for (const [command, reply] of [
+    ['!mp mods NF', 'Disabled all mods, disabled FreeMod'],
+    ['!mp mods NF DT Freemod', 'Disabled all mods, enabled FreeMod'],
+    ['!mp mods NF Freemod', 'Disabled all mods, disabled FreeMod'],
+    ['!mp mods Freemod', 'Enabled NoFail, enabled FreeMod'],
+    ['!mp mods NF HR Freemod', 'Disabled all mods, enabled FreeMod'],
+    ['!mp mods NF Freemod', 'Enabled Unknown, enabled FreeMod'],
+  ]) assert.equal(relayReply(command, reply), null)
+})
+test('a busy BP notice reaches its bounded deadline without writing or replaying', async (t) => {
+  const f = harness(true, true)
+  let clock = 0
+  f.irc.relayNoticeReady = () => false
+  t.mock.method(performance, 'now', () => clock += 9000)
+  try {
+    await f.relay.start()
+    f.command({id:id(123),text:'[OCLR BP #66] PICK DT2 | Synthetic | https://osu.ppy.sh/b/3558567',target:'#mp_123'})
+    await until(() => f.requests.some(r=>r.receipts?.length))
+    assert.equal(f.writes.length,0)
+    assert.deepEqual(f.requests.flatMap(r=>r.receipts??[])[0],{commandId:id(123),status:'failed',reason:'room_checks'})
+    f.irc.relayNoticeReady = () => true
+    await until(() => f.requests.filter(r=>r.action==='sync').length>=3)
+    assert.equal(f.writes.length,0)
+  } finally {t.mock.restoreAll();await f.relay.stop()}
+})
+test('the reported NF FreeMod reply confirms only the pending command in its bound room', async () => {
+  const f=harness()
+  try {
+    await f.relay.start()
+    f.command({id:id(124),text:'!mp mods NF Freemod',target:'#mp_123'})
+    await until(()=>f.writes.length===1)
+    const message={id:30,kind:'bot',sender:'BanchoBot',text:'Disabled all mods, enabled FreeMod'}
+    f.irc.emit('message',{roomId:456,roomEpoch:1,message})
+    f.irc.emit('message',{roomId:123,roomEpoch:1,message:{...message,sender:'Player'}})
+    await until(()=>f.requests.filter(r=>r.action==='sync').length>=2)
+    assert.equal(f.requests.flatMap(r=>r.receipts??[]).some((r:any)=>r.status==='confirmed'),false)
+    f.irc.emit('message',{roomId:123,roomEpoch:1,message})
+    await until(()=>f.requests.some(r=>r.receipts?.some((v:any)=>v.status==='confirmed')))
+    assert.equal(f.writes.length,1)
+  } finally {await f.relay.stop()}
 })
 test('legacy servers never negotiate BP notices and malformed notice text remains rejected', async () => {
   const f = harness(true, false)
