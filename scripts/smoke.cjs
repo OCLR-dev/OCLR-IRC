@@ -194,20 +194,33 @@ async function main() {
   assert.equal((await js('window.oclr.openMessageLink("https://unknown.invalid")')).ok, false)
   await delay(300)
   fs.writeFileSync(path.join(output, 'workspace-chat-synthetic.png'), (await capture()).toPNG())
+  // The earlier manual !mp map schedules one settings/listrefs refresh. Finish
+  // that interaction before testing history scrolling: its inspector updates
+  // change the viewport height and its replies append additional chat rows.
+  const mapDispatch = sent.lastIndexOf('PRIVMSG #mp_900000001 :!mp map 3645174 0')
+  await until(async () => sent.slice(mapDispatch + 1).includes('PRIVMSG #mp_900000001 :!mp listrefs') &&
+    await js('(async () => {const s=await window.oclr.snapshot();return !s.pending && s.room.syncState === "complete" && s.room.referee === "listed"})()'), 120)
   peer.write(Array.from({ length: 1200 }, (_, i) => `:Player PRIVMSG #mp_900000001 :SYNTHETIC row ${i}\n`).join(''))
   await until(() => js('(async () => (await window.oclr.snapshot()).messages.some(m=>m.text === "SYNTHETIC row 1199"))()'))
-  await delay(500)
+  // Main can finish receiving before React/Virtuoso renders and measures the
+  // burst. Wait for the last row at the bottom before starting a history scroll.
+  await until(() => js(`(() => {
+    const scroller = document.querySelector('[data-virtuoso-scroller]');
+    return scroller && document.body.textContent.includes('SYNTHETIC row 1199') &&
+      scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop <= 50 &&
+      !document.querySelector('.jump-latest');
+  })()`))
   assert.equal((await js('window.oclr.snapshot()')).messages.length, 1000)
   assert.ok(await js('document.querySelectorAll(".message-row").length < 100'))
   await js('document.querySelector("[data-virtuoso-scroller]").scrollTop = 800')
   await until(() => js('Boolean(document.querySelector(".jump-latest")) && document.querySelector("[data-virtuoso-scroller]").scrollTop < 1500'))
   await js('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
-  const anchor = await js(`(() => {const bounds=document.querySelector('[data-virtuoso-scroller]').getBoundingClientRect();const row=Array.from(document.querySelectorAll('.message-row')).filter(row=>{const r=row.getBoundingClientRect();return r.top>=bounds.top && r.bottom<=bounds.bottom}).at(-2);return row ? {text:row.textContent,offset:row.getBoundingClientRect().top-bounds.top} : null})()`)
+  const anchor = await js(`(() => {const bounds=document.querySelector('[data-virtuoso-scroller]').getBoundingClientRect();const row=Array.from(document.querySelectorAll('.message-row')).filter(row=>{const r=row.getBoundingClientRect();return r.top>=bounds.top && r.bottom<=bounds.bottom}).at(-2);return row ? {text:row.textContent,index:Number(row.parentElement.dataset.index),offset:row.getBoundingClientRect().top-bounds.top} : null})()`)
   assert.ok(anchor, 'history viewport must contain an anchor row')
   peer.write(':Player PRIVMSG #mp_900000001 :SYNTHETIC newer row\n')
   await until(() => js('(async () => (await window.oclr.snapshot()).messages.some(m=>m.text==="SYNTHETIC newer row"))()'))
   await js('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
-  const anchored = () => js(`(() => {const bounds=document.querySelector('[data-virtuoso-scroller]').getBoundingClientRect();const row=Array.from(document.querySelectorAll('.message-row')).find(row=>row.textContent===${JSON.stringify(anchor.text)});return !!row && Math.abs(row.getBoundingClientRect().top-bounds.top-${anchor.offset})<50})()`)
+  const anchored = () => js(`(() => {const bounds=document.querySelector('[data-virtuoso-scroller]').getBoundingClientRect();const row=Array.from(document.querySelectorAll('.message-row')).find(row=>row.textContent===${JSON.stringify(anchor.text)});return !!row && Number(row.parentElement.dataset.index) === ${anchor.index - 1} && !!document.querySelector('.jump-latest') && Math.abs(row.getBoundingClientRect().top-bounds.top-${anchor.offset})<50})()`)
   await until(anchored)
   assert.equal(await anchored(),true,'new messages preserve the visible history anchor')
   await js('document.querySelector(".jump-latest").click()')
