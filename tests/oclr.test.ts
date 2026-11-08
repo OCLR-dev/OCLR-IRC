@@ -1,3 +1,4 @@
+import { exhibitionPanel } from './fixtures/exhibition-panel.ts'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
@@ -358,4 +359,20 @@ test('panel accepts the website optional substitute count while keeping invalid 
   assert.equal(panelSchema.safeParse(value).success, true)
   ;(value.data.workspace.rules as any).exPlayersPerTeam = 0
   assert.equal(panelSchema.safeParse(value).success, false)
+})
+
+
+test('assigned exhibition panels with saved skip-ban and EX events load without losing login or command state', async () => {
+  const f=harness(request=>request.path.endsWith('/panel') ? jsonResponse(exhibitionPanel(true,true)) : undefined)
+  try {
+    await f.login()
+    await f.session.selectFixture(id(101))
+    assert.equal(f.session.state.status,'connected')
+    assert.equal(f.session.state.error,null)
+    assert.equal(f.session.state.panelState,'fresh')
+    assert.equal(f.session.state.panel?.workspace.projection.activeSelections[0].exMode,true)
+    assert.equal(f.session.state.panel?.workspace.session?.firstBanTeamId,null)
+    assert.ok(f.session.state.commands.some(command=>command.kind==='make' && command.text))
+    assert.equal(f.clipboard.length,0,'loading never dispatches or copies commands')
+  } finally {f.session.dispose()}
 })

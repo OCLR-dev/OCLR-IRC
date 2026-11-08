@@ -342,3 +342,14 @@ OCLR 房名帶入：新建房間表單訂閱已選場次的唯讀 panel，優先
 桌面操作預覽前按需讀取過期設定及裁判名單，等待有上限，隨後仍由原有 Main 預覽／送出檢查驗證完整性、十秒快照、裁判資格與 epoch。資料不完整／逾時仍不可當成成功，未知變更指令不重送。網站閒置輪詢只投影訊息；settings 查詢責任在桌面，網站對應追蹤 OCLR-dev/OCLR-website#1026。
 
 合成測試比較：在原測試 130 ms 週期下，原本閒置會累積至少三次 settings；現在加入一次後經多個週期仍維持一次，十個可信事件合併成一次額外查詢，回覆沒有週期尾隨。另覆蓋按需查詢共享、逾時停止、切房、離線及既有重連／操作測試。真實 Bancho、正式部署及版本發布另行驗收。
+
+
+## 2026-11-09 表演賽面板契約相容（#125）
+
+使用者回報已登入且能列出 Exhibition 場次，面板卻顯示回應驗證失敗。核對網站 `ed9e83c0dcfd84b96e90d7bb3981c99ffe5449a6`，桌面舊 schema 拒絕 `ex_declared` 及跳 Ban 時 `order_set.firstBanTeamId = null`；舊 pinned projector 亦不理解 `basis.skipBans`。用合成回應在修正前重現兩項拒絕，無需讀取私人場次或 token。截圖本身不能證實實際失敗欄位。
+
+同步網站 referee-model（僅調整本機 `.ts` import），明確驗證 EX 宣告的 pickId／enabled、跳 Ban 的 nullable order／skipBans，保留 basis 的 EX 人數與 skipBans、表演賽標記。投影仍在本機由已驗證事件計算，跳過 Ban 保留原始政策索引；未知事件、未標明 skipBans 的 null first-ban order、身份／版本不一致仍拒絕。不新增網站寫入或自動房內操作。舊版面板仍可讀取；來源記錄與輸入 JSON Schema 一併更新。
+
+驗證包含一般／表演賽面板、跳 Ban 投影、EX 宣告、未知事件／事件 revision 拒絕，以及完整合成 OclrSession 登入後選取場次得到 fresh 面板、保留登入與指令預覽且不自行複製／發送。真實帳號及網站部署版本未另行驗證；修復需使用更新後的桌面程式。
+
+本次本機驗證（Node.js 24）：`npm run typecheck`、`npm test`（249 pass / 0 fail）、`npm run build`、`npm run contracts:oclr`、Electron `scripts/oclr-smoke.cjs` 及 `git diff --check` 通過。修正前獨立四項相容測試為 2 pass / 2 fail，修正後 4 pass / 0 fail。既有 main `09235f4` 的 CI run `42502396993`：macOS 通過，Windows／Linux 在 `scripts/smoke.cjs:203` 聊天歷史捲動條件逾時；不是本次面板煙霧測試結果，仍待另行排查。
