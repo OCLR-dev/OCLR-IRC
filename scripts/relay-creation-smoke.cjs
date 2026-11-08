@@ -96,6 +96,7 @@ async function main() {
   assert.equal((await js(`window.oclr.website.selectFixture(${JSON.stringify(fixtureId)})`)).ok, true)
   await until(() => js('(async () => (await window.oclr.website.snapshot()).panelState === "fresh")()'))
   assert.equal((await js('window.oclr.website.snapshot()')).pairing.status, 'nickname_matched')
+  assert.equal((await js('window.oclr.openConversation({kind:"private",name:"SyntheticFriend"})')).ok, true)
   assert.equal((await js('window.oclr.website.startRelay()')).ok, true)
   await until(() => syncs.some(body => body.receipts.some(r => r.commandId === commandId && r.status === 'sent')))
   await until(() => syncs.length >= 3)
@@ -187,7 +188,7 @@ async function main() {
   const db = new DatabaseSync(path.join(profile, 'operation-recovery.sqlite'), {readOnly: true})
   try { assert.equal(db.prepare('SELECT COUNT(*) AS count FROM operations').get().count, 0) } finally { db.close() }
   assert.equal(sent.filter(line => line.startsWith('PRIVMSG BanchoBot :!mp make ')).length, 1)
-  console.log(JSON.stringify({evidence: 'synthetic-relay-creation', passed: ['single make despite duplicate command ID', 'sent receipt at dispatch boundary', 'late creation after relay stop still joins and reads settings/listrefs', 'round pool and both team rosters in room tools', 'pool selection and command copy send no IRC', 'bound room and automatic roster UID before one explicit invitation without name input', 'invitation never means player arrival', '900x640 composer and independent tools', 'one dependency recheck CTA opens fixed assigned-fixture anchor; refresh restores copying without IRC resend', 'logout clears private roster and pool', 'website operation history stays memory only', ...(process.platform !== 'linux' ? ['private room excluded before first journal message', 'ordinary IRC history positive control'] : ['Linux journal remains memory only'])], limitation: 'Synthetic HTTP/IRC and crypto provider; real OAuth, Bancho and native provider acceptance remain separate.'}))
+  console.log(JSON.stringify({evidence: 'synthetic-relay-creation', passed: ['pre-creation website relay connects while a private chat is selected', 'single make despite duplicate command ID', 'sent receipt at dispatch boundary', 'late creation after relay stop still joins and reads settings/listrefs', 'round pool and both team rosters in room tools', 'pool selection and command copy send no IRC', 'bound room and automatic roster UID before one explicit invitation without name input', 'invitation never means player arrival', '900x640 composer and independent tools', 'one dependency recheck CTA opens fixed assigned-fixture anchor; refresh restores copying without IRC resend', 'logout clears private roster and pool', 'website operation history stays memory only', ...(process.platform !== 'linux' ? ['private room excluded before first journal message', 'ordinary IRC history positive control'] : ['Linux journal remains memory only'])], limitation: 'Synthetic HTTP/IRC and crypto provider; real OAuth, Bancho and native provider acceptance remain separate.'}))
   app.exit(0)
 }
 main().catch(async error => {

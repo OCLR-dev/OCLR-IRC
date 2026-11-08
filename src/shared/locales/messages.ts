@@ -2191,6 +2191,26 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
     "zh-Hans": "请先登入。",
     "en": "Log in first."
   },
+  "請先連接 IRC 與 OCLR，並使用相同 osu! 帳號。": {
+    "zh-Hans": "请先连接 IRC 与 OCLR，并使用相同 osu! 帐号。",
+    "en": "Connect IRC and OCLR using the same osu! account first."
+  },
+  "請先選擇 OCLR 場次，再連接網站 IRC。": {
+    "zh-Hans": "请先选择 OCLR 场次，再连接网站 IRC。",
+    "en": "Select an OCLR fixture before connecting website IRC."
+  },
+  "場次面板尚未取得有效資料，請重新整理場次後再連接。": {
+    "zh-Hans": "场次面板尚未取得有效资料，请刷新场次后再连接。",
+    "en": "The fixture panel has no current valid data. Refresh it before connecting."
+  },
+  "有既有或未確認的開房記錄。請先核對 BanchoBot 訊息與既有房間，再連接網站 IRC；不會重複開房。": {
+    "zh-Hans": "有既有或未确认的开房记录。请先核对 BanchoBot 消息与既有房间，再连接网站 IRC；不会重复开房。",
+    "en": "An existing or unconfirmed room creation is recorded. Check BanchoBot messages and the existing room before connecting website IRC; no duplicate room will be created."
+  },
+  "請在 IRC 選取已加入的比賽房間，並讀取完整設定與裁判名單後再連接。": {
+    "zh-Hans": "请在 IRC 选取已加入的比赛房间，并读取完整设置与裁判名单后再连接。",
+    "en": "Select a joined match room in IRC and read its complete settings and referee list before connecting."
+  },
   "請先登入相同 osu! 帳號，選擇 OCLR 場次，並在 IRC 加入房間、讀取設定與裁判名單。": {
     "zh-Hans": "请先登入相同 osu! 帐号，选择 OCLR 场次，并在 IRC 加入房间、读取设置与裁判名单。",
     "en": "Log in with the same osu! account, select an OCLR fixture, join its IRC room, and query settings and referees first."
