@@ -121,3 +121,12 @@ reviewUrl 必須精確對應 `https://oclr.org/admin/tournaments/{edition.slug}/
 
 驗證：Node 24 typecheck、148 項核心／契約測試通過，包含新欄位解析、舊 panel、TB 例外拒絕、重複 HD／TB Ban 驗證。
 沒有 UI／preload 改動，未進行 Electron 實機或真實 OAuth／Bancho 聯調；尚未合併或發布。
+
+
+## 2026-11-09 表演賽面板契約相容（#125）
+
+使用者回報已登入且能列出 Exhibition 場次，面板卻顯示回應驗證失敗。核對網站 `ed9e83c0dcfd84b96e90d7bb3981c99ffe5449a6`，桌面舊 schema 拒絕 `ex_declared` 及跳 Ban 時 `order_set.firstBanTeamId = null`；舊 pinned projector 亦不理解 `basis.skipBans`。用合成回應在修正前重現兩項拒絕，無需讀取私人場次或 token。截圖本身不能證實實際失敗欄位。
+
+同步網站 referee-model（僅調整本機 `.ts` import），明確驗證 EX 宣告的 pickId／enabled、跳 Ban 的 nullable order／skipBans，保留 basis 的 EX 人數與 skipBans、表演賽標記。投影仍在本機由已驗證事件計算，跳過 Ban 保留原始政策索引；未知事件、未標明 skipBans 的 null first-ban order、身份／版本不一致仍拒絕。不新增網站寫入或自動房內操作。舊版面板仍可讀取；來源記錄與輸入 JSON Schema 一併更新。
+
+驗證包含一般／表演賽面板、跳 Ban 投影、EX 宣告、未知事件／事件 revision 拒絕，以及完整合成 OclrSession 登入後選取場次得到 fresh 面板、保留登入與指令預覽且不自行複製／發送。真實帳號及網站部署版本未另行驗證；修復需使用更新後的桌面程式。

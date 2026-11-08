@@ -29,9 +29,10 @@ export type FixtureSummary = z.infer<typeof fixtureSchema>
 
 // PR #409's saved workspace DTO, with bounded data and no DB/Next.js dependency.
 const mapSchema = z.object({ id: uuid, beatmapId: positiveId, category: z.string().min(1).max(30), position: z.number().int().min(1).max(200), metadata: z.object({ title: short, artist: short, difficulty: short, stars: z.number().nonnegative(), duration: z.number().nonnegative() }).nullable() })
-const basisSchema = z.object({ policy: refereePolicySchema.nullable(), teamIds: z.array(uuid).max(2), maps: z.array(mapSchema.omit({ metadata: true })).max(200), series: scoringRulesSchema.shape.series.nullable(), tiedMapPolicy: scoringRulesSchema.shape.tiedMapPolicy })
+const basisSchema = z.object({ policy: refereePolicySchema.nullable(), teamIds: z.array(uuid).max(2), maps: z.array(mapSchema.omit({ metadata: true })).max(200), series: scoringRulesSchema.shape.series.nullable(), tiedMapPolicy: scoringRulesSchema.shape.tiedMapPolicy, exPlayersPerTeam: scoringRulesSchema.shape.exPlayersPerTeam, skipBans: z.literal(true).optional() })
 const payloadSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('order_set'), firstBanTeamId: uuid, firstPickTeamId: uuid }),
+  z.object({ type: z.literal('order_set'), firstBanTeamId: uuid.nullable(), firstPickTeamId: uuid, skipBans: z.literal(true).optional() }).refine(p => p.firstBanTeamId !== null || p.skipBans === true),
+  z.object({ type: z.literal('ex_declared'), pickId: uuid, enabled: z.boolean() }),
   z.object({ type: z.literal('selection_recorded'), stepIndex: z.number().int().min(0).max(199), kind: z.enum(['ban', 'pick', 'tb']), teamId: uuid.nullable(), entryId: uuid, beatmapId: positiveId, category: short }),
   z.object({ type: z.literal('attempt_started'), pickId: uuid, attemptId: uuid }),
   z.object({ type: z.literal('attempt_resolved'), pickId: uuid, attemptId: uuid, status: z.enum(['completed', 'tied', 'aborted']), winnerTeamId: uuid.nullable() }),
@@ -42,8 +43,8 @@ const payloadSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('policy_configured'), policy: refereePolicySchema, revision: z.number().int().positive() })
 ])
 const workspace = z.object({
-  fixture: z.object({ id: uuid, label: short, roundId: uuid, status: fixtureStatus, homeTeamId: uuid.nullable(), awayTeamId: uuid.nullable(), version: z.number().int().nonnegative() }),
-  round: z.object({ id: uuid, name: short }),
+  fixture: z.object({ id: uuid, label: short, roundId: uuid, status: fixtureStatus, homeTeamId: uuid.nullable(), awayTeamId: uuid.nullable(), openExhibition: z.literal(true).optional(), version: z.number().int().nonnegative() }),
+  round: z.object({ id: uuid, name: short, exhibition: z.literal(true).optional() }),
   teams: z.array(z.object({ id: uuid, name: short, captainId: positiveId.nullable(), captainUsername: short.nullable(), members: z.array(subjectSchema).max(100) })).max(2),
   defaultSettings: refereeSettingsSchema,
   maps: z.array(mapSchema).max(200), rules: scoringRulesSchema.nullable(), series: scoringRulesSchema.shape.series.nullable(), policy: refereePolicySchema.nullable(), policyRevision: z.number().int().nonnegative(),
@@ -51,7 +52,7 @@ const workspace = z.object({
   events: z.array(z.object({ id: uuid, ordinal: z.number().int().positive(), actorId: positiveId, createdAt: instant, payload: payloadSchema })).max(2000),
   dependencyFingerprint: fingerprint, readiness: z.array(text).max(100), canRecord: z.boolean(), canConfigure: z.boolean()
 }).refine(w => new Set(w.teams.map(t => t.id)).size === w.teams.length && w.teams.every(t => [w.fixture.homeTeamId, w.fixture.awayTeamId].includes(t.id) && new Set(t.members.map(m => m.osuId)).size === t.members.length) && new Set(w.maps.map(m => m.id)).size === w.maps.length && w.fixture.roundId === w.round.id && w.events.every((e, i) => e.ordinal === i + 1) && (w.session ? w.session.revision === w.events.length : w.events.length === 0), 'Inconsistent workspace identities or event sequence')
-.transform(w => ({ ...w, projection: projectReferee({ ...(w.session?.basis ?? { policy: w.policy, teamIds: w.teams.map(t => t.id), maps: w.maps, series: w.series, tiedMapPolicy: w.rules?.tiedMapPolicy ?? 'require_replay' }), orders: { firstBanTeamId: w.session?.firstBanTeamId ?? null, firstPickTeamId: w.session?.firstPickTeamId ?? null }, events: w.events }) }))
+.transform(w => ({ ...w, projection: projectReferee({ ...(w.session?.basis ?? { policy: w.policy, teamIds: w.teams.map(t => t.id), maps: w.maps, series: w.series, tiedMapPolicy: w.rules?.tiedMapPolicy ?? 'require_replay', exPlayersPerTeam: w.rules?.exPlayersPerTeam }), orders: { firstBanTeamId: w.session?.firstBanTeamId ?? null, firstPickTeamId: w.session?.firstPickTeamId ?? null }, events: w.events }) }))
 
 // Additive panel candidate 1.1.0. Does not claim to be the full /context operation contract.
 export const panelSchema = envelope(z.object({ viewer: subjectSchema, edition: editionSchema, capturedAt: instant, freshUntil: instant, workspace }))
