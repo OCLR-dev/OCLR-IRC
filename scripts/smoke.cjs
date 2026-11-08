@@ -123,8 +123,8 @@ async function main() {
   await delay(1100)
   const beforeSettings = sent.length
   pressKey('Return')
+  await until(() => sent.slice(beforeSettings).includes('PRIVMSG #mp_900000001 :!mp settings'))
   await until(() => js('document.body.textContent.includes("History 連結相符")'))
-  assert.ok(sent.slice(beforeSettings).includes('PRIVMSG #mp_900000001 :!mp settings'))
   await until(() => js('document.querySelectorAll(".player-slot").length === 16'))
   assert.equal(await js('document.querySelector(".player-slots header").textContent.includes("準備 1 / 2")'), true)
   assert.equal(await js('document.querySelectorAll(".player-slot.vacant").length'), 14)

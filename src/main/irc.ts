@@ -38,7 +38,7 @@ interface RoomView {
 }
 const MAX_ROOMS = 8
 interface Timing { retryBaseMs: number; retryMaxMs: number; stableMs: number; floodMs: number; queryMs: number; creationMs: number; loginMs: number; heartbeatMs: number; heartbeatTimeoutMs: number; roomRefreshMs: number }
-const defaults: Timing = { retryBaseMs: 1000, retryMaxMs: 30000, stableMs: 60000, floodMs: 1000, queryMs: 8000, creationMs: 15000, loginMs: 15000, heartbeatMs: 30000, heartbeatTimeoutMs: 15000, roomRefreshMs: 7000 }
+const defaults: Timing = { retryBaseMs: 1000, retryMaxMs: 30000, stableMs: 60000, floodMs: 1000, queryMs: 8000, creationMs: 15000, loginMs: 15000, heartbeatMs: 30000, heartbeatTimeoutMs: 15000, roomRefreshMs: 1000 }
 
 export class IrcSession extends EventEmitter {
   private connection: Connection = 'offline'
@@ -260,6 +260,7 @@ export class IrcSession extends EventEmitter {
     this.publish()
   }
   private enqueue(view: RoomView, kind: 'join' | 'settings' | 'listrefs' | 'part', auto = false) {
+    if ((kind === 'settings' || kind === 'listrefs') && view.pending === kind) return
     if (!this.work.some(job => job.view === view && job.kind === kind)) this.work.push({ view, kind, epoch: view.room.epoch, auto })
     this.pump()
   }
@@ -499,8 +500,10 @@ export class IrcSession extends EventEmitter {
   private refreshCurrentRoom() {
     const view = this.selected === null ? undefined : this.views.get(this.selected)
     if (!view || this.connection !== 'online' || !view.room.joined || view.room.kind !== 'match' || this.roomRefreshPaused(view) || view.pending || this.work.length || this.workTimer) return
-    if (Date.now() < (this.refreshAfter.get(view) ?? 0) || Date.now() - this.lastQueryAt < this.timing.floodMs) return
-    this.refreshAfter.set(view, Date.now() + this.timing.roomRefreshMs)
+    const due = this.refreshAfter.get(view)
+    if (due === undefined || Date.now() < due || Date.now() - this.lastQueryAt < this.timing.floodMs) return
+    // Consume the trigger before sending. Replies, expiry and timeouts never re-arm it.
+    this.refreshAfter.delete(view)
     this.enqueue(view, 'settings', true); this.enqueue(view, 'listrefs', true)
   }
   private ready(view: RoomView) {
@@ -514,7 +517,9 @@ export class IrcSession extends EventEmitter {
     if (view.room.kind !== 'match') throw new Error('此分頁不是比賽房間。')
     this.ready(view)
     this.send(`PRIVMSG ${view.room.channel} :!mp ${kind}`); this.lastQueryAt = Date.now()
-    if (kind === 'listrefs') this.refreshAfter.set(view, Date.now() + this.timing.roomRefreshMs)
+    // A real read also satisfies a queued join/event refresh.
+    if (kind === 'settings') this.refreshAfter.delete(view)
+    this.work = this.work.filter(job => !(job.view === view && job.kind === kind))
     view.pending = kind; view.error = null; view.refsHeader = false
     if (kind === 'settings') { this.settingsEvidence.delete(view); this.clearFresh(view); view.collector = new SettingsCollector(view.room.id, this.generation); Object.assign(view.room, blankObservation(), { syncState: 'loading', phase: view.room.phase, match: view.room.match, duration: view.room.duration, timer: view.room.timer, startCountdown: view.room.startCountdown }); view.room.binding = 'unknown'; view.room.name = null; view.room.mode = null; view.room.players = null }
     else { view.room.referee = 'unknown'; this.refereeSeen.delete(view) }
@@ -530,6 +535,22 @@ export class IrcSession extends EventEmitter {
     this.work = this.work.filter(job => !(job.view === view && job.auto))
     if (!view.pending && !this.work.length && Date.now() - this.lastQueryAt >= this.timing.floodMs) this.query(input)
     else this.enqueue(view, kind)
+  }
+  async prepareObservation(input: unknown) {
+    const view = this.target(input), epoch = view.room.epoch, generation = this.generation
+    if (this.connection !== 'online' || !view.room.joined || view.room.kind !== 'match' || this.selected !== view.room.id) throw new Error('請先加入並選取比賽房間。')
+    const fresh = () => ['complete', 'partial'].includes(view.room.syncState) && view.room.observedAt !== null && Date.now() - Date.parse(view.room.observedAt) < 10000
+    const refsFresh = () => view.room.referee === 'listed' && performance.now() - (this.refereeSeen.get(view) ?? -Infinity) < 60000
+    if (!fresh()) this.enqueue(view, 'settings')
+    if (!refsFresh()) this.enqueue(view, 'listrefs')
+    const deadline = performance.now() + 2 * this.timing.queryMs + 4 * this.timing.floodMs
+    while (view.pending || this.work.some(job => job.view === view) || Date.now() - this.lastQueryAt < this.timing.floodMs) {
+      if (generation !== this.generation || epoch !== view.room.epoch || this.views.get(view.room.id) !== view || this.selected !== view.room.id || this.connection !== 'online' || !view.room.joined) throw new Error('房間已切換或關閉，請確認目標後重新操作。')
+      if (performance.now() >= deadline) throw new Error('請先重新讀取完整房間設定。')
+      await new Promise(resolve => setTimeout(resolve, 20))
+    }
+    // Preview/execute still enforce intent-specific evidence and authorization.
+    if (generation !== this.generation || this.selected !== view.room.id || this.target(input) !== view) throw new Error('房間已切換或關閉，請確認目標後重新操作。')
   }
   private mpReady(view: RoomView, command = '', roomOnly = false) {
     this.ready(view)
@@ -601,7 +622,7 @@ export class IrcSession extends EventEmitter {
     this.lastQueryAt = Date.now(); this.clearFresh(view); view.room.syncState = 'stale'; view.room.referee = 'unknown'; this.refereeSeen.delete(view)
     this.note(view, masked, 'self', this.username, 'unconfirmed')
     try { this.send(`PRIVMSG ${view.room.channel} :${command}`) } catch (error) { this.operations.finish(id, 'unknown'); throw error }
-    finally { this.publish() }
+    finally { this.refreshAfter.set(view, Date.now() + this.timing.roomRefreshMs); this.publish() }
   }
   previewRoomPlan(input: unknown): RoomPlanPreview {
     this.roomPlanPreview = null
@@ -758,7 +779,7 @@ export class IrcSession extends EventEmitter {
     this.note(view, '房內操作已嘗試送出，結果未確認；請核對 BanchoBot 回覆，再讀取設定與裁判名單。不會自動重送。')
     try { this.send(`PRIVMSG ${view.room.channel} :${preview.command}`) }
     catch (error) { this.operations.finish(operationId, 'unknown'); throw error }
-    finally { this.publish() }
+    finally { this.refreshAfter.set(view, Date.now() + this.timing.roomRefreshMs); this.publish() }
   }
   relayBlocked(input: RoomTarget, text: string) { return !/^!mp (?:abort|aborttimer)$/.test(text) && this.operations.hasPending(this.target(input).room.id) }
   relayReady(input: RoomTarget, text?: string) {
@@ -822,7 +843,7 @@ export class IrcSession extends EventEmitter {
       this.mapPlan?.cancel(); this.roomPlan?.cancel(); this.mpPreview = null; this.lobbyPreview = null; this.profilePreview = null; this.roomPlanPreview = null
       this.operations.interrupt(view.room.id)
       this.emit('manual-command', {roomId:view.room.id, roomEpoch:view.room.epoch})
-      this.clearFresh(view); view.room.syncState = 'stale'; this.refreshAfter.set(view, 0)
+      this.clearFresh(view); view.room.syncState = 'stale'; this.refreshAfter.set(view, Date.now() + this.timing.roomRefreshMs)
     }
     onDispatch?.()
     this.send(`PRIVMSG ${view.room.channel} :${text}`); this.lastQueryAt = Date.now()
@@ -943,10 +964,19 @@ export class IrcSession extends EventEmitter {
       // through the shared bounded read queue, never replay a mutation.
       if (view.pending === 'settings') { view.collector = null; this.clearTimer(view); view.pending = null }
       this.settingsEvidence.delete(view); room.syncState = 'stale'
-      this.enqueue(view, 'settings'); this.publish(); return
+      this.refreshAfter.set(view, Date.now() + this.timing.roomRefreshMs); this.publish(); return
     }
     if (bot && view.pending !== 'settings' && room.startCountdown?.status === 'active' && /^(?:Beatmap changed|Changed (?:beatmap|match|team|win)|Active mods:|.+ (?:joined in slot|left the game|moved to slot|changed to))/.test(body)) {
       room.startCountdown = { ...room.startCountdown, status: 'unknown', deadline: null }; this.mpPreview = null
+    }
+    const roomChanged = bot && /^(?:Beatmap changed|Changed (?:beatmap|match|team|win)|.+ (?:joined in slot|left the game|moved to slot|changed to))/.test(body)
+    if (roomChanged && view.pending === 'settings') {
+      // A snapshot spanning a room mutation cannot prove current state. Discard it
+      // and coalesce one fresh read; ordinary settings lines never take this path.
+      view.collector = null; this.clearTimer(view); view.pending = null
+      this.settingsEvidence.delete(view); room.syncState = 'stale'
+      this.refreshAfter.set(view, Date.now() + this.timing.roomRefreshMs)
+      this.publish(); return
     }
     const observing = bot && view.pending === 'settings'
     const readingRefs = bot && view.pending === 'listrefs'
@@ -964,11 +994,11 @@ export class IrcSession extends EventEmitter {
       }
     }
     if (bot && !observing && !readingRefs && room.syncState !== 'unknown') room.syncState = 'stale'
-    if (bot && view.pending !== 'settings' && /^(?:Beatmap changed|Changed (?:beatmap|match|team|win)|Active mods:|.+ (?:joined in slot|left the game|moved to slot|changed to)|The match has (?:started|finished)|Aborted the match)/.test(body)) {
+    if (!observing && (roomChanged || bot && !readingRefs && /^Active mods:/.test(body))) {
       room.syncState = 'stale'
       if (body.startsWith('The match has started')) room.phase = 'playing'
       else if (/^(?:The match has finished|Aborted the match)/.test(body)) room.phase = 'idle'
-      else { if (/^(?:Beatmap changed|Changed beatmap)/.test(body)) { room.phase = 'unknown'; room.match = null }; if (room.kind === 'match' && room.joined) this.enqueue(view, 'settings') }
+      else { if (/^(?:Beatmap changed|Changed beatmap)/.test(body)) { room.phase = 'unknown'; room.match = null }; if (room.kind === 'match' && room.joined) this.refreshAfter.set(view, Date.now() + this.timing.roomRefreshMs) }
     }
     this.publish()
   }

@@ -11,8 +11,10 @@ async function until(check: () => boolean) {
 }
 async function fixture(timing: {roomRefreshMs?: number} = {}) {
   const sockets = new Set<net.Socket>(), sent: {line: string; time: number}[] = []
+  let peer: net.Socket
   let after: ((line: string) => void) | undefined
   const server = net.createServer(socket => {
+    peer = socket
     sockets.add(socket); socket.on('close', () => sockets.delete(socket))
     const parser = new Lines()
     socket.on('data', data => { for (const line of parser.feed(data)) {
@@ -30,7 +32,7 @@ async function fixture(timing: {roomRefreshMs?: number} = {}) {
   await until(() => session.state.connection === 'online')
   session.join('9')
   await until(() => Boolean(session.state.room?.joined && !session.state.pending))
-  return {session, sent, target: () => ({roomId:9, roomEpoch:session.state.rooms.find(r => r.id === 9)!.epoch}), onLine(fn: (line: string) => void) {after=fn}, async close() {session.logout(); for (const socket of sockets) socket.destroy(); await new Promise<void>(r => server.close(() => r()))}}
+  return {session, sent, peer: () => peer, target: () => ({roomId:9, roomEpoch:session.state.rooms.find(r => r.id === 9)!.epoch}), onLine(fn: (line: string) => void) {after=fn}, async close() {session.logout(); for (const socket of sockets) socket.destroy(); await new Promise<void>(r => server.close(() => r()))}}
 }
 
 test('chat commands and multiline drafts validate every line before creating any IRC frames', () => {
@@ -99,21 +101,30 @@ test('a transport failure consumes the attempted line as unknown and never retri
 })
 
 
-test('current room settings and refs refresh automatically, pause on another conversation and stop offline', async () => {
+test('room sync is triggered once by join and coalesced events, never by idle time or replies', async () => {
   const f=await fixture({roomRefreshMs:130})
   const count=()=>f.sent.filter(s=>s.line.endsWith(':!mp settings')).length
+  const settled=()=>f.session.state.room?.referee==='listed' && !f.session.state.pending
   try {
-    await until(()=>count()>=3 && f.session.state.room?.referee==='listed' && !f.session.state.pending)
-    f.session.openConversation({kind:'private',name:'Other'})
-    const before=count()
-    await new Promise(r=>setTimeout(r,350))
-    assert.equal(count(),before,'background room must not keep polling')
-    f.session.selectRoom(f.target())
-    await until(()=>count()>before)
-    f.session.suspend()
-    const stopped=count()
+    await until(()=>count()===1 && settled())
+    await new Promise(r=>setTimeout(r,500))
+    assert.equal(count(),1,'idle time and settings output must not re-arm a read')
+    f.peer().write(':Someone PRIVMSG #mp_9 :Player joined in slot 1\n')
     await new Promise(r=>setTimeout(r,250))
-    assert.equal(count(),stopped,'suspend must stop automatic reads')
+    assert.equal(count(),1,'untrusted chat cannot trigger reads')
+    f.peer().write(Array(10).fill(':BanchoBot PRIVMSG #mp_9 :Player joined in slot 1\n').join(''))
+    await until(()=>count()===2 && settled())
+    await new Promise(r=>setTimeout(r,400))
+    assert.equal(count(),2,'event burst causes one read, without a periodic tail')
+    f.session.openConversation({kind:'private',name:'Other'})
+    f.peer().write(':BanchoBot PRIVMSG #mp_9 :Player left the game\n')
+    await new Promise(r=>setTimeout(r,250))
+    assert.equal(count(),2,'background room must not send scheduled reads')
+    f.session.selectRoom(f.target())
+    await until(()=>count()===3 && settled())
+    f.session.suspend()
+    await new Promise(r=>setTimeout(r,250))
+    assert.equal(count(),3,'suspend stops scheduled reads')
   } finally {await f.close()}
 })
 
@@ -148,5 +159,54 @@ test('explicit reads queue behind shared flood control without dropping the requ
     assert.equal(f.sent.filter(s=>s.line.endsWith(':!mp settings')).length,1)
     assert.throws(()=>f.session.requestQuery({...f.target(),roomEpoch:-1,kind:'settings'}))
     assert.throws(()=>f.session.requestQuery({...f.target(),kind:'start'}))
+  } finally {await f.close()}
+})
+
+
+test('on-demand preview preparation shares reads and never refreshes an already fresh snapshot', async () => {
+  const f=await fixture({roomRefreshMs:130})
+  const count=()=>f.sent.filter(s=>s.line.endsWith(':!mp settings')).length
+  try {
+    await until(()=>count()===1 && f.session.state.room?.referee==='listed' && !f.session.state.pending)
+    f.session.state.room!.syncState='stale'
+    await Promise.all([f.session.prepareObservation(f.target()), f.session.prepareObservation(f.target())])
+    assert.equal(count(),2)
+    assert.ok(f.session.previewMp({...f.target(),intent:{kind:'map',beatmapId:'456'}}).token)
+    await f.session.prepareObservation(f.target())
+    assert.equal(count(),2)
+  } finally {await f.close()}
+})
+
+test('a missing settings response stops after one attempt and requires a new explicit demand', async () => {
+  const f=await fixture({roomRefreshMs:130})
+  try {
+    await until(()=>f.session.state.room?.referee==='listed' && !f.session.state.pending)
+    // Room 10 deliberately has no valid settings response from this room-9 fixture.
+    f.session.join('10')
+    await until(()=>f.sent.some(s=>s.line==='PRIVMSG #mp_10 :!mp settings'))
+    await until(()=>Boolean(f.session.state.error) && !f.session.state.pending)
+    await new Promise(r=>setTimeout(r,500))
+    assert.equal(f.sent.filter(s=>s.line==='PRIVMSG #mp_10 :!mp settings').length,1)
+    assert.notEqual(f.session.state.room?.syncState,'complete')
+  } finally {await f.close()}
+})
+
+
+test('room changes during a query discard the obsolete snapshot and coalesce a fresh read', async () => {
+  const f=await fixture({roomRefreshMs:130})
+  const count=()=>f.sent.filter(s=>s.line.endsWith(':!mp settings')).length
+  try {
+    await until(()=>count()===1 && f.session.state.room?.referee==='listed' && !f.session.state.pending)
+    // Server-side pause keeps the next settings request in flight.
+    f.peer().pause()
+    await f.session.prepareObservation(f.target())
+    f.session.requestQuery({...f.target(),kind:'settings'})
+    await until(()=>f.session.state.pending==='settings')
+    f.peer().write(':BanchoBot PRIVMSG #mp_9 :Player joined in slot 1\n')
+    await until(()=>f.session.state.room?.syncState==='stale' && !f.session.state.pending)
+    f.peer().resume()
+    await until(()=>count()===3 && f.session.state.room?.syncState==='complete' && !f.session.state.pending)
+    await new Promise(r=>setTimeout(r,400))
+    assert.equal(count(),3,'obsolete reply and fresh reply must not create a query loop')
   } finally {await f.close()}
 })

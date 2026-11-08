@@ -88,7 +88,14 @@ async function main() {
   await until(() => js('(async () => (await window.oclr.snapshot()).room?.joined)()'))
   await until(() => js('Boolean(document.querySelector(".mp-controls button"))'))
   await js('document.querySelector(".mp-controls").open = true')
-  assert.equal(await js('Array.from(document.querySelectorAll(".mp-controls button")).find(b => b.textContent === "預覽指令").disabled'), true)
+  await until(() => js('!Array.from(document.querySelectorAll(".mp-controls button")).find(b => b.textContent === "預覽指令").disabled'))
+  await js(`(() => {const e=document.querySelector('input[name=beatmapId]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'456');e.dispatchEvent(new Event('input',{bubbles:true}))})()`)
+  await js('Array.from(document.querySelectorAll(".mp-controls button")).find(b => b.textContent === "預覽指令").click()')
+  await until(() => js('Boolean(document.querySelector(".mp-confirm"))'))
+  assert.ok(sent.includes('PRIVMSG #mp_900000001 :!mp settings'))
+  assert.ok(sent.includes('PRIVMSG #mp_900000001 :!mp listrefs'))
+  assert.equal(sent.some(line => line === 'PRIVMSG #mp_900000001 :!mp map 456'), false, 'on-demand preview reads state without dispatching a mutation')
+  await js('Array.from(document.querySelectorAll(".mp-confirm button")).find(b => b.textContent === "取消").click()')
   async function refresh() {
     for (const kind of ['settings', 'listrefs']) {
       await delay(1100)
@@ -154,6 +161,7 @@ async function main() {
       fs.writeFileSync(path.join(output,'mp-confirm-synthetic.png'), (await capture()).toPNG())
     }
     await js('document.querySelector(".mp-confirm input[type=checkbox]").click()')
+    const readsBeforeExecution = sent.filter(line => line.endsWith(':!mp settings')).length
     await button('確認送出')
     await until(() => sent.includes('PRIVMSG #mp_900000001 :' + command))
     await until(() => js('!document.querySelector(".mp-confirm")'))
@@ -186,8 +194,8 @@ async function main() {
       await js('(async () => { const operation = (await window.oclr.snapshot()).operations.records.at(-1); return window.oclr.reviewOperation({id: operation.id, reviewed: true}) })()')
     }
     assert.equal(sent.filter(line => line === 'PRIVMSG #mp_900000001 :' + command).length, 1)
-    await until(() => js('Array.from(document.querySelectorAll(".mp-controls button")).find(b => b.textContent === "預覽指令")?.disabled'))
-    assert.equal((await js('window.oclr.snapshot()')).room.referee, 'unknown')
+    await until(() => sent.filter(line => line.endsWith(':!mp settings')).length > readsBeforeExecution)
+    await until(() => js('(async () => {const s=await window.oclr.snapshot();return !s.pending && s.room.referee === "listed"})()'))
   }
   await refresh(); await button('預覽指令')
   await until(() => js('Boolean(document.querySelector(".mp-confirm"))'))

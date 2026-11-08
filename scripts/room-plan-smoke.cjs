@@ -93,7 +93,7 @@ async function main() {
   await until(() => js('(async () => (await window.oclr.snapshot()).room?.joined)()'))
   await until(() => js('Boolean(document.querySelector(".mp-controls button"))'))
   await js('document.querySelector(".mp-controls").open = true')
-  assert.equal(await js('Array.from(document.querySelectorAll(".mp-controls button")).find(b => b.textContent === "預覽指令").disabled'), true)
+
   async function refresh() {
     for (const kind of ['settings', 'listrefs']) {
       await delay(1100)

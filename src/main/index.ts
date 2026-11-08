@@ -263,30 +263,30 @@ app.whenReady().then(() => {
   ipcMain.handle('irc:operation-review', (event, input: unknown) => action(event, () => irc.reviewOperation(input)))
   ipcMain.handle('irc:query', (event, value: unknown) => action(event, () => irc.requestQuery(value)))
   ipcMain.handle('irc:manual-pool-replace', (event, input: unknown) => action(event, () => irc.replaceManualPool(input)))
-  ipcMain.handle('irc:pool-entry-preview', (event, input: unknown) => {
+  ipcMain.handle('irc:pool-entry-preview', async (event, input: unknown) => {
     trusted(event)
-    try { return {ok:true, preview:irc.previewPoolEntry(input)} } catch (error) { return {ok:false, error:error instanceof Error ? error.message : '無法預覽圖池槽位。'} }
+    try { await irc.prepareObservation(input); return {ok:true, preview:irc.previewPoolEntry(input)} } catch (error) { return {ok:false, error:error instanceof Error ? error.message : '無法預覽圖池槽位。'} }
   })
-  ipcMain.handle('irc:room-plan-preview', (event, input: unknown) => {
+  ipcMain.handle('irc:room-plan-preview', async (event, input: unknown) => {
     trusted(event)
-    try { return {ok:true, preview:irc.previewRoomPlan(input)} } catch (error) { return {ok:false, error:error instanceof Error ? error.message : '無法預覽計畫。'} }
+    try { await irc.prepareObservation(input); return {ok:true, preview:irc.previewRoomPlan(input)} } catch (error) { return {ok:false, error:error instanceof Error ? error.message : '無法預覽計畫。'} }
   })
   ipcMain.handle('irc:room-plan-execute', (event, input: unknown) => action(event, () => irc.executeRoomPlan(input)))
   ipcMain.handle('irc:room-plan-cancel', (event, input: unknown) => action(event, () => irc.cancelRoomPlan(input)))
-  ipcMain.handle('irc:lobby-preview', (event, value: unknown) => {
+  ipcMain.handle('irc:lobby-preview', async (event, value: unknown) => {
     trusted(event)
-    try { return { ok: true, preview: irc.previewLobby(value) } } catch (error) { return { ok: false, error: error instanceof Error ? error.message : '無法預覽房間設定。' } }
+    try { await irc.prepareObservation(value); return { ok: true, preview: irc.previewLobby(value) } } catch (error) { return { ok: false, error: error instanceof Error ? error.message : '無法預覽房間設定。' } }
   })
   ipcMain.handle('irc:lobby-execute', (event, value: unknown) => action(event, () => irc.executeLobby(value)))
-  ipcMain.handle('irc:profile-preview', (event, value: unknown) => {
+  ipcMain.handle('irc:profile-preview', async (event, value: unknown) => {
     trusted(event)
-    try { return { ok: true, preview: irc.previewProfile(value) } } catch (error) { return { ok: false, error: error instanceof Error ? error.message : '無法預覽選圖計畫。' } }
+    try { await irc.prepareObservation(value); return { ok: true, preview: irc.previewProfile(value) } } catch (error) { return { ok: false, error: error instanceof Error ? error.message : '無法預覽選圖計畫。' } }
   })
   ipcMain.handle('irc:profile-execute', (event, value: unknown) => action(event, () => irc.executeProfile(value)))
   ipcMain.handle('irc:profile-cancel', (event, value: unknown) => action(event, () => irc.cancelProfile(value)))
-  ipcMain.handle('irc:mp-preview', (event, value: unknown) => {
+  ipcMain.handle('irc:mp-preview', async (event, value: unknown) => {
     trusted(event)
-    try { return { ok: true, preview: irc.previewMp(value) } }
+    try { await irc.prepareObservation(value); return { ok: true, preview: irc.previewMp(value) } }
     catch (error) { return { ok: false, error: error instanceof Error ? error.message : '無法預覽操作。' } }
   })
   ipcMain.handle('irc:mp-execute', (event, value: unknown) => action(event, () => irc.executeMp(value)))
