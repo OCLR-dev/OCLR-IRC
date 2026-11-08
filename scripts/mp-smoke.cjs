@@ -144,7 +144,7 @@ async function main() {
     await js(`Array.from(document.querySelectorAll('[role=option]')).find(e => e.textContent === ${JSON.stringify(labels[kind])}).click()`)
   }
   for (const [kind, command] of [['map','!mp map 456'],['mods','!mp mods HD HR'],['start','!mp start'],['abort','!mp abort'],['timer','!mp timer 30'],['aborttimer','!mp aborttimer'],['start','!mp start 30']]) {
-    // The previous operation already completes its settings/listrefs refresh
+    // The previous operation already completes its settings refresh
     // below; preview also refreshes stale observations on demand. Do not query
     // both again before every operation (including three fixed flood sleeps).
     await choose(kind)
@@ -199,6 +199,7 @@ async function main() {
     await until(() => sent.filter(line => line.endsWith(':!mp settings')).length > readsBeforeExecution)
     await until(() => js('(async () => {const s=await window.oclr.snapshot();return !s.pending && s.room.referee === "listed"})()'))
   }
+  assert.equal(sent.filter(line => line.endsWith(':!mp listrefs')).length, 1, 'all manual operations reuse initial referee discovery')
   await button('預覽指令')
   await until(() => js('Boolean(document.querySelector(".mp-confirm"))'))
   const withoutHeartbeats = () => sent.filter(line => !/^(?:PING|PONG) /.test(line))

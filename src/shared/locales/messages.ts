@@ -1003,9 +1003,9 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
     "zh-Hans": "房内操作",
     "en": "Room action"
   },
-  "房內操作已嘗試送出，結果未確認；請核對 BanchoBot 回覆，再讀取設定與裁判名單。不會自動重送。": {
-    "zh-Hans": "房内操作已尝试送出，结果未确认；请核对 BanchoBot 回复，再读取设置与裁判名单。不会自动重送。",
-    "en": "The action was attempted but its result is unconfirmed. Review BanchoBot replies, then query settings and referees. It will not be resent automatically."
+  "房內操作已嘗試送出，結果未確認；請核對 BanchoBot 回覆，再讀取設定。不會自動重送。": {
+    "zh-Hans": "房内操作已尝试送出，结果未确认；请核对 BanchoBot 回复，再读取设置。不会自动重送。",
+    "en": "The action was attempted but its result is unconfirmed. Review BanchoBot replies, then query settings. It will not be resent automatically."
   },
   "房內沒有玩家，不能開始比賽。": {
     "zh-Hans": "房内没有玩家，不能开始比赛。",

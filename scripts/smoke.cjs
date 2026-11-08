@@ -194,11 +194,11 @@ async function main() {
   assert.equal((await js('window.oclr.openMessageLink("https://unknown.invalid")')).ok, false)
   await delay(300)
   fs.writeFileSync(path.join(output, 'workspace-chat-synthetic.png'), (await capture()).toPNG())
-  // The earlier manual !mp map schedules one settings/listrefs refresh. Finish
+  // The earlier manual !mp map schedules one settings refresh. Finish
   // that interaction before testing history scrolling: its inspector updates
   // change the viewport height and its replies append additional chat rows.
   const mapDispatch = sent.lastIndexOf('PRIVMSG #mp_900000001 :!mp map 3645174 0')
-  await until(async () => sent.slice(mapDispatch + 1).includes('PRIVMSG #mp_900000001 :!mp listrefs') &&
+  await until(async () => sent.slice(mapDispatch + 1).includes('PRIVMSG #mp_900000001 :!mp settings') &&
     await js('(async () => {const s=await window.oclr.snapshot();return !s.pending && s.room.syncState === "complete" && s.room.referee === "listed"})()'), 120)
   peer.write(Array.from({ length: 1200 }, (_, i) => `:Player PRIVMSG #mp_900000001 :SYNTHETIC row ${i}\n`).join(''))
   await until(() => js('(async () => (await window.oclr.snapshot()).messages.some(m=>m.text === "SYNTHETIC row 1199"))()'))

@@ -82,7 +82,7 @@ export class IrcSession extends EventEmitter {
   private durationLookup: (id: number) => Promise<number | null>
   private durationRequests = new WeakMap<RoomView, string>()
   private settingsEvidence = new WeakMap<RoomView, ReturnType<SettingsCollector['observations']>>()
-  private refereeSeen = new WeakMap<RoomView, number>()
+  private refereeRequested = new WeakSet<RoomView>()
   private creationJoins = new Set<string>()
   private creationTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -167,7 +167,7 @@ export class IrcSession extends EventEmitter {
     for (const view of this.views.values()) {
       this.clearTimer(view); view.pending = null; view.collector = null; view.refsHeader = false
       view.joinSent = false; view.needsSync = true; view.room.epoch = ++this.roomEpoch; view.room.joined = false
-      view.room.binding = 'unknown'; view.room.referee = 'unknown'
+      view.room.binding = 'unknown'; view.room.referee = 'unknown'; this.refereeRequested.delete(view)
       Object.assign(view.room, blankObservation(), { syncState: 'stale', name: null, mode: null, players: null, members: [] })
     }
   }
@@ -504,7 +504,8 @@ export class IrcSession extends EventEmitter {
     if (due === undefined || Date.now() < due || Date.now() - this.lastQueryAt < this.timing.floodMs) return
     // Consume the trigger before sending. Replies, expiry and timeouts never re-arm it.
     this.refreshAfter.delete(view)
-    this.enqueue(view, 'settings', true); this.enqueue(view, 'listrefs', true)
+    this.enqueue(view, 'settings', true)
+    if (!this.refereeRequested.has(view)) this.enqueue(view, 'listrefs', true)
   }
   private ready(view: RoomView) {
     if (this.connection !== 'online' || !view.room.joined) throw new Error('請先加入可用的比賽房間。')
@@ -522,7 +523,7 @@ export class IrcSession extends EventEmitter {
     this.work = this.work.filter(job => !(job.view === view && job.kind === kind))
     view.pending = kind; view.error = null; view.refsHeader = false
     if (kind === 'settings') { this.settingsEvidence.delete(view); this.clearFresh(view); view.collector = new SettingsCollector(view.room.id, this.generation); Object.assign(view.room, blankObservation(), { syncState: 'loading', phase: view.room.phase, match: view.room.match, duration: view.room.duration, timer: view.room.timer, startCountdown: view.room.startCountdown }); view.room.binding = 'unknown'; view.room.name = null; view.room.mode = null; view.room.players = null }
-    else { view.room.referee = 'unknown'; this.refereeSeen.delete(view) }
+    else { view.room.referee = 'unknown'; this.refereeRequested.add(view) }
     this.note(view, `!mp ${kind}`, 'self', this.username)
     this.timeout(view, '尚未收到完整回覆；請稍後重新查詢，不代表沒有權限。'); this.publish()
   }
@@ -540,9 +541,8 @@ export class IrcSession extends EventEmitter {
     const view = this.target(input), epoch = view.room.epoch, generation = this.generation
     if (this.connection !== 'online' || !view.room.joined || view.room.kind !== 'match' || this.selected !== view.room.id) throw new Error('請先加入並選取比賽房間。')
     const fresh = () => ['complete', 'partial'].includes(view.room.syncState) && view.room.observedAt !== null && Date.now() - Date.parse(view.room.observedAt) < 10000
-    const refsFresh = () => view.room.referee === 'listed' && performance.now() - (this.refereeSeen.get(view) ?? -Infinity) < 60000
     if (!fresh()) this.enqueue(view, 'settings')
-    if (!refsFresh()) this.enqueue(view, 'listrefs')
+    if (!this.refereeRequested.has(view)) this.enqueue(view, 'listrefs')
     const deadline = performance.now() + 2 * this.timing.queryMs + 4 * this.timing.floodMs
     while (view.pending || this.work.some(job => job.view === view) || Date.now() - this.lastQueryAt < this.timing.floodMs) {
       if (generation !== this.generation || epoch !== view.room.epoch || this.views.get(view.room.id) !== view || this.selected !== view.room.id || this.connection !== 'online' || !view.room.joined) throw new Error('房間已切換或關閉，請確認目標後重新操作。')
@@ -572,7 +572,7 @@ export class IrcSession extends EventEmitter {
       field.knowledge === 'known' && field.connectionGeneration === this.generation && field.roomEpoch === room.epoch &&
       Number.isFinite(Date.parse(field.observedAt)) && Date.now() >= Date.parse(field.observedAt) && Date.now() - Date.parse(field.observedAt) < 10000
     )) throw new Error('房間觀測已失效，請重新讀取設定。')
-    if (room.referee !== 'listed' || performance.now() - (this.refereeSeen.get(view) ?? -Infinity) >= 60000) throw new Error('請先重新讀取裁判名單，確認你的裁判權限。')
+    if (room.referee !== 'listed') throw new Error('請先重新讀取裁判名單，確認你的裁判權限。')
   }
   private mpFingerprint(room: Room) {
     const { timer: _timer, startCountdown, ...rest } = room
@@ -619,7 +619,7 @@ export class IrcSession extends EventEmitter {
     const command = source === 'oclr' ? preview.command : lobbyCommand(preview.intent, value.password), masked = source === 'oclr' ? preview.command : lobbyCommand(preview.intent)
     if (Buffer.byteLength(`PRIVMSG ${view.room.channel} :${command}`, 'utf8') > 510) throw new Error('房間設定過長。')
     const id = this.operations.begin(source, preview.intent.kind, view.room.id, view.room.epoch, this.generation, masked)
-    this.lastQueryAt = Date.now(); this.clearFresh(view); view.room.syncState = 'stale'; view.room.referee = 'unknown'; this.refereeSeen.delete(view)
+    this.lastQueryAt = Date.now(); this.clearFresh(view); view.room.syncState = 'stale'
     this.note(view, masked, 'self', this.username, 'unconfirmed')
     try { this.send(`PRIVMSG ${view.room.channel} :${command}`) } catch (error) { this.operations.finish(id, 'unknown'); throw error }
     finally { this.refreshAfter.set(view, Date.now() + this.timing.roomRefreshMs); this.publish() }
@@ -661,7 +661,7 @@ export class IrcSession extends EventEmitter {
         this.lastQueryAt = Date.now(); this.clearFresh(view); view.room.syncState = 'stale'
         const command = definition.steps[index].command
         this.note(view, command, 'self', this.username, 'unconfirmed'); this.send(`PRIVMSG ${view.room.channel} :${command}`)
-        this.enqueue(view, 'settings'); this.enqueue(view, 'listrefs')
+        this.enqueue(view, 'settings')
       },
       observe: index => {
         if (!valid()) return 'invalid'
@@ -732,7 +732,7 @@ export class IrcSession extends EventEmitter {
         this.lastQueryAt = Date.now(); this.clearFresh(view); view.room.syncState = 'stale'
         this.note(view, commands[index], 'self', this.username, 'unconfirmed')
         this.send(`PRIVMSG ${view.room.channel} :${commands[index]}`)
-        this.enqueue(view, 'settings'); this.enqueue(view, 'listrefs')
+        this.enqueue(view, 'settings')
       },
       observe: index => {
         if (!scope()) return 'invalid'
@@ -770,13 +770,13 @@ export class IrcSession extends EventEmitter {
     if (/^!mp (?:abort|aborttimer)$/.test(preview.command)) { this.mapPlan?.cancel(); this.roomPlan?.cancel() }
     const operationId = this.operations.begin('manual', preview.command.split(' ')[1], view.room.id, view.room.epoch, this.generation, preview.command)
     this.clearFresh(view)
-    view.room.syncState = 'stale'; view.room.referee = 'unknown'; this.refereeSeen.delete(view)
+    view.room.syncState = 'stale'
     this.lastQueryAt = Date.now()
     if (preview.command === '!mp aborttimer') {
       for (const key of ['timer', 'startCountdown'] as const) if (view.room[key]) view.room[key] = { ...view.room[key]!, status: 'unknown', deadline: null }
     }
     this.note(view, preview.command, 'self', this.username, 'unconfirmed')
-    this.note(view, '房內操作已嘗試送出，結果未確認；請核對 BanchoBot 回覆，再讀取設定與裁判名單。不會自動重送。')
+    this.note(view, '房內操作已嘗試送出，結果未確認；請核對 BanchoBot 回覆，再讀取設定。不會自動重送。')
     try { this.send(`PRIVMSG ${view.room.channel} :${preview.command}`) }
     catch (error) { this.operations.finish(operationId, 'unknown'); throw error }
     finally { this.refreshAfter.set(view, Date.now() + this.timing.roomRefreshMs); this.publish() }
@@ -791,7 +791,8 @@ export class IrcSession extends EventEmitter {
   relayRefresh(input: RoomTarget) {
     const view = this.target(input)
     if (this.connection !== 'online' || !view.room.joined || view.room.kind !== 'match' || this.selected !== view.room.id) throw new Error('請先加入並選取比賽房間。')
-    this.enqueue(view, 'settings'); this.enqueue(view, 'listrefs')
+    this.enqueue(view, 'settings')
+    if (!this.refereeRequested.has(view)) this.enqueue(view, 'listrefs')
   }
   relaySend(input: RoomTarget & { text: string }, onDispatch?: () => void) {
     const view = this.target(input)
@@ -807,7 +808,7 @@ export class IrcSession extends EventEmitter {
     onDispatch?.()
     try { this.send(`PRIVMSG ${view.room.channel} :${text}`) }
     catch (error) { this.operations.finish(operationId, 'unknown'); throw error }
-    finally { this.enqueue(view, 'settings'); this.enqueue(view, 'listrefs'); this.publish() }
+    finally { this.enqueue(view, 'settings'); this.publish() }
   }
   relayNoticeReady(input: RoomTarget) {
     try {
@@ -886,7 +887,7 @@ export class IrcSession extends EventEmitter {
     this.operations.interrupt(view.room.id)
     this.clearFresh(view); this.clearTimer(view); view.restore = false; view.collector = null; view.refsHeader = false; view.pending = null
     Object.assign(view.room, blankObservation())
-    view.room.joined = false; view.room.binding = 'unknown'; view.room.referee = 'unknown'
+    view.room.joined = false; view.room.binding = 'unknown'; view.room.referee = 'unknown'; this.refereeRequested.delete(view)
     view.room.name = null; view.room.mode = null; view.room.players = null
     view.error = message; this.note(view, message); this.publish()
   }
@@ -990,7 +991,7 @@ export class IrcSession extends EventEmitter {
       const names = header ? header[1].split(',') : view.refsHeader ? [body] : []
       this.operations.observeRoom(room.id, room.epoch, this.generation, {referees:names.filter(name => /^[A-Za-z0-9_\[\] -]{1,50}$/.test(name.trim()))})
       if (names.some(name => normalize(name.trim()) === normalize(this.username))) {
-        this.refereeSeen.set(view, performance.now()); room.referee = 'listed'; this.clearTimer(view); view.pending = null; view.refsHeader = false
+        room.referee = 'listed'; this.clearTimer(view); view.pending = null; view.refsHeader = false
       }
     }
     if (bot && !observing && !readingRefs && room.syncState !== 'unknown') room.syncState = 'stale'
