@@ -144,7 +144,9 @@ async function main() {
     await js(`Array.from(document.querySelectorAll('[role=option]')).find(e => e.textContent === ${JSON.stringify(labels[kind])}).click()`)
   }
   for (const [kind, command] of [['map','!mp map 456'],['mods','!mp mods HD HR'],['start','!mp start'],['abort','!mp abort'],['timer','!mp timer 30'],['aborttimer','!mp aborttimer'],['start','!mp start 30']]) {
-    await refresh()
+    // The previous operation already completes its settings/listrefs refresh
+    // below; preview also refreshes stale observations on demand. Do not query
+    // both again before every operation (including three fixed flood sleeps).
     await choose(kind)
     if (kind === 'map') await js(`(() => {const e=document.querySelector('input[name=beatmapId]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'456');e.dispatchEvent(new Event('input',{bubbles:true}))})()`)
     if (command === '!mp start 30') await js('document.querySelector(".mp-controls fieldset input[type=checkbox]").click()')
@@ -197,7 +199,7 @@ async function main() {
     await until(() => sent.filter(line => line.endsWith(':!mp settings')).length > readsBeforeExecution)
     await until(() => js('(async () => {const s=await window.oclr.snapshot();return !s.pending && s.room.referee === "listed"})()'))
   }
-  await refresh(); await button('預覽指令')
+  await button('預覽指令')
   await until(() => js('Boolean(document.querySelector(".mp-confirm"))'))
   const withoutHeartbeats = () => sent.filter(line => !/^(?:PING|PONG) /.test(line))
   const beforeCancel = withoutHeartbeats()
