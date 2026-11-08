@@ -26,6 +26,11 @@ export function publicOclrError(error: unknown): string {
     SESSION_EXPIRED: 'OCLR 授權已過期，請重新登入。', SESSION_REVOKED: 'OCLR 授權已撤銷，請重新登入。',
     COLLECTION_CHANGED: '場次列表已變更，請重新整理。',
     RELAY_ALREADY_ACTIVE: '網站投影已啟用，請先停止。',
+    RELAY_ACCOUNT_REQUIRED: '請先連接 IRC 與 OCLR，並使用相同 osu! 帳號。',
+    RELAY_FIXTURE_REQUIRED: '請先選擇 OCLR 場次，再連接網站 IRC。',
+    RELAY_PANEL_NOT_READY: '場次面板尚未取得有效資料，請重新整理場次後再連接。',
+    RELAY_CREATION_REVIEW_REQUIRED: '有既有或未確認的開房記錄。請先核對 BanchoBot 訊息與既有房間，再連接網站 IRC；不會重複開房。',
+    RELAY_ROOM_NOT_READY: '請在 IRC 選取已加入的比賽房間，並讀取完整設定與裁判名單後再連接。',
     RELAY_LOCAL_NOT_READY: '請先登入相同 osu! 帳號，選擇 OCLR 場次，並在 IRC 加入房間、讀取設定與裁判名單。',
     CANCELLED: '操作已取消。',
     SERVICE_UNAVAILABLE: '無法確認 OCLR 回應，請稍後重試；若正在登入或更新憑證，需重新授權。'

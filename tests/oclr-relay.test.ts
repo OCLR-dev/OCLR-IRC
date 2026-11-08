@@ -499,3 +499,67 @@ test('a typed room mutation ends website reply correlation without replay or fal
     assert.ok(f.relay.localBinding({roomId:123,roomEpoch:1}))
   } finally {await f.relay.stop()}
 })
+
+test('pre-creation relay accepts ordinary chats and only creates on an explicit website command', async () => {
+  for (const kind of ['private', 'channel']) {
+    const f = harness(); const creates: unknown[] = []
+    f.irc.state.room = {...f.irc.state.room, id: -1, kind} as any
+    ;(f.irc as any).createWebsiteRoom = (input: unknown, dispatch: () => void) => { dispatch(); creates.push(input); f.irc.state.creation.status = 'awaiting' }
+    try {
+      await f.relay.start()
+      assert.equal(f.requests[0].roomId, 0)
+      assert.equal(creates.length, 0)
+      f.command({id: id(190), text: '!mp make Synthetic room', target: 'BanchoBot'})
+      await until(() => creates.length === 1)
+      assert.equal(f.writes.length, 0)
+    } finally { await f.relay.stop() }
+  }
+})
+
+test('pre-creation relay refreshes an expired panel once without asking for a nonexistent room', async () => {
+  const f = harness(); f.irc.state.room = null as any; f.oclr.state.panelState = 'stale'
+  let reads = 0
+  ;(f.oclr as any).readPanel = async () => { reads++; f.oclr.state.panelState = 'fresh' }
+  try {
+    await f.relay.start()
+    assert.equal(reads, 1)
+    assert.equal(f.requests[0].roomId, 0)
+    assert.equal(f.oclr.state.relay.status, 'connected')
+    assert.equal(f.writes.length, 0)
+  } finally { await f.relay.stop() }
+})
+
+test('refreshing before relay bind rejects duplicate starts and cancelled or changed identities', async () => {
+  for (const change of ['stop', 'fixture', 'irc-session', 'website-session', 'room']) {
+    const f = harness(); f.irc.state.room = null as any; f.oclr.state.panelState = 'stale'
+    let release!: () => void
+    ;(f.oclr as any).readPanel = async () => { await new Promise<void>(resolve => {release = resolve}); f.oclr.state.panelState = 'fresh' }
+    try {
+      const starting = f.relay.start()
+      await assert.rejects(f.relay.start(), {code: 'RELAY_ALREADY_ACTIVE'})
+      if (change === 'stop') await f.relay.stop()
+      if (change === 'fixture') f.oclr.state.selectedFixtureId = id(102)
+      if (change === 'irc-session') f.irc.sessionGeneration++
+      if (change === 'website-session') f.oclr.sessionGeneration++
+      if (change === 'room') f.irc.state.room = {id: 456, epoch: 2} as any
+      release()
+      await assert.rejects(starting, {code: 'CANCELLED'})
+      assert.equal(f.requests.length, 0)
+    } finally { await f.relay.stop() }
+  }
+})
+
+test('pre-creation relay retains recovery locks and distinguishes unavailable panel and hidden match tabs', async () => {
+  for (const reason of ['record', 'unknown', 'blocked', 'panel', 'hidden-room']) {
+    const f = harness(); f.irc.state.room = null as any
+    if (reason === 'record') f.irc.state.creation.roomId = 456 as any
+    if (reason === 'unknown' || reason === 'blocked') f.irc.state.creation.status = reason
+    if (reason === 'panel') {f.oclr.state.panelState = 'stale'; (f.oclr as any).readPanel = async () => {}}
+    if (reason === 'hidden-room') (f.irc.state as any).rooms = [{channel: '#mp_456', joined: true}]
+    try {
+      await assert.rejects(f.relay.start(), {code: reason === 'panel' ? 'RELAY_PANEL_NOT_READY' : reason === 'hidden-room' ? 'RELAY_ROOM_NOT_READY' : 'RELAY_CREATION_REVIEW_REQUIRED'})
+      assert.equal(f.requests.length, 0)
+      assert.equal(f.writes.length, 0)
+    } finally { await f.relay.stop() }
+  }
+})

@@ -21,7 +21,7 @@
 ## 執行邊界
 
 - Main 僅接受四種結構化 intent；驗證正整數 safe beatmap ID、固定 Mods 清單、去重及互斥組合（EZ／HR、DT／HT／NC、NF／SD／PF）。renderer 不能指定原始 IRC 命令或目標 channel。
-- Main 重新核對目前選取的 match room、epoch、在線及 joined 狀態、History 相符、完整且未滿 10 秒的 settings、60 秒內成功查到本人的 listrefs，並共用既有節流。
+- Main 重新核對目前選取的 match room、epoch、在線及 joined 狀態、History 相符、完整且未滿 10 秒的 settings、本次房間連線成功查到本人的 listrefs（離房／斷線失效，不按時間或操作重查），並共用既有節流。
 - 非 abort 操作阻擋已觀測到 playing 的房間；start 阻擋空房。settings 不能完整證明即時遊戲階段，因此未知狀態仍需裁判人工核對，不宣稱自動檢查出賽名單或比賽政策。
 - Main 一次只保留一個預覽，綁定房間物件、完整房間快照、隨機 token 和 10 秒單調時鐘期限。執行仍受 settings 較早的到期限制。
 - 每次執行嘗試先消耗 token，再驗證與寫入；雙擊、舊 token、錯誤 epoch、未確認、狀態改變或斷線都不能重用。同時建立新預覽會取代舊預覽；切換房間或斷線清除預覽。
@@ -85,3 +85,5 @@ Main 從固定官方 `https://osu.ppy.sh/osu/{beatmapId}` 讀取公開譜面（�
 合成測試比較：在原測試 130 ms 週期下，原本閒置會累積至少三次 settings；現在加入一次後經多個週期仍維持一次，十個可信事件合併成一次額外查詢，回覆沒有週期尾隨。另覆蓋按需查詢共享、逾時停止、切房、離線及既有重連／操作測試。真實 Bancho、正式部署及版本發布另行驗收。
 
 本次驗證使用 Node 24.22.2：`npm run typecheck`、244 項核心測試（46.96 秒）、完整 `npm run test:ui`（含 build）及 `npm audit --omit=dev` 通過，執行依賴 0 項漏洞。煙霧測試將舊「未查詢時預覽必須停用／操作後永遠 unknown」斷言改為按需預覽只讀與操作後一次同步；房間計畫移除重複的預覽停用斷言，原有確認／執行邊界仍有覆蓋。查詢按鈕測試等待實際送出，不以舊畫面已顯示 History 判定新查詢完成。
+
+2026-11-09（#131）：每次加入／重連比賽房間自動 listrefs 一次。手動、網站 relay、選圖／房間計畫與按需預覽只補 settings；不因操作或 60 秒經過清除已核對的裁判狀態。查詢失敗不自動循環，手動重讀仍保留。

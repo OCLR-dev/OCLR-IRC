@@ -1,4 +1,4 @@
-import test from 'node:test'
+import test, { mock } from 'node:test'
 import assert from 'node:assert/strict'
 import net from 'node:net'
 import { IrcSession } from '../src/main/irc.ts'
@@ -125,6 +125,7 @@ test('room sync is triggered once by join and coalesced events, never by idle ti
     f.session.suspend()
     await new Promise(r=>setTimeout(r,250))
     assert.equal(count(),3,'suspend stops scheduled reads')
+    assert.equal(f.sent.filter(s=>s.line.endsWith(':!mp listrefs')).length,1,'room changes never repeat referee discovery')
   } finally {await f.close()}
 })
 
@@ -208,5 +209,32 @@ test('room changes during a query discard the obsolete snapshot and coalesce a f
     await until(()=>count()===3 && f.session.state.room?.syncState==='complete' && !f.session.state.pending)
     await new Promise(r=>setTimeout(r,400))
     assert.equal(count(),3,'obsolete reply and fresh reply must not create a query loop')
+  } finally {await f.close()}
+})
+
+
+test('referee discovery survives operations and time; settings refreshes never repeat listrefs', async () => {
+  const f=await fixture({roomRefreshMs:130})
+  const count=(kind:string)=>f.sent.filter(s=>s.line.endsWith(':!mp '+kind)).length
+  try {
+    await until(()=>count('listrefs')===1 && f.session.state.room?.referee==='listed' && !f.session.state.pending)
+    await until(()=>f.session.relayReady(f.target(),'!mp timer 30'))
+    const now=performance.now.bind(performance)
+    const clock=mock.method(performance,'now',()=>now()+61000)
+    try {
+      await f.session.prepareObservation(f.target())
+      assert.equal(count('listrefs'),1,'elapsed time does not invalidate room-scoped referee discovery')
+      f.session.relaySend({...f.target(),text:'!mp timer 30'})
+      await until(()=>count('settings')===2 && f.session.state.room?.syncState==='complete' && !f.session.state.pending)
+      assert.equal(f.session.state.room?.referee,'listed')
+      assert.equal(count('listrefs'),1,'relay mutation only refreshes settings')
+      f.session.state.room!.syncState='stale'
+      await f.session.prepareObservation(f.target())
+      assert.equal(count('listrefs'),1,'on-demand reads only refresh settings')
+    } finally {clock.mock.restore()}
+    f.session.requestQuery({...f.target(),kind:'listrefs'})
+    await until(()=>count('listrefs')===2 && f.session.state.room?.referee==='listed' && !f.session.state.pending)
+    f.session.suspend()
+    assert.equal(f.session.state.room?.referee,'unknown','disconnect clears room-scoped referee discovery')
   } finally {await f.close()}
 })

@@ -67,7 +67,7 @@ test('four manual commands require scoped one-use preview and explicit confirmat
       f.session.executeMp({ ...f.target(), token: preview.token, reviewed: true, command: '!mp close' })
       await until(() => f.sent.includes(`PRIVMSG #mp_9 :${preview.command}`))
       assert.equal(f.session.state.room?.syncState, 'stale')
-      assert.equal(f.session.state.room?.referee, 'unknown')
+      assert.equal(f.session.state.room?.referee, 'listed')
       assert.ok(f.session.state.messages.some(m => m.text === preview.command && m.delivery === 'unconfirmed'))
       assert.throws(() => f.session.executeMp({ ...f.target(), token: preview.token, reviewed: true }))
       assert.throws(() => f.session.previewMp({ ...f.target(), intent }))
