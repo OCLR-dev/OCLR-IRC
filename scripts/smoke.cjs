@@ -110,6 +110,9 @@ async function main() {
   await fill('.join-form input', '900000001')
   await js('document.querySelector(".join-form button[type=submit]").click()')
   await until(() => js('!document.querySelector(".query-actions button").disabled'))
+  // Joining schedules settings and referees asynchronously. Wait for both replies
+  // before testing keyboard focus: a pending query re-renders the busy buttons.
+  await until(() => js('window.oclr.snapshot().then(s => s.room?.referee === "listed" && s.room?.syncState === "complete" && !s.pending)'))
   assert.deepEqual(await js('Array.from(document.querySelectorAll(".query-actions button")).map(b => [b.getAttribute("aria-label"), b.textContent.trim(), Boolean(b.querySelector("svg"))])'), [['讀取設定', '', true], ['裁判名單', '', true]])
   const queryIcons = () => js('Array.from(document.querySelectorAll(".query-actions button svg")).map(svg => svg.innerHTML)')
   const idleQueryIcons = await queryIcons()
@@ -120,7 +123,6 @@ async function main() {
   await until(() => js('document.activeElement?.getAttribute("aria-label") === "裁判名單" && document.querySelector("[role=tooltip]")?.textContent === "裁判名單"')).catch(async error => {console.error(await js('JSON.stringify({active:document.activeElement?.outerHTML,tooltips:Array.from(document.querySelectorAll("[role=tooltip]")).map(e=>e.textContent),focus:document.hasFocus(),buttons:Array.from(document.querySelectorAll(".query-actions button")).map(e=>({label:e.ariaLabel,disabled:e.disabled}))})'));throw error})
   pressKey('Tab', ['shift'])
   await until(() => js('document.activeElement?.getAttribute("aria-label") === "讀取設定" && document.querySelector("[role=tooltip]")?.textContent === "讀取設定"'))
-  await delay(1100)
   const beforeSettings = sent.length
   pressKey('Return')
   await until(() => sent.slice(beforeSettings).includes('PRIVMSG #mp_900000001 :!mp settings'))
@@ -138,8 +140,8 @@ async function main() {
   await until(() => js('document.activeElement?.getAttribute("aria-label") === "裁判名單" && document.querySelector("[role=tooltip]")?.textContent === "裁判名單"')).catch(async error => {console.error(await js('JSON.stringify({active:document.activeElement?.outerHTML,tooltips:Array.from(document.querySelectorAll("[role=tooltip]")).map(e=>e.textContent),focus:document.hasFocus(),buttons:Array.from(document.querySelectorAll(".query-actions button")).map(e=>({label:e.ariaLabel,disabled:e.disabled}))})'));throw error})
   const beforeRefs = sent.length
   pressKey('Return')
+  await until(() => sent.slice(beforeRefs).includes('PRIVMSG #mp_900000001 :!mp listrefs'))
   await until(() => js('document.body.textContent.includes("已列於裁判名單")'))
-  assert.ok(sent.slice(beforeRefs).includes('PRIVMSG #mp_900000001 :!mp listrefs'))
   await delay(1100)
   await fill('[name=chat]', '中文輸入測試')
   const beforeIME = sent.length
