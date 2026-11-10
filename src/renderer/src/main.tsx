@@ -67,12 +67,14 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   const [saved, setSaved] = useState({ available: false, saved: false })
   const [busy, setBusy] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
-  const [joinOpen, setJoinOpen] = useState(false)
+  const [joinMode, setJoinMode] = useState<'match' | 'conversation' | null>(null)
   const [toolsOpen, setToolsOpen] = useState(true)
   const [toolTab, setToolTab] = useState<string | number>('actions')
   const [toolWidth, setToolWidth] = useState(320)
   const desktop = Boolean(window.oclr)
   const online = state.connection === 'online'
+  const canOpenCreation = online && (state.rooms.length < 8 || state.creation.status === 'awaiting')
+  const joinKind = joinMode === 'match' ? 'match' : conversationKind
   const connecting = (state.connection === 'connecting' || state.connection === 'reconnecting')
   useEffect(() => {
     if (!window.oclr) return
@@ -93,12 +95,17 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     catch { setFormError('無法連接桌面服務，請重新開啟應用程式。') }
     finally { setBusy(false) }
   }
-  async function join(event: React.FormEvent) {
-    event.preventDefault()
-    if (!window.oclr || busy) return
+  function openJoin(mode: 'match' | 'conversation') {
+    setRoom(''); setFormError(null); setJoinMode(mode)
+  }
+  async function join(kind: typeof conversationKind, target: string) {
+    if (!window.oclr || !online || busy) return
     setFormError(null); setBusy(true)
-    try { const result = await (conversationKind === 'match' ? window.oclr.join(room) : window.oclr.openConversation({ kind: conversationKind, name: room })); if (!result.ok) setFormError(result.error || '未能加入房間。'); else setJoinOpen(false) }
-    catch { setFormError('桌面服務無法回應。') }
+    try {
+      const result = await (kind === 'match' ? window.oclr.join(target) : window.oclr.openConversation({ kind, name: target }))
+      if (!result.ok) setFormError(result.error || '未能加入房間。')
+      else { setJoinMode(null); setPage('room') }
+    } catch { setFormError('桌面服務無法回應。') }
     finally { setBusy(false) }
   }
   async function query(kind: 'settings' | 'listrefs') {
@@ -113,7 +120,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     try { const result = await window.oclr[kind]({ roomId: id, roomEpoch: epoch }); if (!result.ok) setFormError(result.error || '房間操作未完成。') }
     catch { setFormError('桌面服務無法回應。') }
   }
-  async function logout() { setPassword(''); setRemember(false); setCreateOpen(false); setJoinOpen(false); setFormError(null); setPage('workbench'); await window.oclr?.logout(); if (window.oclr) setSaved(await window.oclr.credentialStatus()) }
+  async function logout() { setPassword(''); setRemember(false); setCreateOpen(false); setJoinMode(null); setFormError(null); setPage('workbench'); await window.oclr?.logout(); if (window.oclr) setSaved(await window.oclr.credentialStatus()) }
   const error = formError || state.error || state.credentialError
   const ircAccount = <section className="login-section">
             <div className="workbench-account-heading"><h2>osu! IRC</h2><span className="oclr-hint">{tr(statusText[state.connection])}</span></div>
@@ -158,17 +165,40 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           {!['loading', 'authorizing', 'ready'].includes(launch.status) && <Button onPress={() => { if (!online) setPage('workbench'); else { setPage('workbench'); void window.oclr?.websiteLaunch.continue(launch.requestId).catch(() => setFormError('桌面服務無法回應。')) } }}>{online ? tr("繼續連接") : tr("連接 osu! IRC")}</Button>}
           <Button variant="ghost" onPress={() => void window.oclr?.websiteLaunch.clear()}>{tr("關閉")}</Button>
         </section>}
-        {page === 'settings' ? <SettingsView settings={settings} onChange={applySettings} /> : page === 'records' ? <RecordsView key={state.username} state={state} tab={recordsTab} onTabChange={setRecordsTab} /> : page === 'workbench' ? <OclrView account={ircAccount} /> : <div className={`room-view enter ${toolsOpen && state.room ? 'tools-visible' : ''}`} style={{ '--tool-width': `${toolWidth}px` } as React.CSSProperties}><div className="room-main">
+        <Modal isOpen={joinMode !== null} onOpenChange={open => { if (!open) setJoinMode(null) }}>
+          <Modal.Backdrop><Modal.Container size="sm"><Modal.Dialog aria-label={tr("加入房間")}>
+            <Modal.Header><Modal.Heading>{tr("加入房間")}</Modal.Heading><Modal.CloseTrigger aria-label={tr("關閉")} /></Modal.Header>
+            <Modal.Body>
+              <form className="join-form" onSubmit={event => { event.preventDefault(); void join(joinKind, room) }}>
+                {joinMode === 'conversation' && <WorkspaceSelect label={tr("對話類型")} value={conversationKind} onChange={value => setConversationKind(value as typeof conversationKind)} options={[{ value: 'match', label: tr("比賽房間") }, { value: 'channel', label: tr("IRC 頻道") }, { value: 'private', label: tr("私訊") }]} />}
+                <TextField aria-label={joinKind === 'match' ? tr("MP 編號或比賽連結") : joinKind === 'channel' ? tr("IRC 頻道名稱") : tr("私訊對象名稱")} value={room} onChange={setRoom} className="room-input">
+                  <Input autoFocus placeholder={joinKind === 'match' ? tr("貼上 osu! MP 連結或輸入房間編號") : joinKind === 'channel' ? tr("#osu 或其他頻道") : tr("osu! 使用者名稱")} />
+                </TextField>
+                <Button type="submit" className="primary-button" isDisabled={!online || !room.trim() || busy}>{joinKind === 'private' ? tr("開啟私訊") : tr("加入房間")}<Icon name="arrow" /></Button>
+              </form>
+              {joinMode === 'match' && state.creation.roomId !== null && <Button variant="secondary" isDisabled={!online || busy} onPress={() => void join('match', String(state.creation.roomId))}>
+                {tr("加入最近建立的房間 #mp_{{v0}}", { v0: state.creation.roomId })}
+              </Button>}
+              {formError && <p role="alert" className="error-message">{tr(formError)}</p>}
+            </Modal.Body>
+          </Modal.Dialog></Modal.Container></Modal.Backdrop>
+        </Modal>
+        <Modal isOpen={createOpen} onOpenChange={setCreateOpen}>
+          <Modal.Backdrop><Modal.Container size="sm"><Modal.Dialog aria-label={tr("新建比賽房間")}><Modal.Body>
+            <CreateRoom state={state} onClose={() => setCreateOpen(false)} onCreated={() => { setCreateOpen(false); setPage('room') }} />
+          </Modal.Body></Modal.Dialog></Modal.Container></Modal.Backdrop>
+        </Modal>
+        {page === 'settings' ? <SettingsView settings={settings} onChange={applySettings} /> : page === 'records' ? <RecordsView key={state.username} state={state} tab={recordsTab} onTabChange={setRecordsTab} /> : page === 'workbench' ? <OclrView account={ircAccount} roomActions={
+          <div className="room-actions workbench-room-actions">
+            <Button size="sm" variant="secondary" className="fixture-create-room" isDisabled={!canOpenCreation} onPress={() => setCreateOpen(true)}>{state.creation.status === 'awaiting' ? tr("正在建立…") : tr("建立房間")}</Button>
+            <Button size="sm" variant="secondary" className="fixture-join-room" isDisabled={!online || busy} onPress={() => openJoin('match')}>{tr("加入房間")}</Button>
+          </div>
+        } /> : <div className={`room-view enter ${toolsOpen && state.room ? 'tools-visible' : ''}`} style={{ '--tool-width': `${toolWidth}px` } as React.CSSProperties}><div className="room-main">
           <div className="room-heading"><h1>{tr("IRC 聊天")}</h1><div className="room-actions">
-            <Button size="sm" variant="secondary" className="join-room-button" isDisabled={!online || busy} onPress={() => setJoinOpen(true)}>{tr("加入")}</Button>
-            <Button size="sm" variant="secondary" className="new-room-button" isDisabled={!online || (state.rooms.length >= 8 && state.creation.status !== 'awaiting')} onPress={() => setCreateOpen(true)}>{state.creation.status === 'awaiting' ? tr("正在建立…") : tr("＋ 新建")}</Button>
+            <Button size="sm" variant="secondary" className="join-room-button" isDisabled={!online || busy} onPress={() => openJoin('conversation')}>{tr("加入")}</Button>
+            <Button size="sm" variant="secondary" className="new-room-button" isDisabled={!canOpenCreation} onPress={() => setCreateOpen(true)}>{state.creation.status === 'awaiting' ? tr("正在建立…") : tr("＋ 新建")}</Button>
             {!toolsOpen && state.room && <Button isIconOnly size="sm" variant="ghost" className="tools-toggle" aria-label={tr("展開房內工具")} aria-expanded={false} aria-controls="room-tools" onPress={() => setToolsOpen(true)}><Icon name="menu" /></Button>}
           </div></div>
-          <Modal isOpen={joinOpen} onOpenChange={setJoinOpen}><Modal.Backdrop><Modal.Container size="sm"><Modal.Dialog aria-label={tr("加入房間")}><Modal.Header><Modal.Heading>{tr("加入房間")}</Modal.Heading><Modal.CloseTrigger aria-label={tr("關閉")} /></Modal.Header><Modal.Body>
-          <form className="join-form" onSubmit={join}><WorkspaceSelect label={tr("對話類型")} value={conversationKind} onChange={value => setConversationKind(value as typeof conversationKind)} options={[{ value: 'match', label: tr("比賽房間") }, { value: 'channel', label: tr("IRC 頻道") }, { value: 'private', label: tr("私訊") }]} /><TextField aria-label={conversationKind === 'match' ? tr("MP 編號或比賽連結") : conversationKind === 'channel' ? tr("IRC 頻道名稱") : tr("私訊對象名稱")} value={room} onChange={setRoom} className="room-input"><Input autoFocus placeholder={conversationKind === 'match' ? tr("貼上 osu! MP 連結或輸入房間編號") : conversationKind === 'channel' ? tr("#osu 或其他頻道") : tr("osu! 使用者名稱")} /></TextField><Button type="submit" className="primary-button" isDisabled={!online || !room.trim() || busy}>{conversationKind === 'private' ? tr("開啟私訊") : tr("加入房間")}<Icon name="arrow" /></Button></form>
-          {formError && <p role="alert" className="error-message">{tr(formError)}</p>}
-          </Modal.Body></Modal.Dialog></Modal.Container></Modal.Backdrop></Modal>
-          <Modal isOpen={createOpen} onOpenChange={setCreateOpen}><Modal.Backdrop><Modal.Container size="sm"><Modal.Dialog aria-label={tr("新建比賽房間")}><Modal.Body><CreateRoom state={state} onClose={() => setCreateOpen(false)} /></Modal.Body></Modal.Dialog></Modal.Container></Modal.Backdrop></Modal>
           {!createOpen && state.creation.message && <p className={`creation-notice ${['unknown', 'blocked'].includes(state.creation.status) ? 'creation-warning' : ''}`} role="status">{tr(state.creation.message)}</p>}
           {state.leavingChannels.length > 0 && <p className="leaving-notice" role="status">{tr("離開確認中：")}{state.leavingChannels.join("、")}</p>}
           {state.rooms.length > 0 && <div className="room-tabs" aria-label={tr("已開啟的房間")}>
@@ -199,7 +229,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   </div>
 }
 async function bootstrap() {
-  let settings: AppSettings = { preferences: { ...DEFAULT_PREFERENCES }, locale: resolveLocale('system', navigator.languages), version: '0.8.9', platform: '' }
+  let settings: AppSettings = { preferences: { ...DEFAULT_PREFERENCES }, locale: resolveLocale('system', navigator.languages), version: '0.8.10', platform: '' }
   try { if (window.oclr) settings = await window.oclr.settings.snapshot() } catch { /* Preview defaults; never read credentials here. */ }
   await changeLocale(settings.locale)
   createRoot(document.getElementById('root')!).render(<App initialSettings={settings} />)

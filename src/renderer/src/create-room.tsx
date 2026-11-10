@@ -4,7 +4,7 @@ import { WorkspaceCheckbox } from './controls'
 import React, { useEffect, useRef, useState } from 'react'
 import { Button, Input, Label, Spinner, TextField } from '@heroui/react'
 import type { Snapshot } from '../../shared/types'
-export function CreateRoom({ state, onClose }: { state: Snapshot; onClose: () => void }) {
+export function CreateRoom({ state, onClose, onCreated }: { state: Snapshot; onClose: () => void; onCreated: () => void }) {
   const [name, setName] = useState('')
   const [source, setSource] = useState<ReturnType<typeof roomNameSource>>(null)
   const sourceRef = useRef<ReturnType<typeof roomNameSource>>(null)
@@ -21,7 +21,7 @@ export function CreateRoom({ state, onClose }: { state: Snapshot; onClose: () =>
   const blocked = ['blocked', 'unknown'].includes(state.creation.status)
   const stale = requestId !== state.creation.requestId
   const disabled = state.connection !== 'online' || waiting || blocked || busy || stale || sourceLoading || sourceError || sourcePending
-  useEffect(() => { if (submitted && state.creation.status === 'created') onClose() }, [submitted, state.creation.status, onClose])
+  useEffect(() => { if (submitted && stale && state.creation.status === 'created') onCreated() }, [submitted, stale, state.creation.status, onCreated])
   useEffect(() => {
     const api = window.oclr?.website
     if (!api) { setSourceLoading(false); return }
@@ -46,17 +46,18 @@ export function CreateRoom({ state, onClose }: { state: Snapshot; onClose: () =>
   async function submit(event: React.FormEvent) {
     event.preventDefault()
     if (!window.oclr || disabled || !reviewed) return
-    setError(null); setBusy(true); setSubmitted(true)
+    setError(null); setBusy(true)
     try {
       if (source) {
         const latest = window.oclr.website && roomNameSource(await window.oclr.website.snapshot())
         if (latest?.key !== source.key || sourceRef.current?.key !== source.key) {
-          setReviewed(false); setSubmitted(false); setError('場次資料已變更，請關閉並重新核對。'); return
+          setReviewed(false); setError('場次資料已變更，請關閉並重新核對。'); return
         }
       }
       const result = await window.oclr.createRoom({ name, requestId, reviewed })
-      if (!result.ok) { setError(result.error || '未能建立房間。'); setSubmitted(false) }
-    } catch { setError('桌面服務無法回應。請先核對房間，勿重複開房。'); setSubmitted(false) }
+      if (result.ok) setSubmitted(true)
+      else setError(result.error || '未能建立房間。')
+    } catch { setError('桌面服務無法回應。請先核對房間，勿重複開房。') }
     finally { setBusy(false) }
   }
   return <form className="create-room-form enter" aria-label={tr("新建比賽房間")} aria-busy={sourceLoading || sourcePending || busy || waiting} onSubmit={submit}>

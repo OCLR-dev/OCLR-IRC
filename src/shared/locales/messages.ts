@@ -65,7 +65,8 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
   "請登入 IRC，再繼續連接此場次。": {"zh-Hans": "请登录 IRC，再继续连接此场次。", "en": "Sign in to IRC, then continue connecting this match."},
   "繼續連接": {"zh-Hans": "继续连接", "en": "Continue connecting"},
 
-  "等待網站開房指令": {"zh-Hans": "等待网站开房指令", "en": "Waiting for a room creation command from the website"},
+  "已連接，尚未連結比賽房間": {"zh-Hans": "已连接，尚未关联比赛房间", "en": "Connected without a match room"},
+  "加入最近建立的房間 #mp_{{v0}}": {"zh-Hans": "加入最近创建的房间 #mp_{{v0}}", "en": "Join last created room #mp_{{v0}}"},
   "連接網站 IRC": {"zh-Hans": "连接网站 IRC", "en": "Connect website IRC"},
   " · {{v0}} 勝": {
     "zh-Hans": " · {{v0}} 胜",
@@ -2202,10 +2203,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
   "場次面板尚未取得有效資料，請重新整理場次後再連接。": {
     "zh-Hans": "场次面板尚未取得有效资料，请刷新场次后再连接。",
     "en": "The fixture panel has no current valid data. Refresh it before connecting."
-  },
-  "有既有或未確認的開房記錄。請先核對 BanchoBot 訊息與既有房間，再連接網站 IRC；不會重複開房。": {
-    "zh-Hans": "有既有或未确认的开房记录。请先核对 BanchoBot 消息与既有房间，再连接网站 IRC；不会重复开房。",
-    "en": "An existing or unconfirmed room creation is recorded. Check BanchoBot messages and the existing room before connecting website IRC; no duplicate room will be created."
   },
   "請在 IRC 選取已加入的比賽房間，並讀取完整設定與裁判名單後再連接。": {
     "zh-Hans": "请在 IRC 选取已加入的比赛房间，并读取完整设置与裁判名单后再连接。",

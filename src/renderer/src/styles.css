@@ -246,6 +246,7 @@ main { min-height: 0; overflow: auto; }
 .oclr-phases button { border: 0; border-bottom: 2px solid transparent; padding: 11px 0; font-size: 12px; color: #9b8ca8; background: transparent; transition: color .15s, border-color .15s; }
 .oclr-phases button[aria-selected=true] { color: #c7b7ff; border-color: #b4a0ff; }
 .oclr-phase-content { min-width: 0; }
+.workbench-room-actions { flex-wrap: wrap; margin-bottom: 16px; }
 .oclr-settings { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; }
 .oclr-settings>div { margin: 0; min-width: 0; }
 .oclr-settings>div:first-child { grid-column: 1/-1; }
