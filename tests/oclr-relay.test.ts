@@ -549,15 +549,31 @@ test('refreshing before relay bind rejects duplicate starts and cancelled or cha
   }
 })
 
-test('pre-creation relay retains recovery locks and distinguishes unavailable panel and hidden match tabs', async () => {
-  for (const reason of ['record', 'unknown', 'blocked', 'panel', 'hidden-room']) {
+test('pre-creation relay can connect with recovery records but cannot dispatch another make', async () => {
+  for (const reason of ['record', 'unknown', 'blocked', 'awaiting']) {
     const f = harness(); f.irc.state.room = null as any
     if (reason === 'record') f.irc.state.creation.roomId = 456 as any
-    if (reason === 'unknown' || reason === 'blocked') f.irc.state.creation.status = reason
+    else f.irc.state.creation.status = reason
+    ;(f.irc as any).createWebsiteRoom = (input: unknown) => f.writes.push(input)
+    try {
+      await f.relay.start()
+      assert.equal(f.requests[0].roomId, 0)
+      assert.equal(f.oclr.state.relay.status, 'connected')
+      f.command({id: id(191), text: '!mp make Synthetic room', target: 'BanchoBot'})
+      await until(() => f.requests.some(r => r.receipts?.some((receipt: any) => receipt.status === 'failed' && receipt.reason === 'local_rejected')))
+      assert.equal(f.writes.length, 0)
+      assert.ok(f.requests.filter(r => r.action === 'sync').every(r => r.roomId === undefined && r.projection.messages.length === 0))
+    } finally { await f.relay.stop() }
+  }
+})
+
+test('pre-creation relay still requires an available panel and rejects a hidden match tab', async () => {
+  for (const reason of ['panel', 'hidden-room']) {
+    const f = harness(); f.irc.state.room = null as any
     if (reason === 'panel') {f.oclr.state.panelState = 'stale'; (f.oclr as any).readPanel = async () => {}}
     if (reason === 'hidden-room') (f.irc.state as any).rooms = [{channel: '#mp_456', joined: true}]
     try {
-      await assert.rejects(f.relay.start(), {code: reason === 'panel' ? 'RELAY_PANEL_NOT_READY' : reason === 'hidden-room' ? 'RELAY_ROOM_NOT_READY' : 'RELAY_CREATION_REVIEW_REQUIRED'})
+      await assert.rejects(f.relay.start(), {code: reason === 'panel' ? 'RELAY_PANEL_NOT_READY' : 'RELAY_ROOM_NOT_READY'})
       assert.equal(f.requests.length, 0)
       assert.equal(f.writes.length, 0)
     } finally { await f.relay.stop() }

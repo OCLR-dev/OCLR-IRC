@@ -9,7 +9,7 @@ import { FixtureDependencyCheck } from './fixture-tools'
 const phases = ['賽前準備', 'BP 圖池', '賽後核對']
 const commandNames: Record<string, string> = { make: '建立房間', set: '房間規則', addref: '加入直播裁判', invite: '邀請選手', timer: '一般計時', map: '切換地圖', mods: '套用 Mods', start: '開賽倒數', abort: '中止比賽' }
 const statusNames = { pending: '待開始', playing: '進行中', completed: '已完成', tied: '平手', aborted: '已中止' }
-export function OclrView({ account }: { account: ReactNode }) {
+export function OclrView({ account, roomActions }: { account: ReactNode; roomActions: ReactNode }) {
   const [state, setState] = useState<OclrSnapshot>(emptyOclrState)
   const [phase, setPhase] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -60,7 +60,7 @@ export function OclrView({ account }: { account: ReactNode }) {
     {authorized && <>
       <div className="workbench-binding">
     {authorized && <section className="oclr-session account-pairing" aria-label={tr("帳號配對")}><div><strong>{tr("帳號配對")}</strong><span>IRC：{state.pairing.ircUsername ?? tr("未連線")} · OCLR：{state.subject!.username}</span><span role="status">{state.pairing.status === 'mismatch' ? tr("暱稱不符") : state.pairing.status === 'unknown' ? tr("尚未配對") : tr("帳號名稱相符・已自動核對")}</span></div></section>}
-    {authorized && <section className="oclr-session website-projection" aria-label={tr("網站 IRC 投影")}><div><strong>{tr("網站 IRC 投影")}</strong><span role="status">{state.relay.status === 'connected' ? state.relay.roomId ? tr("已投影 #mp_{{v0}}", { v0: state.relay.roomId }) : tr("等待網站開房指令") : state.relay.status === 'connecting' ? tr("正在連接…") : tr(state.relay.error) || tr("尚未啟用")}</span></div><Button isDisabled={busy || !state.selectedFixtureId || state.relay.status === 'connecting' || state.relay.status !== 'connected' && state.pairing.status !== 'nickname_matched'} onPress={() => api && void perform(() => state.relay.status === 'connected' ? api.stopRelay() : api.startRelay())}>{state.relay.status === 'connected' ? tr("停止投影") : tr("連接網站 IRC")}</Button></section>}
+    {authorized && <section className="oclr-session website-projection" aria-label={tr("網站 IRC 投影")}><div><strong>{tr("網站 IRC 投影")}</strong><span role="status">{state.relay.status === 'connected' ? state.relay.roomId ? tr("已投影 #mp_{{v0}}", { v0: state.relay.roomId }) : tr("已連接，尚未連結比賽房間") : state.relay.status === 'connecting' ? tr("正在連接…") : tr(state.relay.error) || tr("尚未啟用")}</span></div><Button isDisabled={busy || !state.selectedFixtureId || state.relay.status === 'connecting' || state.relay.status !== 'connected' && state.pairing.status !== 'nickname_matched'} onPress={() => api && void perform(() => state.relay.status === 'connected' ? api.stopRelay() : api.startRelay())}>{state.relay.status === 'connected' ? tr("停止投影") : tr("連接網站 IRC")}</Button></section>}
       </div>
       <div className="oclr-grid">
         <aside className="oclr-fixtures" aria-label={tr("本人場次")}><span className="small-label">{tr("指派場次")}</span><WorkspaceSelect className="oclr-fixture-picker" label={tr("切換執裁場次")} value={state.selectedFixtureId ?? ''} disabled={busy || state.fixturesLoading || !state.fixtures.length} onChange={value => { if (api) void perform(() => api.selectFixture(value)) }} options={state.fixtures.map(f => ({ value: f.fixtureId, label: `${f.edition.name} · ${f.round.name} · ${f.label}` }))} />{state.fixturesLoading && !state.fixtures.length && <p className="oclr-hint" role="status"><Spinner size="sm" />{tr("讀取中…")}</p>}{!state.fixturesLoading && state.fixtures.length === 0 && <p className="oclr-hint">{tr("目前沒有可讀的指派場次。")}</p>}
@@ -76,6 +76,7 @@ export function OclrView({ account }: { account: ReactNode }) {
               {workspace.readiness.length > 0 && <details className="oclr-issues"><summary>{tr("待核對項目（{{v0}}）", { v0: workspace.readiness.length })}</summary><ul>{workspace.readiness.map((issue, i) => <li key={i}>{tr(issue)}</li>)}</ul></details>}
               <div id="oclr-phase-content" role="tabpanel" aria-labelledby={`oclr-tab-${phase}`} className="oclr-phase-content enter" key={phase}>
                 {phase === 0 && <>
+                  {roomActions}
                   <dl className="oclr-settings"><div><dt>{tr("房間名稱")}</dt><dd>{settings?.roomName || tr("尚未設定")}</dd></div><div><dt>{tr("遊戲規則")}</dt><dd>{workspace.rules ? tr("{{v0}} · {{v1}} · {{v2}} · {{v3}} 人／隊", { v0: workspace.rules.mode, v1: workspace.rules.teamType, v2: workspace.rules.scoringType, v3: workspace.rules.playersPerTeam }) : tr("尚未設定")}</dd></div><div><dt>{tr("房間人數")}</dt><dd>{settings?.roomSize ?? tr("尚未設定")}</dd></div><div><dt>{tr("房間設定中的直播員")}</dt><dd>{settings?.streamerUsername || tr("尚未設定")}</dd></div></dl>
                   <div className="oclr-rosters">{workspace.teams.map(team => <section key={team.id}><h3>{team.name}</h3><ul>{team.members.map(member => <li key={member.osuId}>{member.username} <small>#{member.osuId}{member.osuId === team.captainId ? ' · Captain' : ''}</small></li>)}</ul>{!team.members.length && <p className="oclr-hint">{tr("沒有可讀的正式名單。")}</p>}</section>)}</div>
                   <h3>{tr("賽前指令")}</h3>{commands(['make', 'set', 'addref', 'invite'])}

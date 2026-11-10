@@ -16,6 +16,7 @@ const fixtures = JSON.parse(fs.readFileSync('tests/fixtures/oclr-fixtures.json',
 const meta = fixtures.meta
 const nativeFetch = global.fetch
 const sent = [], requests = [], opened = [], errors = []
+const roomId = 900000064
 let authRequest, unavailable = true, panelUnavailable = false, stale = false, dependenciesChanged = false, revoked = false, panelGate = null, holdWelcome = false, welcome = null
 const access = 'oclr_desk_at_' + 'A'.repeat(43), refresh = 'oclr_desk_rt_' + 'D'.repeat(43)
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-OCLR-Desktop-Contract': '1.1.0', 'X-OCLR-Referee-Contract': '1.1.0', 'X-Request-Id': meta.requestId } })
@@ -69,6 +70,12 @@ const server = net.createServer(socket => {
         else accepted()
       }
       if (line.startsWith('PING :')) socket.write(':server PONG server :' + line.slice(6) + '\n')
+      const createPrefix = 'PRIVMSG BanchoBot :!mp make '
+      if (line.startsWith(createPrefix)) socket.write(`:BanchoBot PRIVMSG ${username} :Created the tournament match https://osu.ppy.sh/mp/${roomId} ${line.slice(createPrefix.length)}\n`)
+      if (line === `JOIN #mp_${roomId}`) socket.write(`:${username}!u@h JOIN :#mp_${roomId}\n`)
+      if (line === `PART #mp_${roomId}`) socket.write(`:${username}!u@h PART #mp_${roomId} :leaving\n`)
+      if (line === `PRIVMSG #mp_${roomId} :!mp settings`) socket.write(`:BanchoBot PRIVMSG #mp_${roomId} :Room name: Synthetic room, History: https://osu.ppy.sh/mp/${roomId}\n:BanchoBot PRIVMSG #mp_${roomId} :Players: 0\n`)
+      if (line === `PRIVMSG #mp_${roomId} :!mp listrefs`) socket.write(`:BanchoBot PRIVMSG #mp_${roomId} :Match referees: ${username}\n`)
     }
   })
 })
@@ -91,7 +98,7 @@ async function main() {
   // Keep HeroUI presence/animation completion deterministic when CI loses focus.
   window.webContents.setBackgroundThrottling(false)
   await until(() => !window.webContents.isLoading())
-  const js = code => window.webContents.executeJavaScript(code)
+  const js = code => window.webContents.executeJavaScript(code).catch(error => { throw new Error(`Synthetic UI evaluation failed: ${code.slice(0, 200)}`, { cause: error }) })
   await until(() => js('Boolean(window.oclr?.website)'))
   assert.equal((await js('window.oclr.login({username:"SyntheticRef",password:"SYNTHETIC_ONLY"})')).ok, true)
   await until(() => js('(async () => (await window.oclr.snapshot()).connection === "online")()'))
@@ -193,10 +200,8 @@ async function main() {
   await js(`document.querySelector('button[aria-label="複製 make"]').click()`)
   await until(() => js('document.body.textContent.includes("已複製")'))
   assert.equal(await clipboard.readText(), '!mp make OCLR: (Team A) vs (Team B)')
-  // Room creation reads the selected OCLR name, without issuing a make command.
-  await js(`document.querySelector('nav [data-page=room]').click()`)
-  await until(() => js('Boolean(document.querySelector(".new-room-button"))'))
-  await js('document.querySelector(".new-room-button").click()')
+  // The preparation tab opens the same reviewed creation form directly.
+  await js('document.querySelector(".fixture-create-room").click()')
   await until(() => js('document.querySelector("input[name=matchName]")?.value === "OCLR: (Team A) vs (Team B)"'))
   assert.equal(await js('Boolean(document.querySelector("[data-room-name-source]"))'), true)
   assert.equal(await js('document.querySelector("input[name=reviewedCreation]").checked'), false)
@@ -230,7 +235,6 @@ async function main() {
   panel.data.workspace.defaultSettings.roomName = originalName
   await js('document.querySelector(".create-room-heading button").click()')
   await until(() => js('!document.querySelector(".create-room-form")'))
-  await js(`document.querySelector('nav [data-page=workbench]').click()`)
   await until(() => js('Boolean(document.querySelector(".oclr-settings"))'))
   fs.writeFileSync(path.join(output, 'oclr-prepare-synthetic.png'), (await window.webContents.capturePage()).toPNG())
   await js('document.querySelector("#oclr-tab-1").click()')
@@ -298,6 +302,28 @@ async function main() {
   assert.equal(await js(`document.querySelector('button[aria-label="複製 make"]').disabled`), true)
   assert.equal(await js('document.querySelector(\'.logout-button[aria-label="登出 OCLR"]\').textContent.trim()'), '')
   assert.equal(await js('Boolean(document.querySelector(\'.logout-button[aria-label="登出 OCLR"] svg\'))'), true)
+  stale = false
+  await js('window.oclr.website.refreshPanel()')
+  await js('document.querySelector("#oclr-tab-0").click()')
+  await until(() => js('document.querySelector(".fixture-create-room")?.disabled === false'))
+  await js('document.querySelector(".fixture-create-room").click()')
+  await until(() => js('document.querySelector("input[name=matchName]")?.value === "OCLR: (Team A) vs (Team B)"'))
+  await js('document.querySelector("input[name=reviewedCreation]").click()')
+  await until(() => js('document.querySelector(".create-room-form button[type=submit]")?.disabled === false'))
+  await js('document.querySelector(".create-room-form button[type=submit]").click()')
+  const roomIsOpen = () => js(`window.oclr.snapshot().then(s => s.room?.id === ${roomId} && s.room.joined && Boolean(document.querySelector(".room-view")))`)
+  await until(roomIsOpen)
+  await js(`document.querySelector('button[aria-label="離開 #mp_${roomId}"]').click()`)
+  await until(() => js(`window.oclr.snapshot().then(s => !s.rooms.some(r => r.id === ${roomId}) && !s.leavingChannels.length)`))
+  await js(`document.querySelector('nav [data-page=workbench]').click()`)
+  await until(() => js('document.querySelector(".fixture-join-room")?.disabled === false'))
+  await js('document.querySelector(".fixture-join-room").click()')
+  await until(() => js('Boolean(document.querySelector(".join-form .room-input"))'))
+  await js(`Array.from(document.querySelectorAll('[role=dialog] button')).find(b => b.textContent.includes('#mp_${roomId}')).click()`)
+  await until(roomIsOpen)
+  assert.equal(sent.filter(line => line === `JOIN #mp_${roomId}`).length, 2)
+  await js(`document.querySelector('nav [data-page=workbench]').click()`)
+  await until(() => js('Boolean(document.querySelector(\'.logout-button[aria-label="登出 OCLR"]\'))'))
   await js('document.querySelector(\'.logout-button[aria-label="登出 OCLR"]\').click()')
   await until(() => js('Boolean(document.querySelector(".oclr-login"))'))
   assert.equal(await js('Boolean(document.querySelector(".oclr-open-panel"))'), false)
@@ -308,10 +334,11 @@ async function main() {
   assert.equal((await js('window.oclr.snapshot()')).connection, 'online')
   assert.equal(await js('Boolean(document.querySelector(".referee-workbench .connected-panel") && document.querySelector(".referee-workbench .oclr-login"))'), true)
   assert.ok(!requests.some(r => r.method === 'PATCH' || r.path.includes('/api/admin/')))
-  assert.ok(!sent.some(line => line.includes('!mp')))
+  assert.deepEqual(sent.filter(line => line.includes('!mp make ')), ['PRIVMSG BanchoBot :!mp make OCLR: (Team A) vs (Team B)'])
+  assert.ok(sent.filter(line => line.includes('!mp') && !line.includes('!mp make ')).every(line => [`PRIVMSG #mp_${roomId} :!mp settings`, `PRIVMSG #mp_${roomId} :!mp listrefs`].includes(line)))
   assert.deepEqual(errors, [])
   const report = { evidence: 'synthetic-oclr-desktop-integration', source: 'OCLR-website PR409@1abbab1ddd981025249af727d748e70e23b9096b', platform: process.platform, arch: process.arch, electron: process.versions.electron, recordedAt: new Date().toISOString(),
-    passed: ['automatic case/space/underscore pairing requires own 001, mismatch blocks relay, no confirmation checkbox/bridge, relogin pairs automatically', 'undeployed HTML endpoint fails closed without opening browser', 'browser authorization comparison code', 'real one-shot 127.0.0.1 callback and S256 exchange', 'assigned fixtures and native preparation panel', 'Main-only constrained clipboard copy', 'pool preview uses shared website Mods builder', 'remote metadata renders as escaped text', '900x640 has no horizontal overflow', 'review URL opens fixed OCLR origin', 'dependency mismatch opens assigned-fixture recheck anchor and clears after refresh without writes', 'renderer reload preserves Main session', 'no tokens/state/unexpected response fields in renderer snapshot', 'close-to-background preserves OCLR session and restore', 'stale panel disables copying', 'logout clears OCLR data while IRC remains connected', 'no referee business writes or IRC commands sent', 'no renderer console errors'],
+    passed: ['automatic case/space/underscore pairing requires own 001, mismatch blocks relay, no confirmation checkbox/bridge, relogin pairs automatically', 'undeployed HTML endpoint fails closed without opening browser', 'browser authorization comparison code', 'real one-shot 127.0.0.1 callback and S256 exchange', 'assigned fixtures and native preparation panel', 'Main-only constrained clipboard copy', 'pool preview uses shared website Mods builder', 'remote metadata renders as escaped text', '900x640 has no horizontal overflow', 'review URL opens fixed OCLR origin', 'dependency mismatch opens assigned-fixture recheck anchor and clears after refresh without writes', 'renderer reload preserves Main session', 'no tokens/state/unexpected response fields in renderer snapshot', 'close-to-background preserves OCLR session and restore', 'stale panel disables copying', 'logout clears OCLR data while IRC remains connected', 'workbench creates once after review, opens IRC chat and rejoins the last created room', 'no referee business writes', 'no renderer console errors'],
     limitation: 'OCLR HTTPS API, browser approval, identities and IRC are synthetic. No real website authorization/deployment, production data, live IRC command or true IME acceptance.', requests }
   fs.writeFileSync(path.join(output, 'oclr-smoke.json'), JSON.stringify(report, null, 2) + '\n')
   console.log(JSON.stringify(report, null, 2)); app.exit(0)

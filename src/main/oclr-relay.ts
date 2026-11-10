@@ -77,7 +77,7 @@ export class OclrRelay {
   private hasMatchRoom(state: Snapshot) {
     return state.room?.kind === 'match' || state.rooms?.some(room => /^#mp_[1-9]\d*$/.test(room.channel)) === true
   }
-  private canPrepare(state: Snapshot) {
+  private canCreateFromWebsite(state: Snapshot) {
     return !this.hasMatchRoom(state) && state.creation.status === 'unreviewed' && state.creation.roomId === null
   }
   async start() {
@@ -100,9 +100,10 @@ export class OclrRelay {
     const state = this.oclr.state, irc = this.irc.state
     if (!this.pairingReady()) throw new OclrError('RELAY_ACCOUNT_REQUIRED')
     if (state.panelState !== 'fresh') throw new OclrError('RELAY_PANEL_NOT_READY')
-    const preparing = this.canPrepare(irc)
-    if (!this.hasMatchRoom(irc) && !preparing) throw new OclrError('RELAY_CREATION_REVIEW_REQUIRED')
-    if (!state.subject || !state.selectedFixtureId || state.panelState !== 'fresh' || irc.connection !== 'online' || (!preparing && (!irc.room?.joined || irc.room.kind !== 'match' || irc.room.binding !== 'verified' || irc.room.referee !== 'listed')) || normalize(irc.username) !== normalize(state.subject.username)) throw new OclrError('RELAY_ROOM_NOT_READY')
+    // An idle receiver can connect even if a prior room needs review.
+    // Only dispatching a new make requires an empty creation record.
+    const preparing = !this.hasMatchRoom(irc)
+    if (!state.subject || !state.selectedFixtureId || irc.connection !== 'online' || (!preparing && (!irc.room?.joined || irc.room.kind !== 'match' || irc.room.binding !== 'verified' || irc.room.referee !== 'listed')) || normalize(irc.username) !== normalize(state.subject.username)) throw new OclrError('RELAY_ROOM_NOT_READY')
     const subjectId = state.subject.osuId, fixtureId = state.selectedFixtureId
     const roomId = preparing ? 0 : irc.room!.id, roomEpoch = preparing ? 0 : irc.room!.epoch, username = normalize(irc.username)
     const generation = ++this.generation
@@ -112,7 +113,7 @@ export class OclrRelay {
       const reply = replySchema.parse(response.value).data
       if (generation !== this.generation) return
       const current = this.irc.state, website = this.oclr.state
-      if (!this.pairingReady() || generation !== this.generation || website.subject?.osuId !== subjectId || normalize(website.subject?.username ?? '') !== username || website.selectedFixtureId !== fixtureId || website.panelState !== 'fresh' || current.connection !== 'online' || (preparing ? !this.canPrepare(current) || current.creation.requestId !== irc.creation.requestId : current.room?.id !== roomId || current.room.epoch !== roomEpoch || !current.room.joined || current.room.binding !== 'verified' || current.room.referee !== 'listed') || normalize(current.username) !== username) throw new Error('Binding identity changed')
+      if (!this.pairingReady() || generation !== this.generation || website.subject?.osuId !== subjectId || normalize(website.subject?.username ?? '') !== username || website.selectedFixtureId !== fixtureId || website.panelState !== 'fresh' || current.connection !== 'online' || (preparing ? this.hasMatchRoom(current) : current.room?.id !== roomId || current.room.epoch !== roomEpoch || !current.room.joined || current.room.binding !== 'verified' || current.room.referee !== 'listed') || normalize(current.username) !== username) throw new Error('Binding identity changed')
       if (reply.sequence !== 0 || reply.command !== null) throw new Error('Unexpected bind response')
       this.binding = {subjectId, fixtureId, connectionId: reply.connectionId, roomId, roomEpoch, username: normalize(irc.username), sequence: 0, receiptReasons: reply.receiptReasons === true, bpSync: reply.bpSync === true}
       this.consumed.clear(); this.receipts = []; this.pending = null
@@ -156,7 +157,7 @@ export class OclrRelay {
           try {
             const current = this.irc.state
             const name = /^!mp make (.{1,200})$/u.exec(command.text)?.[1]
-            if (!name || /[\p{Cc}\p{Cf}\u2028\u2029]/u.test(name) || command.target !== 'BanchoBot' || this.creation || !this.pairingReady() || this.oclr.state.panelState !== 'fresh' || !this.canPrepare(current)) throw new Error('Invalid creation')
+            if (!name || /[\p{Cc}\p{Cf}\u2028\u2029]/u.test(name) || command.target !== 'BanchoBot' || this.creation || !this.pairingReady() || this.oclr.state.panelState !== 'fresh' || !this.canCreateFromWebsite(current)) throw new Error('Invalid creation')
             this.irc.createWebsiteRoom({name, requestId: current.creation.requestId, reviewed: true}, () => {
               dispatched = true
               this.creation = {id: command.id, requestId: current.creation.requestId, generation: this.irc.sessionGeneration, roomId: null}
