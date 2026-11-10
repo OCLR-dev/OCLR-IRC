@@ -9,6 +9,7 @@
 ## 下載
 
 - [GitHub Releases](https://github.com/OCLR-dev/OCLR-IRC/releases)：已發布的預覽版、校驗碼與建置資訊。
+- [v0.8.10 更新說明](docs/releases/v0.8.10.md)：可從裁判工作臺建立與加入房間，也能在未開房時先連接網站 IRC。
 - [v0.8.9 更新說明](docs/releases/v0.8.9.md)：修復先連接網站 IRC 再由網站開房的前置判定與提示。
 - [v0.8.8 更新說明](docs/releases/v0.8.8.md)：按需同步房間設定，避免聊天被查詢淹沒，並修復表演賽／EX 面板載入。
 - [v0.8.7 更新說明](docs/releases/v0.8.7.md)：BP 同步可靠性、聊天指令、房間自動更新與未知操作恢復；下載及簽章狀態以對應 Release 為準。
