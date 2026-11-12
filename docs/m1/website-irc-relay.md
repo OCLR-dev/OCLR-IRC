@@ -137,3 +137,7 @@ Main 提供固定來源的內部 createWebsiteRoom，relay 與候選 FixtureCrea
 v0.8.1 發布準備（2026-11-01）：依使用者要求將上述自動帳號核對納入新版本，同步把資料更新與重試入口改為共用 HeroUI refresh 圖示，具本地化 Tooltip／aria-label 及忙碌停用；更新／查詢的目標、權限與不重送規則不變。此段不預告 CI 或公開發布已成功，實際成品以對應 Release run 為準。
 
 本輪本機驗證：Node.js 24.22.2 typecheck、200 項核心／契約測試、完整 12 組 Electron synthetic smoke 通過；包含 refresh 圖示／無障礙名稱、Tooltip 鍵盤提示、實際面板更新、日誌讀取及 900×640。版本／tag validator 已以 v0.8.1 驗證一致；未操作真實 OAuth／Bancho，公開發布須以實際 Release run 為準。
+
+### 完局比分播報
+
+新版網站可在 bind 回覆中宣告 `scoreNotices: true`。支援比分播報的桌面端才會在 sync 帶上同名欄位，並沿用已驗證的比賽房間和裁判權限發送固定格式的 `[OCLR SCORE #…]` 聊天訊息。播報包含暫記比分及下一步 Ban／Pick 隊伍，適用於裁判確認或網站 MP 自動記分的結果。已送出的播報使用 `notified` 回報，傳送結果不明時不重送。
