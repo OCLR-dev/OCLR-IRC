@@ -1,5 +1,5 @@
 import { chatLines, isChatCommand } from '../shared/chat.ts'
-import { isBpNotice } from '../shared/bp-notice.ts'
+import { isBpNotice, isScoreNotice } from '../shared/bp-notice.ts'
 import { ManualPool } from './manual-pool.ts'
 import { roomPlan, roomPlanMatches } from '../shared/room-plan.ts'
 import type { RoomPlanDefinition, RoomPlanPreview } from '../shared/room-plan.ts'
@@ -820,7 +820,7 @@ export class IrcSession extends EventEmitter {
   }
   relayNotice(input: RoomTarget & { text: string }, onDispatch?: () => void) {
     const view = this.target(input)
-    if (!isBpNotice(input.text) || view.room.kind !== 'match' || view.room.binding !== 'verified' || view.room.referee !== 'listed') throw new Error('無效的 BP 通知或房間權限。')
+    if (!(isBpNotice(input.text) || isScoreNotice(input.text)) || view.room.kind !== 'match' || view.room.binding !== 'verified' || view.room.referee !== 'listed') throw new Error('無效的 BP 通知或房間權限。')
     const text = chatText(input.text, view.room.channel)
     this.ready(view)
     this.lastQueryAt = Date.now()
