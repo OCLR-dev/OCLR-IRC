@@ -4,7 +4,8 @@ export function isBpNotice(text: string) {
 
 export function isScoreNotice(text: string) {
   return (
-    /^\[OCLR SCORE #\d{1,6}\] [A-Z]{2}\d{1,4} \| RED \d+ - \d+ BLUE \| (?:Next: (?:BAN|PICK) (?:RED|BLUE) [^|\p{Cc}\p{Cf}\u2028\u2029]{1,48}|Next: TB|Series complete|No next step|Awaiting referee ruling)$/u.test(
+    text.length <= 300 &&
+    /^\[OCLR SCORE #\d{1,6}\] [A-Z]{2}\d{1,4} \| [^|\p{Cc}\p{Cf}\u2028\u2029]{1,80} \d+ - \d+ [^|\p{Cc}\p{Cf}\u2028\u2029]{1,80} \| (?:Next: (?:BAN|PICK) (?:RED|BLUE) [^|\p{Cc}\p{Cf}\u2028\u2029]{1,48}|Next: TB|Series complete|No next step|Awaiting referee ruling)(?![\s\S])/u.test(
       text,
     ) && new TextEncoder().encode(text).length <= 380
   );

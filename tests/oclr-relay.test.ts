@@ -3,17 +3,28 @@ import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
 import { OclrRelay } from '../src/main/oclr-relay.ts'
 import { relayCommand, relayReply } from '../src/shared/relay-command.ts'
+import { isScoreNotice } from '../src/shared/bp-notice.ts'
 import type { OclrSession } from '../src/main/oclr.ts'
 import type { IrcSession } from '../src/main/irc.ts'
 import { id, meta } from './fixtures/oclr.ts'
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 async function until(predicate: () => boolean) { for (let i = 0; i < 400; i++) { if (predicate()) return; await delay(10) } throw Error('Timed out') }
-function harness(receiptReasons = true, bpSync = false, scoreNotices = false) {
+function harness(receiptReasons = true, bpSync = false, scoreNotices = false, namedScoreNotices = false) {
   const requests: any[] = [], writes: any[] = []
   const irc = Object.assign(new EventEmitter(), {sessionGeneration: 1, state: {connection: 'online', username: 'Ref_Name', creation: {status: 'unreviewed', requestId: id(80), roomId: null}, room: {id: 123, epoch: 1, joined: true, kind: 'match', binding: 'verified', referee: 'listed'}, messages: [] as any[]}, relayNoticeReady(): boolean {return true}, relayNotice(input: unknown, onDispatch?: () => void) {onDispatch?.(); writes.push(input)}, relayReady() {return true}, relayRefresh() {}, relayBlocked(): boolean {return false}, relaySend(input: unknown, onDispatch?: () => void) {onDispatch?.(); writes.push(input)}})
   let command: any = null, fail = false
-  const oclr = Object.assign(new EventEmitter(), {sessionGeneration: 1, updatePairing(value: unknown) { this.state.pairing = value }, state: {pairing: null as any, subject: {osuId: 100, username: 'Ref Name'}, selectedFixtureId: id(101), panelState: 'fresh', relay: null as any}, updateRelay(state: unknown) {this.state.relay = state; (this as unknown as EventEmitter).emit('state')}, async relayRequest(_id: string, body: any) {requests.push(body); if (fail) throw Error('network failure'); return {value: {data: {...(receiptReasons ? {receiptReasons: true} : {}), ...(bpSync ? {bpSync: true} : {}), ...(scoreNotices ? {scoreNotices: true} : {}), connectionId: id(40), sequence: body.sequence ?? 0, command: body.action === 'sync' ? command : null}, meta: meta()}}}})
+  const capabilities = {
+    ...(receiptReasons ? {receiptReasons: true} : {}),
+    ...(bpSync ? {bpSync: true} : {}),
+    ...(scoreNotices ? {scoreNotices: true} : {}),
+    ...(namedScoreNotices ? {namedScoreNotices: true} : {}),
+  }
+  const oclr = Object.assign(new EventEmitter(), {sessionGeneration: 1, updatePairing(value: unknown) { this.state.pairing = value }, state: {pairing: null as any, subject: {osuId: 100, username: 'Ref Name'}, selectedFixtureId: id(101), panelState: 'fresh', relay: null as any}, updateRelay(state: unknown) {this.state.relay = state; (this as unknown as EventEmitter).emit('state')}, async relayRequest(_id: string, body: any) {
+    requests.push(body)
+    if (fail) throw Error('network failure')
+    return {value: {data: {...capabilities, connectionId: id(40), sequence: body.sequence ?? 0, command: body.action === 'sync' ? command : null}, meta: meta()}}
+  }})
   const relay = new OclrRelay(oclr as unknown as OclrSession, irc as unknown as IrcSession)
   relay.refreshPairing()
   return {relay, oclr, irc, requests, writes, command(value: any) {command = value}, fail() {fail = true}}
@@ -378,9 +389,11 @@ test('BP notices use the bound chat route once, without waiting for a Bancho rep
   } finally { await f.relay.stop() }
 })
 test('score notices require negotiation and use the bound room once', async () => {
-  for (const supported of [true, false]) {
-    const f = harness(true, true, supported)
-    const text = '[OCLR SCORE #4] NM1 | RED 1 - 0 BLUE | Next: PICK BLUE Synthetic Blue'
+  for (const mode of ['legacy', 'named', 'unsupported']) {
+    const supported = mode !== 'unsupported', named = mode === 'named'
+    const f = harness(true, true, supported, named)
+    const score = named ? '銀河隊 1 - 0 天藍隊' : 'RED 1 - 0 BLUE'
+    const text = `[OCLR SCORE #4] NM1 | ${score} | Next: PICK BLUE 天藍隊`
     try {
       await f.relay.start()
       f.command({id: id(199), text, target: '#mp_123'})
@@ -388,9 +401,19 @@ test('score notices require negotiation and use the bound room once', async () =
       const receipts = f.requests.flatMap(r => r.receipts ?? [])
       assert.equal(receipts[0].status, supported ? 'notified' : 'failed')
       assert.equal(f.requests.some(r => r.scoreNotices === true), supported)
+      assert.equal(f.requests.some(r => r.namedScoreNotices === true), named)
       assert.deepEqual(f.writes.map(write => write.text), supported ? [text] : [])
     } finally { await f.relay.stop() }
   }
+})
+
+test('score notices reject extra delimiters, line breaks and oversized Unicode names', () => {
+  const notice = '[OCLR SCORE #4] NM1 | 銀河隊 1 - 0 天藍隊 | Series complete'
+  assert.ok(isScoreNotice(notice))
+  assert.ok(!isScoreNotice(notice.replace('銀河隊', '銀河|隊')))
+  assert.ok(!isScoreNotice(`${notice}\n`))
+  assert.ok(!isScoreNotice(notice.replace('銀河隊', '銀河\u202e隊')))
+  assert.ok(!isScoreNotice(`[OCLR SCORE #4] NM1 | ${'🌌'.repeat(48)} 1 - 0 ${'🌠'.repeat(48)} | Series complete`))
 })
 
 test('BP notice waits through local read/throttle activity before one dispatch', async () => {
