@@ -6,7 +6,7 @@ import { SqliteOperationStore } from './operation-store.ts'
 import { EncryptedJournal } from './encrypted-journal.ts'
 import { registerJournal } from './journal-ipc.ts'
 import { fetchBeatmapDuration } from './beatmap-duration.ts'
-import { app, BrowserWindow, ipcMain, shell, powerMonitor, safeStorage, clipboard, nativeImage } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, powerMonitor, safeStorage, clipboard, nativeImage, Notification } from 'electron'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { IrcSession } from './irc.ts'
@@ -91,6 +91,17 @@ app.whenReady().then(() => {
   oclr.setAutoRefresh(preferences.get().autoRefreshOclr)
   let secureStorageAvailable = false, settingsGeneration = 0
   const settingsSnapshot = () => ({ preferences: preferences.get(), locale: resolveLocale(preferences.get().language, app.getPreferredSystemLanguages()), version: app.getVersion(), platform: process.platform, secureStorageAvailable })
+  const roomNotificationTitles = {
+    ready: { en: 'All players are ready', 'zh-Hans': '所有玩家已准备就绪', 'zh-Hant': '所有玩家已準備就緒' },
+    finished: { en: 'The match has finished', 'zh-Hans': '本局比赛已结束', 'zh-Hant': '本局比賽已結束' }
+  }
+  irc.on('room-notification', (kind: keyof typeof roomNotificationTitles, channel: string) => {
+    try {
+      if (!Notification.isSupported()) return
+      const locale = settingsSnapshot().locale
+      new Notification({ title: roomNotificationTitles[kind][locale], body: channel }).show()
+    } catch { /* A notification failure must not interrupt IRC processing. */ }
+  })
   let lastLocale = settingsSnapshot().locale
   function refreshSystemLocale() {
     const settings = settingsSnapshot()
