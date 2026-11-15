@@ -6,7 +6,7 @@ import { Lines } from '../src/main/protocol.ts'
 import { mpCommand } from '../src/shared/mp-command.ts'
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 async function until(fn: () => boolean) { for (let i = 0; i < 200; i++) { if (fn()) return; await delay(10) }; throw new Error('Timed out') }
-async function fixture(empty: boolean | 'no-mods' = false, durationLookup: (id: number) => Promise<number | null> = async () => null) {
+async function fixture(empty: boolean | 'no-mods' = false, durationLookup: (id: number) => Promise<number | null> = async () => null, settingsLines = (lines: string[]) => lines) {
   const sent: string[] = [], sockets = new Set<net.Socket>()
   let peer: net.Socket
   const server = net.createServer(socket => {
@@ -17,11 +17,11 @@ async function fixture(empty: boolean | 'no-mods' = false, durationLookup: (id: 
       if (line.startsWith('USER ')) socket.write(':server 001 Example :welcome\n')
       if (line.startsWith('JOIN ')) socket.write(`:server 366 Example ${line.slice(5)} :End\n`)
       const channel = line.split(' ')[1]
-      if (line.endsWith(':!mp settings')) socket.write([
+      if (line.endsWith(':!mp settings')) socket.write(settingsLines([
         `Room name: Synthetic, History: https://osu.ppy.sh/mp/${channel.slice(4)}`,
         ...(empty === true ? ['Team mode: TeamVs, Win condition: ScoreV2', 'Players: 0'] : ['Beatmap: https://osu.ppy.sh/b/123 Synthetic', 'Team mode: TeamVs, Win condition: ScoreV2',
         ...(empty === 'no-mods' ? [] : ['Active mods: None']), 'Players: 1', 'Slot 1 Ready https://osu.ppy.sh/u/101 Synthetic [Host / Team Red]'])
-      ].map(body => `:BanchoBot PRIVMSG ${channel} :${body}\n`).join(''))
+      ]).map(body => `:BanchoBot PRIVMSG ${channel} :${body}\n`).join(''))
       if (line.endsWith(':!mp listrefs')) socket.write(`:BanchoBot PRIVMSG ${channel} :Match referees: Example\n`)
     } })
   })
@@ -212,6 +212,61 @@ test('trusted match start refreshes player settings and retains phase; fake star
     await until(() => f.session.state.room!.phase === 'idle' && f.session.state.room!.syncState === 'complete')
     assert.equal(f.session.state.room!.match, null)
     assert.deepEqual(f.sent.filter(line => /:!mp (start|abort)/.test(line)), ['PRIVMSG #mp_9 :!mp start 5'])
+  } finally { await f.close() }
+})
+
+test('player moves and team changes update the verified roster without a settings read', async () => {
+  const f = await fixture()
+  try {
+    await f.refresh()
+    const settingsCount = () => f.sent.filter(line => line.endsWith(':!mp settings')).length
+    const before = settingsCount()
+    const initial = { ...f.session.state.room!.slots[0] }
+    const observedAt = f.session.state.room!.observedAt
+    const fake = 'Synthetic moved to slot 2'
+    f.peer().write(`:Someone PRIVMSG #mp_9 :${fake}\n`)
+    await until(() => f.session.state.messages.some(message => message.text === fake))
+    assert.deepEqual(f.session.state.room!.slots, [initial])
+
+    f.peer().write(':BanchoBot PRIVMSG #mp_9 :SYNTHETIC moved to slot 16\n')
+    await until(() => f.session.state.room?.slots[0]?.slot === 16)
+    assert.deepEqual(f.session.state.room!.slots, [{ ...initial, slot: 16 }])
+    f.peer().write(':BanchoBot PRIVMSG #mp_9 :Synthetic changed to Blue\n')
+    await until(() => f.session.state.room?.slots[0]?.team === 'blue')
+    assert.deepEqual(f.session.state.room!.slots, [{ ...initial, slot: 16, team: 'blue', status: 'Not Ready' }])
+    f.peer().write(':BanchoBot PRIVMSG #mp_9 :Synthetic changed to Red\n')
+    await until(() => f.session.state.room?.slots[0]?.team === 'red')
+    await delay(1300) // Give any unintended queued read time to reach the wire.
+    assert.equal(settingsCount(), before)
+    assert.equal(f.session.state.room!.observedAt, observedAt)
+    assert.equal(f.session.state.room!.slotsVerified, true)
+    assert.equal(f.session.state.room!.syncState, 'complete')
+  } finally { await f.close() }
+})
+
+test('settings replies retain intervening player changes without guessing occupied slots', async () => {
+  const f = await fixture(false, undefined, lines => [
+    ...lines.slice(0, -2),
+    'Players: 2',
+    'Synthetic moved to slot 3',
+    'Slot 1 Ready https://osu.ppy.sh/u/101 Synthetic [Host / Team Red]',
+    'Synthetic changed to Blue',
+    'Slot 4 Not Ready https://osu.ppy.sh/u/102 Other Player [Team Red]'
+  ])
+  try {
+    const settingsCount = () => f.sent.filter(line => line.endsWith(':!mp settings')).length
+    await until(() => f.session.state.room?.syncState === 'complete' && f.session.state.room.referee === 'listed')
+    assert.deepEqual(f.session.state.room!.slots.map(({ osuId, slot, team }) => ({ osuId, slot, team })), [
+      { osuId: 101, slot: 3, team: 'blue' },
+      { osuId: 102, slot: 4, team: 'red' }
+    ])
+    f.peer().write(':BanchoBot PRIVMSG #mp_9 :Other_Player moved to slot 16\n')
+    await until(() => f.session.state.room?.slots[1]?.slot === 16)
+    f.peer().write(':BanchoBot PRIVMSG #mp_9 :Synthetic moved to slot 16\n')
+    await until(() => f.session.state.room?.slotsVerified === false)
+    assert.deepEqual(f.session.state.room!.slots.map(player => player.slot), [3, 16])
+    await delay(1300)
+    assert.equal(settingsCount(), 1)
   } finally { await f.close() }
 })
 

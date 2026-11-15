@@ -18,7 +18,7 @@ import { EventEmitter } from 'node:events'
 import { randomUUID } from 'node:crypto'
 import type { Connection, Message, Pending, Room, RoomCreation, Snapshot, RoomTarget } from '../shared/types.ts'
 import type { CreationStore } from './creation-store.ts'
-import { blankObservation, SettingsCollector } from './settings.ts'
+import { applySlotChange, blankObservation, SettingsCollector, slotChange } from './settings.ts'
 import { chatText, credentials, Lines, matchName, normalize, parse, redact, roomId } from './protocol.ts'
 
 interface RoomView {
@@ -985,10 +985,18 @@ export class IrcSession extends EventEmitter {
       this.settingsEvidence.delete(view); room.syncState = 'stale'
       this.refreshAfter.set(view, Date.now() + this.timing.roomRefreshMs); this.publish(); return
     }
-    if (bot && view.pending !== 'settings' && room.startCountdown?.status === 'active' && /^(?:Beatmap changed|Changed (?:beatmap|match|team|win)|Active mods:|.+ (?:joined in slot|left the game|moved to slot|changed to))/.test(body)) {
+    const change = bot && room.kind === 'match' && room.joined ? slotChange(body) : null
+    const roomChanged = bot && /^(?:Beatmap changed|Changed (?:beatmap|match|team|win)|.+ (?:joined in slot|left the game|changed to))/.test(body)
+    if (room.startCountdown?.status === 'active' && (change || view.pending !== 'settings' && (roomChanged || bot && /^Active mods:/.test(body)))) {
       room.startCountdown = { ...room.startCountdown, status: 'unknown', deadline: null }; this.mpPreview = null
     }
-    const roomChanged = bot && /^(?:Beatmap changed|Changed (?:beatmap|match|team|win)|.+ (?:joined in slot|left the game|moved to slot|changed to))/.test(body)
+    if (change) {
+      if (view.collector) view.collector.recordSlotChange(change)
+      else if (room.slotsVerified && !applySlotChange(room.slots, change)) {
+        room.slotsVerified = false; room.syncState = 'stale'
+      }
+      this.publish(); return
+    }
     if (roomChanged && view.pending === 'settings') {
       // A snapshot spanning a room mutation cannot prove current state. Discard it
       // and coalesce one fresh read; ordinary settings lines never take this path.
