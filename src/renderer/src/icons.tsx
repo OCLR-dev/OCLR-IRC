@@ -1,4 +1,4 @@
-export function Icon({ name }: { name: 'workbench' | 'connect' | 'room' | 'trophy' | 'document' | 'history' | 'arrow' | 'logout' | 'key' | 'eye' | 'menu' | 'settings' | 'referees' | 'refresh' }) {
+export function Icon({ name }: { name: 'workbench' | 'connect' | 'room' | 'trophy' | 'document' | 'history' | 'arrow' | 'logout' | 'key' | 'eye' | 'menu' | 'settings' | 'referees' | 'refresh' | 'check' }) {
   const paths = {
     workbench: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18M9 9v11m4-7h4m-4 3h3" /></>,
     connect: <><path d="M8 7V3m8 4V3M6 7h12v4a6 6 0 0 1-12 0V7Zm6 10v4" /></>,
@@ -9,6 +9,7 @@ export function Icon({ name }: { name: 'workbench' | 'connect' | 'room' | 'troph
     settings: <><path d="m9 3-.5 3-2 1L4 6 2 10l2.5 2v2L2 16l2 4 2.5-1 2 1 .5 3h6l.5-3 2-1 2.5 1 2-4-2.5-2v-2L22 10l-2-4-2.5 1-2-1-.5-3H9Z" transform="translate(0 -1) scale(1 .96)" /><circle cx="12" cy="11.5" r="3" /></>,
     referees: <><circle cx="8" cy="8" r="3" /><path d="M3 20v-2a5 5 0 0 1 10 0v2M16 6h5m-5 5h5m-5 5h5" /></>,
     arrow: <path d="M5 12h14m-6-6 6 6-6 6" />,
+    check: <path d="m5 12 4 4L19 6" />,
     refresh: <><path d="M3 12a9 9 0 0 1 15.4-6.4L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.4 6.4L3 16M8 16H3v5" /></>,
     menu: <path d="M4 6h16M4 12h16M4 18h16" />,
     logout: <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />,

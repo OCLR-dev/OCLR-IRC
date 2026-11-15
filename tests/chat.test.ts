@@ -224,7 +224,7 @@ test('referee discovery survives operations and time; settings refreshes never r
     try {
       await f.session.prepareObservation(f.target())
       assert.equal(count('listrefs'),1,'elapsed time does not invalidate room-scoped referee discovery')
-      f.session.relaySend({...f.target(),text:'!mp timer 30'})
+      f.session.relaySend({...f.target(),text:'!mp map 75'})
       await until(()=>count('settings')===2 && f.session.state.room?.syncState==='complete' && !f.session.state.pending)
       assert.equal(f.session.state.room?.referee,'listed')
       assert.equal(count('listrefs'),1,'relay mutation only refreshes settings')

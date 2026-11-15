@@ -196,8 +196,10 @@ test('trusted match start refreshes player settings and retains phase; fake star
   try {
     await f.refresh()
     const before = f.sent.filter(line => line.endsWith(':!mp settings')).length
+    f.session.relaySend({ ...f.target(), text: '!mp start 5' })
+    await until(() => f.sent.includes('PRIVMSG #mp_9 :!mp start 5'))
     f.peer().write(':Someone PRIVMSG #mp_9 :The match has started!\n')
-    await delay(40)
+    await delay(1300) // A dispatch or an untrusted message must not schedule a refresh.
     assert.equal(f.session.state.room!.phase, 'unknown')
     assert.equal(f.sent.filter(line => line.endsWith(':!mp settings')).length, before)
     f.peer().write(':BanchoBot PRIVMSG #mp_9 :The match has started!\n')
@@ -209,7 +211,33 @@ test('trusted match start refreshes player settings and retains phase; fake star
     f.peer().write(':BanchoBot PRIVMSG #mp_9 :Aborted the match\n')
     await until(() => f.session.state.room!.phase === 'idle' && f.session.state.room!.syncState === 'complete')
     assert.equal(f.session.state.room!.match, null)
-    assert.equal(f.sent.some(line => /:!mp (start|abort)/.test(line)), false)
+    assert.deepEqual(f.sent.filter(line => /:!mp (start|abort)/.test(line)), ['PRIVMSG #mp_9 :!mp start 5'])
+  } finally { await f.close() }
+})
+
+test('manual, typed and relayed timer commands reuse the verified settings snapshot', async () => {
+  const f = await fixture()
+  try {
+    await f.refresh()
+    const settingsCount = () => f.sent.filter(line => line.endsWith(':!mp settings')).length
+    const before = settingsCount()
+    const preview = f.session.previewMp({ ...f.target(), intent: { kind: 'timer', seconds: '30' } })
+    f.session.executeMp({ ...f.target(), token: preview.token, reviewed: true })
+    await until(() => f.sent.includes('PRIVMSG #mp_9 :!mp timer 30'))
+    f.peer().write(':BanchoBot PRIVMSG #mp_9 :Countdown ends in 30 seconds\n')
+    await until(() => f.session.state.room?.timer?.status === 'active' && f.session.relayReady(f.target(), '!mp aborttimer'))
+    f.session.relaySend({ ...f.target(), text: '!mp aborttimer' })
+    assert.equal(f.session.state.room?.timer?.status, 'unknown')
+    await until(() => f.sent.includes('PRIVMSG #mp_9 :!mp aborttimer'))
+    f.peer().write(':BanchoBot PRIVMSG #mp_9 :Countdown aborted\n')
+    await until(() => f.session.relayReady(f.target(), '!mp timer 60'))
+    f.session.chat({ ...f.target(), text: '!mp timer 60' })
+    await until(() => f.sent.includes('PRIVMSG #mp_9 :!mp timer 60'))
+    await delay(1300) // Let any scheduled settings query reach the wire.
+    assert.equal(settingsCount(), before)
+    assert.equal(f.session.state.room?.syncState, 'complete')
+    f.session.requestQuery({ ...f.target(), kind: 'settings' })
+    await until(() => settingsCount() === before + 1 && f.session.state.room?.syncState === 'complete')
   } finally { await f.close() }
 })
 
@@ -364,7 +392,6 @@ test('empty room relay can add referees without a map and blocks pending operati
     assert.equal(f.sent.filter(line => line.endsWith(':!mp timer 30')).length, 0)
     f.peer().write(':BanchoBot PRIVMSG #mp_9 :Added SyntheticRef to the match referees\n')
     await until(() => !f.session.relayBlocked(f.target(), '!mp timer 30'))
-    f.session.relayRefresh(f.target())
     await until(() => f.session.relayReady(f.target(), '!mp timer 30'))
     f.session.relaySend({...f.target(), text: '!mp timer 30'}, () => attempted++)
     await until(() => f.sent.includes('PRIVMSG #mp_9 :!mp timer 30'))

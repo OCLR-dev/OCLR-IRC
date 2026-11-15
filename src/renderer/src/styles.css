@@ -287,6 +287,8 @@ main { min-height: 0; overflow: auto; }
 .slot-player { min-width: 0; display: flex; flex-direction: column; gap: 3px; overflow-wrap: anywhere; }
 .slot-player strong { font-weight: 500; }
 .slot-status { font-size: 10px; color: #b7aabd; }
+.slot-ready { display: inline-flex; align-items: center; gap: 3px; padding: 0 5px; border-radius: 4px; background: #193429; color: #8de8ae; font-weight: 650; white-space: nowrap; vertical-align: middle; }
+.slot-ready svg { width: 13px; height: 13px; stroke-width: 2.5; }
 .player-slot.vacant { color: #94859f; }
 .player-slot[data-team=red] { border-left-color: #dc8f9c; }
 .player-slot[data-team=blue] { border-left-color: #8eafe0; }
