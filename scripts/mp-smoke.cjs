@@ -143,10 +143,8 @@ async function main() {
     const labels = { map: '換圖', mods: '設定 Mods', start: '開始比賽', timer: '一般計時', aborttimer: '取消倒數', abort: '中止比賽' }
     await js(`Array.from(document.querySelectorAll('[role=option]')).find(e => e.textContent === ${JSON.stringify(labels[kind])}).click()`)
   }
+  const settingsReads = () => sent.filter(line => line.endsWith(':!mp settings')).length
   for (const [kind, command] of [['map','!mp map 456'],['mods','!mp mods HD HR'],['start','!mp start'],['abort','!mp abort'],['timer','!mp timer 30'],['aborttimer','!mp aborttimer'],['start','!mp start 30']]) {
-    // The previous operation already completes its settings refresh
-    // below; preview also refreshes stale observations on demand. Do not query
-    // both again before every operation (including three fixed flood sleeps).
     await choose(kind)
     if (kind === 'map') await js(`(() => {const e=document.querySelector('input[name=beatmapId]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'456');e.dispatchEvent(new Event('input',{bubbles:true}))})()`)
     if (command === '!mp start 30') await js('document.querySelector(".mp-controls fieldset input[type=checkbox]").click()')
@@ -163,7 +161,7 @@ async function main() {
       fs.writeFileSync(path.join(output,'mp-confirm-synthetic.png'), (await capture()).toPNG())
     }
     await js('document.querySelector(".mp-confirm input[type=checkbox]").click()')
-    const readsBeforeExecution = sent.filter(line => line.endsWith(':!mp settings')).length
+    const readsBeforeExecution = settingsReads()
     await button('確認送出')
     await until(() => sent.includes('PRIVMSG #mp_900000001 :' + command))
     await until(() => js('!document.querySelector(".mp-confirm")'))
@@ -196,8 +194,18 @@ async function main() {
       await js('(async () => { const operation = (await window.oclr.snapshot()).operations.records.at(-1); return window.oclr.reviewOperation({id: operation.id, reviewed: true}) })()')
     }
     assert.equal(sent.filter(line => line === 'PRIVMSG #mp_900000001 :' + command).length, 1)
-    await until(() => sent.filter(line => line.endsWith(':!mp settings')).length > readsBeforeExecution)
-    await until(() => js('(async () => {const s=await window.oclr.snapshot();return !s.pending && s.room.referee === "listed"})()'))
+    const lifecycle = command === '!mp start' ? 'The match has started!' : kind === 'abort' ? 'Aborted the match' : null
+    if (lifecycle) {
+      assert.equal(settingsReads(), readsBeforeExecution)
+      playing = kind === 'start'
+      peer.write(`:BanchoBot PRIVMSG #mp_900000001 :${lifecycle}\n`)
+    }
+    if (lifecycle || kind === 'map' || kind === 'mods') {
+      await until(() => settingsReads() > readsBeforeExecution)
+      await until(() => js('(async () => {const s=await window.oclr.snapshot();return !s.pending && s.room.syncState === "complete" && s.room.referee === "listed"})()'))
+    } else {
+      assert.equal(settingsReads(), readsBeforeExecution)
+    }
   }
   assert.equal(sent.filter(line => line.endsWith(':!mp listrefs')).length, 1, 'all manual operations reuse initial referee discovery')
   await button('預覽指令')
@@ -213,7 +221,7 @@ async function main() {
   peer.write(':BanchoBot PRIVMSG #mp_900000001 :Countdown ends in 1 second\n:BanchoBot PRIVMSG #mp_900000001 :Match starts in 1 second\n')
   await until(() => js('document.querySelector(".match-status").textContent.includes("一般計時") && document.querySelector(".match-status").textContent.includes("開賽倒數")'))
   await until(() => js('document.querySelector(".match-status").textContent.includes("等待伺服器確認")'))
-  assert.equal((await js('window.oclr.snapshot()')).room.phase, 'unknown')
+  assert.equal((await js('window.oclr.snapshot()')).room.phase, 'idle')
   assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
   assert.equal(await js('Array.from(document.querySelectorAll(".countdown-status span")).every(e => e.getBoundingClientRect().right <= document.querySelector(".match-status").getBoundingClientRect().right)'), true)
   fs.writeFileSync(path.join(output, 'countdown-synthetic.png'), (await capture()).toPNG())
@@ -280,7 +288,7 @@ async function main() {
   assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
   fs.writeFileSync(path.join(output, 'map-profile-synthetic.png'), (await capture()).toPNG())
   assert.deepEqual(errors, [])
-  const report = { evidence: 'synthetic-manual-mp-ui', platform: process.platform, arch: process.arch, recordedAt: new Date().toISOString(), passed: ['manual pool slot saves in Main and applies two observed steps through UI', 'disabled before room/permission sync', 'map/mods/start/abort/timer/aborttimer and delayed start preview exact target and wire text', 'separate countdowns expire to waiting, not playing', 'explicit confirmation checkbox', 'single send and stale permission after execution', '900x640 composer remains visible', 'cancel sends nothing', 'forged IPC rejected', 'no close/password commands or renderer errors'], sent, limitation: 'Local synthetic IRC only; no real Bancho mutation or server acknowledgement validation.' }
+  const report = { evidence: 'synthetic-manual-mp-ui', platform: process.platform, arch: process.arch, recordedAt: new Date().toISOString(), passed: ['manual pool slot saves in Main and applies two observed steps through UI', 'disabled before room/permission sync', 'map/mods/start/abort/timer/aborttimer and delayed start preview exact target and wire text', 'separate countdowns expire to waiting, not playing', 'explicit confirmation checkbox', 'single send per operation', 'settings refresh after map, Mods and trusted lifecycle changes, not timers', '900x640 composer remains visible', 'cancel sends nothing', 'forged IPC rejected', 'no close/password commands or renderer errors'], sent, limitation: 'Local synthetic IRC only; no real Bancho mutation or server acknowledgement validation.' }
   fs.writeFileSync(path.join(output,'mp-smoke.json'), JSON.stringify(report,null,2)+'\n')
   console.log(JSON.stringify(report,null,2)); app.exit(0)
 }
