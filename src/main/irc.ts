@@ -961,7 +961,11 @@ export class IrcSession extends EventEmitter {
     if (command !== 'PRIVMSG' || params.length !== 2) return
     const body = params[1]; const bot = normalize(sender) === 'banchobot'
     this.note(view, body, bot ? 'bot' : self ? 'self' : 'chat', sender)
-    if (bot && room.joined && room.kind === 'match') this.operations.observe(room.id, room.epoch, this.generation, body)
+    if (bot && room.joined && room.kind === 'match') {
+      this.operations.observe(room.id, room.epoch, this.generation, body)
+      if (/^All players are ready[!.]?$/.test(body)) this.emit('room-notification', 'ready', room.channel)
+      if (/^The match has finished[!.]?$/.test(body)) this.emit('room-notification', 'finished', room.channel)
+    }
     const countdown = bot && room.kind === 'match' && room.joined ? countdownEvent(body) : null
     if (countdown) {
       if (countdown.kind === 'start' && room.startCountdown?.status !== countdown.value.status) this.mpPreview = null

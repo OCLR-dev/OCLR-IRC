@@ -1,6 +1,6 @@
 // Desktop UI integration QA. Transport is replaced in this process only, before
 // loading the built Main. No production environment flag or renderer host override.
-const { app, BrowserWindow, shell, powerMonitor } = require('electron')
+const { app, BrowserWindow, shell, powerMonitor, Notification } = require('electron')
 const net = require('node:net')
 const fs = require('node:fs')
 const path = require('node:path')
@@ -13,6 +13,9 @@ require('./mock-system-locale.cjs')
 const output = path.resolve('artifacts')
 fs.mkdirSync(output, { recursive: true })
 const sent = []
+const notifications = []
+Notification.isSupported = () => true
+Notification.prototype.show = function () { notifications.push({ title: this.title, body: this.body }) }
 let username = ''
 let peer
 let holdSettings = false, releaseSettings
@@ -141,6 +144,9 @@ async function main() {
   pressKey('Return')
   await until(() => sent.slice(beforeRefs).includes('PRIVMSG #mp_900000001 :!mp listrefs'))
   await until(() => js('document.body.textContent.includes("已列於裁判名單")'))
+  peer.write(':Player PRIVMSG #mp_900000001 :All players are ready\n:BanchoBot PRIVMSG #mp_900000001 :All players are ready\n')
+  await until(() => notifications.length > 0)
+  assert.deepEqual(notifications, [{ title: '所有玩家已準備就緒', body: '#mp_900000001' }])
   await delay(1100)
   await fill('[name=chat]', '中文輸入測試')
   const beforeIME = sent.length
@@ -226,6 +232,19 @@ async function main() {
   assert.equal(await anchored(),true,'new messages preserve the visible history anchor')
   await js('document.querySelector(".jump-latest").click()')
   await until(() => js('document.body.textContent.includes("SYNTHETIC newer row")'))
+  await js('document.querySelector("[data-virtuoso-scroller]").scrollTop = 800')
+  await until(() => js('Boolean(document.querySelector(".jump-latest"))'))
+  await fill('[name=chat]', 'SYNTHETIC scroll after send')
+  await js('document.querySelector(".composer button[type=submit]").click()')
+  await until(() => sent.some(line => line.endsWith(':SYNTHETIC scroll after send')))
+  await until(() => js('document.body.textContent.includes("SYNTHETIC scroll after send") && !document.querySelector(".jump-latest")')).catch(async error => {
+    const details = await js(`(async () => {
+      const scroller = document.querySelector('[data-virtuoso-scroller]');
+      const message = (await window.oclr.snapshot()).messages.at(-1);
+      return { lastMessage: message?.text, delivery: message?.delivery, scrollTop: scroller.scrollTop, scrollHeight: scroller.scrollHeight, clientHeight: scroller.clientHeight };
+    })()`)
+    throw new Error(`Sending a message did not return the list to the latest row: ${JSON.stringify(details)}`, { cause: error })
+  })
   window.setSize(900, 640)
   await delay(300)
   assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
@@ -381,6 +400,9 @@ async function main() {
   assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
   await delay(300)
   fs.writeFileSync(path.join(output, 'workspace-created-synthetic.png'), (await capture()).toPNG())
+  peer.write(':BanchoBot PRIVMSG #osu :The match has finished!\n:Player PRIVMSG #mp_900000003 :The match has finished!\n:BanchoBot PRIVMSG #mp_900000003 :The match has finished!\n')
+  await until(() => notifications.length > 1)
+  assert.deepEqual(notifications.slice(1), [{ title: '本局比賽已結束', body: '#mp_900000003' }])
   assert.ok(!sent.some(line => /!mp (?:start|close|abort)/.test(line)))
   await delay(300)
   fs.writeFileSync(path.join(output, 'workspace-synthetic.png'), (await capture()).toPNG())
@@ -420,7 +442,7 @@ async function main() {
   assert.deepEqual(errors, [])
   const report = { evidence: 'synthetic-desktop-ui', platform: process.platform, arch: process.arch,
     electron: process.versions.electron, recordedAt: new Date().toISOString(),
-    passed: ['renderer and sandboxed preload loaded', 'form login to local fake IRC', 'LF-only settings binding', 'split-line referee membership', 'plain chat sent label without delivery receipt', 'synthetic IME Enter guard', 'typed MP command sent once with execution unconfirmed, Shift+Enter multiline drafts and Enter sending, control characters and unsafe links blocked', 'safe external link and escaped HTML', '1000 retained rows with under 100 DOM rows', 'history scroll and jump to latest', '900x640 composer visible', 'multiple room tabs and unread mention routing', 'renderer reload preserves connection and tabs', 'leave sends PART not mp close', 'socket reconnect renews epoch and settings/listrefs without chat replay', 'complete map/mods snapshot after recovery', 'powerMonitor suspend/resume restores reads', 'kick disables room actions', 'generic channel UI with NAMES Tab completion', 'private inbox preserves selection and sends fixed-target reply', 'create form requires explicit existing-room review', 'make confirmation joins actual MP and queries settings/listrefs', 'old create request cannot be submitted twice', 'created room composer visible at 900x640', 'single sidebar IRC logout and secret clearing', 'osu avatar rendered at 900x640, disk cache reused offline and other-account letter fallback', 'no renderer console errors'],
+    passed: ['renderer and sandboxed preload loaded', 'form login to local fake IRC', 'LF-only settings binding', 'split-line referee membership', 'plain chat sent label without delivery receipt', 'synthetic IME Enter guard', 'typed MP command sent once with execution unconfirmed, Shift+Enter multiline drafts and Enter sending, control characters and unsafe links blocked', 'safe external link and escaped HTML', '1000 retained rows with under 100 DOM rows', 'incoming messages preserve history position and new outgoing messages jump to latest', 'ready and finish notifications require BanchoBot in a match room', '900x640 composer visible', 'multiple room tabs and unread mention routing', 'renderer reload preserves connection and tabs', 'leave sends PART not mp close', 'socket reconnect renews epoch and settings/listrefs without chat replay', 'complete map/mods snapshot after recovery', 'powerMonitor suspend/resume restores reads', 'kick disables room actions', 'generic channel UI with NAMES Tab completion', 'private inbox preserves selection and sends fixed-target reply', 'create form requires explicit existing-room review', 'make confirmation joins actual MP and queries settings/listrefs', 'old create request cannot be submitted twice', 'created room composer visible at 900x640', 'single sidebar IRC logout and secret clearing', 'osu avatar rendered at 900x640, disk cache reused offline and other-account letter fallback', 'no renderer console errors'],
     sent, limitation: 'Local fake server only; no live account credentials, no OCLR OAuth, no Windows/Linux verification; synthetic composition event is not a real IME test.' }
   fs.writeFileSync(path.join(output, 'ui-smoke-recovery.json'), JSON.stringify(report, null, 2) + '\n')
   fs.writeFileSync(path.join(output, 'ui-smoke-creation.json'), JSON.stringify(report, null, 2) + '\n')

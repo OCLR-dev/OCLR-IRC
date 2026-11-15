@@ -10,6 +10,21 @@ import type { Snapshot } from '../../shared/types'
 export function MessageList({ state, onError }: { state: Snapshot; onError: (message: string) => void }) {
   const list = useRef<VirtuosoHandle>(null)
   const [atBottom, setAtBottom] = useState(true)
+  let latestSentId: number | undefined
+  for (let index = state.messages.length - 1; index >= 0; index--) {
+    const message = state.messages[index]
+    if (message.kind === 'self' && (message.delivery === 'sent' || message.delivery === 'unconfirmed')) {
+      latestSentId = message.id
+      break
+    }
+  }
+  const [lastFollowedSend, setLastFollowedSend] = useState(latestSentId)
+  // Start at the latest row on a new outgoing message, even if the history is
+  // full and Virtuoso would otherwise preserve the visible history anchor.
+  if (latestSentId !== undefined && latestSentId !== lastFollowedSend) {
+    setLastFollowedSend(latestSentId)
+    setAtBottom(true)
+  }
   async function openLink(event: React.MouseEvent<HTMLAnchorElement>) {
     event.preventDefault()
     try {
@@ -19,7 +34,7 @@ export function MessageList({ state, onError }: { state: Snapshot; onError: (mes
   }
   if (!state.messages.length) return <div className="message-area empty-state"><h2>{tr("連接你的比賽房間")}</h2></div>
   return <div className="message-area" role="region" aria-label={tr("IRC 訊息")}>
-    <Virtuoso ref={list} className="message-list" data={state.messages}
+    <Virtuoso key={lastFollowedSend} ref={list} className="message-list" data={state.messages}
       firstItemIndex={state.messageStartIndex}
       computeItemKey={(_index, message) => message.id}
       initialTopMostItemIndex={{ index: 'LAST', align: 'end' }}
