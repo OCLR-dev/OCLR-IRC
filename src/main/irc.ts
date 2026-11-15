@@ -497,6 +497,23 @@ export class IrcSession extends EventEmitter {
   private roomRefreshPaused(view: RoomView) {
     return this.chatSending || Boolean(this.mapPlan?.active || this.roomPlan?.active) || [this.mpPreview, this.lobbyPreview, this.profilePreview, this.roomPlanPreview].some(p => p?.view === view && p.deadline > performance.now())
   }
+  private invalidateAfterMpCommand(view: RoomView, command: string) {
+    if (view.room.kind !== 'match') return
+    const verb = command.split(/\s+/, 2)[1]?.toLowerCase()
+    if (verb === 'aborttimer') {
+      for (const key of ['timer', 'startCountdown'] as const) {
+        const countdown = view.room[key]
+        if (countdown) view.room[key] = { ...countdown, status: 'unknown', deadline: null }
+      }
+    }
+    // These commands leave the settings snapshot intact. A player accepting an
+    // invite is handled by the subsequent room change.
+    if (verb === 'timer' || verb === 'aborttimer' || verb === 'invite' || verb === 'addref') return
+    this.clearFresh(view)
+    view.room.syncState = 'stale'
+    // Start and abort are refreshed by the trusted lifecycle event.
+    if (verb !== 'start' && verb !== 'abort') this.refreshAfter.set(view, Date.now() + this.timing.roomRefreshMs)
+  }
   private refreshCurrentRoom() {
     const view = this.selected === null ? undefined : this.views.get(this.selected)
     if (!view || this.connection !== 'online' || !view.room.joined || view.room.kind !== 'match' || this.roomRefreshPaused(view) || view.pending || this.work.length || this.workTimer) return
@@ -619,10 +636,11 @@ export class IrcSession extends EventEmitter {
     const command = source === 'oclr' ? preview.command : lobbyCommand(preview.intent, value.password), masked = source === 'oclr' ? preview.command : lobbyCommand(preview.intent)
     if (Buffer.byteLength(`PRIVMSG ${view.room.channel} :${command}`, 'utf8') > 510) throw new Error('房間設定過長。')
     const id = this.operations.begin(source, preview.intent.kind, view.room.id, view.room.epoch, this.generation, masked)
-    this.lastQueryAt = Date.now(); this.clearFresh(view); view.room.syncState = 'stale'
+    this.lastQueryAt = Date.now()
+    this.invalidateAfterMpCommand(view, masked)
     this.note(view, masked, 'self', this.username, 'unconfirmed')
     try { this.send(`PRIVMSG ${view.room.channel} :${command}`) } catch (error) { this.operations.finish(id, 'unknown'); throw error }
-    finally { this.refreshAfter.set(view, Date.now() + this.timing.roomRefreshMs); this.publish() }
+    finally { this.publish() }
   }
   previewRoomPlan(input: unknown): RoomPlanPreview {
     this.roomPlanPreview = null
@@ -769,17 +787,13 @@ export class IrcSession extends EventEmitter {
     this.mpReady(view, preview.command)
     if (/^!mp (?:abort|aborttimer)$/.test(preview.command)) { this.mapPlan?.cancel(); this.roomPlan?.cancel() }
     const operationId = this.operations.begin('manual', preview.command.split(' ')[1], view.room.id, view.room.epoch, this.generation, preview.command)
-    this.clearFresh(view)
-    view.room.syncState = 'stale'
     this.lastQueryAt = Date.now()
-    if (preview.command === '!mp aborttimer') {
-      for (const key of ['timer', 'startCountdown'] as const) if (view.room[key]) view.room[key] = { ...view.room[key]!, status: 'unknown', deadline: null }
-    }
+    this.invalidateAfterMpCommand(view, preview.command)
     this.note(view, preview.command, 'self', this.username, 'unconfirmed')
     this.note(view, '房內操作已嘗試送出，結果未確認；請核對 BanchoBot 回覆，再讀取設定。不會自動重送。')
     try { this.send(`PRIVMSG ${view.room.channel} :${preview.command}`) }
     catch (error) { this.operations.finish(operationId, 'unknown'); throw error }
-    finally { this.refreshAfter.set(view, Date.now() + this.timing.roomRefreshMs); this.publish() }
+    finally { this.publish() }
   }
   relayBlocked(input: RoomTarget, text: string) { return !/^!mp (?:abort|aborttimer)$/.test(text) && this.operations.hasPending(this.target(input).room.id) }
   relayReady(input: RoomTarget, text?: string) {
@@ -803,12 +817,12 @@ export class IrcSession extends EventEmitter {
     if (/^!mp (?:abort|aborttimer)$/.test(text)) { this.mapPlan?.cancel(); this.roomPlan?.cancel() }
     const operationId = this.operations.begin('oclr', text.split(' ')[1], view.room.id, view.room.epoch, this.generation, text)
     this.lastQueryAt = Date.now()
-    this.clearFresh(view); view.room.syncState = 'stale'
+    this.invalidateAfterMpCommand(view, text)
     this.note(view, text, 'self', this.username, 'unconfirmed')
     onDispatch?.()
     try { this.send(`PRIVMSG ${view.room.channel} :${text}`) }
     catch (error) { this.operations.finish(operationId, 'unknown'); throw error }
-    finally { this.enqueue(view, 'settings'); this.publish() }
+    finally { this.publish() }
   }
   relayNoticeReady(input: RoomTarget) {
     try {
@@ -844,7 +858,7 @@ export class IrcSession extends EventEmitter {
       this.mapPlan?.cancel(); this.roomPlan?.cancel(); this.mpPreview = null; this.lobbyPreview = null; this.profilePreview = null; this.roomPlanPreview = null
       this.operations.interrupt(view.room.id)
       this.emit('manual-command', {roomId:view.room.id, roomEpoch:view.room.epoch})
-      this.clearFresh(view); view.room.syncState = 'stale'; this.refreshAfter.set(view, Date.now() + this.timing.roomRefreshMs)
+      this.invalidateAfterMpCommand(view, text)
     }
     onDispatch?.()
     this.send(`PRIVMSG ${view.room.channel} :${text}`); this.lastQueryAt = Date.now()
@@ -994,7 +1008,8 @@ export class IrcSession extends EventEmitter {
         room.referee = 'listed'; this.clearTimer(view); view.pending = null; view.refsHeader = false
       }
     }
-    if (bot && !observing && !readingRefs && room.syncState !== 'unknown') room.syncState = 'stale'
+    const refereeAdded = /^Added .+ to the match referees\.?$/.test(body)
+    if (bot && !observing && !readingRefs && !refereeAdded && room.syncState !== 'unknown') room.syncState = 'stale'
     if (!observing && (roomChanged || bot && !readingRefs && /^Active mods:/.test(body))) {
       room.syncState = 'stale'
       if (body.startsWith('The match has started')) room.phase = 'playing'
