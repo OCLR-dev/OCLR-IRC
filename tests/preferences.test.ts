@@ -11,12 +11,16 @@ test('preferences persist across new instances; invalid, corrupt and failed writ
   try {
     const store = new PreferencesStore(file)
     assert.deepEqual(store.get(), DEFAULT_PREFERENCES)
-    const desired = { closeToBackground: false, language: 'en' as const, restoreIrcLogin: true, autoRefreshOclr: false }
+    const desired = { ...DEFAULT_PREFERENCES, closeToBackground: false, language: 'en' as const, restoreIrcLogin: true, autoRefreshOclr: false, chatFontSize: 24 as const }
     store.set(desired)
     assert.deepEqual(new PreferencesStore(file).get(), desired)
-    assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), { schema: 3, preferences: desired, ircLoginActive: false })
+    assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), { schema: 4, preferences: desired, ircLoginActive: false })
     for (const bad of [null, [], {}, { ...desired, language: 'fr' }, { ...desired, closeToBackground: 'false' }, { ...desired, restoreIrcLogin: 'true' }, { ...desired, autoRefreshOclr: 'false' }, { ...desired, token: 'not-allowed' }]) {
       assert.throws(() => store.set(bad)); assert.deepEqual(store.get(), desired)
+    }
+    for (const chatFontSize of [8, 13, 24.5, 26, '24', NaN, null]) {
+      assert.throws(() => store.set({ ...desired, chatFontSize }))
+      assert.equal(new PreferencesStore(file).get().chatFontSize, 24)
     }
     const copy = store.get(); copy.closeToBackground = true
     assert.equal(store.get().closeToBackground, false)
@@ -35,7 +39,7 @@ test('legacy preferences keep language and background without granting login res
   try {
     writeFileSync(file, JSON.stringify({ schema: 1, preferences: { closeToBackground: false, language: 'zh-Hant' } }))
     const store = new PreferencesStore(file)
-    assert.deepEqual(store.get(), { closeToBackground: false, language: 'zh-Hant', restoreIrcLogin: false, autoRefreshOclr: true })
+    assert.deepEqual(store.get(), { ...DEFAULT_PREFERENCES, closeToBackground: false, language: 'zh-Hant' })
     store.setIrcLoginActive(true); assert.equal(new PreferencesStore(file).ircLoginActive, false)
     store.set({ ...store.get(), restoreIrcLogin: true, autoRefreshOclr: false }); assert.equal(store.ircLoginActive, false)
     store.setIrcLoginActive(true); assert.equal(new PreferencesStore(file).ircLoginActive, true)
@@ -63,14 +67,29 @@ test('schema 2 migration enables OCLR updates without losing existing login elig
   try {
     writeFileSync(file, JSON.stringify({ schema: 2, preferences: { closeToBackground: false, language: 'en', restoreIrcLogin: true }, ircLoginActive: true }))
     const store = new PreferencesStore(file)
-    assert.deepEqual(store.get(), { closeToBackground: false, language: 'en', restoreIrcLogin: true, autoRefreshOclr: true })
+    assert.deepEqual(store.get(), { ...DEFAULT_PREFERENCES, closeToBackground: false, language: 'en', restoreIrcLogin: true })
     assert.equal(store.ircLoginActive, true)
     store.set({ ...store.get(), autoRefreshOclr: false })
     const restarted = new PreferencesStore(file)
     assert.equal(restarted.get().autoRefreshOclr, false)
     assert.equal(restarted.ircLoginActive, true)
-    assert.equal(JSON.parse(readFileSync(file, 'utf8')).schema, 3)
-    writeFileSync(file, JSON.stringify({ schema: 3, preferences: { ...store.get(), autoRefreshOclr: 'false' }, ircLoginActive: true }))
+    assert.equal(JSON.parse(readFileSync(file, 'utf8')).schema, 4)
+    writeFileSync(file, JSON.stringify({ schema: 4, preferences: { ...store.get(), autoRefreshOclr: 'false' }, ircLoginActive: true }))
     assert.deepEqual(new PreferencesStore(file).get(), DEFAULT_PREFERENCES)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('schema 3 keeps existing settings and login eligibility while defaulting chat size to 12', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'oclr-chat-size-settings-')), file = join(dir, 'preferences.json')
+  try {
+    const preferences = { closeToBackground: false, language: 'zh-Hans', restoreIrcLogin: true, autoRefreshOclr: false }
+    writeFileSync(file, JSON.stringify({ schema: 3, preferences, ircLoginActive: true }))
+    const store = new PreferencesStore(file)
+    assert.deepEqual(store.get(), { ...preferences, chatFontSize: 12 })
+    assert.equal(store.ircLoginActive, true)
+    store.set({ ...store.get(), chatFontSize: 10 })
+    const restarted = new PreferencesStore(file)
+    assert.deepEqual(restarted.get(), { ...preferences, chatFontSize: 10 })
+    assert.equal(restarted.ircLoginActive, true)
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })

@@ -58,11 +58,12 @@ async function main() {
   assert.equal(settings.preferences.language, restart ? 'en' : 'system')
   assert.equal(settings.preferences.closeToBackground, !restart)
   assert.equal(settings.preferences.autoRefreshOclr, !restart)
+  assert.equal(settings.preferences.chatFontSize, restart ? 24 : 12)
   assert.equal(await js('document.documentElement.lang'), 'en')
   assert.equal(await js('document.body.textContent.includes("Quit")'), false)
   assert.equal(await js('Boolean(document.querySelector(".sidebar-note"))'), false)
   assert.throws(() => handlers.get('app:avatar')({ sender: window.webContents, senderFrame: { url: 'https://untrusted.invalid' } }), /Untrusted/)
-  await assert.rejects(handlers.get('app:settings-update')({ sender: window.webContents, senderFrame: { url: 'https://untrusted.invalid' } }, { closeToBackground: false, language: 'en', restoreIrcLogin: false, autoRefreshOclr: false }), /Untrusted/)
+  await assert.rejects(handlers.get('app:settings-update')({ sender: window.webContents, senderFrame: { url: 'https://untrusted.invalid' } }, settings.preferences), /Untrusted/)
   await assert.rejects(handlers.get('oclr:open-referee-panel')({ sender: window.webContents, senderFrame: { url: 'https://untrusted.invalid' } }, '00000000-0000-4000-8000-000000000101'), /Untrusted/)
   if (!restart) {
     try {
@@ -112,6 +113,15 @@ async function main() {
     await until(() => js('document.documentElement.lang==="en"'))
     await choose('English', 'en', 'en')
     assert.equal(await js('document.querySelector(".settings-view h1").textContent'), 'Settings')
+    const chatSize = '.chat-font-size-select button[aria-haspopup]'
+    await until(() => js(`!document.querySelector('${chatSize}').disabled`))
+    assert.equal(await js(`document.querySelector('${chatSize}').textContent`), '12 px')
+    await js(`document.querySelector('${chatSize}').scrollIntoView({block:"nearest"}); document.querySelector('${chatSize}').click()`)
+    await until(() => js('Array.from(document.querySelectorAll("[role=option]")).some(option => option.textContent === "24 px")'))
+    await js('Array.from(document.querySelectorAll("[role=option]")).find(option => option.textContent === "24 px").click()')
+    await until(() => js(`document.querySelector('${chatSize}').textContent === "24 px"`))
+    await until(() => js('!document.querySelector("[role=option]")'))
+    assert.equal((await js('window.oclr.settings.snapshot()')).preferences.chatFontSize, 24)
     assert.equal(await js('document.querySelector(".settings-section:has(input[name=autoRefreshOclr]) .label").textContent'), 'Automatically update OCLR website data')
     assert.equal(await js('document.documentElement.scrollWidth<=innerWidth'), true)
     assert.ok((await js('document.querySelector(".settings-section:has(input[name=closeToBackground]) .label").textContent')).endsWith('closed'))
@@ -153,17 +163,25 @@ async function main() {
     await until(() => js('(async () => { const s=await window.oclr.snapshot(); return s.room.referee==="listed" && !s.pending })()'))
     peer.write(':系統 PRIVMSG #mp_900000008 :已連線 原文\n')
     await until(() => js('document.querySelector(".message-area").textContent.includes("已連線 原文")'))
+    const conversationFontSize = `(() => {
+      const message = [...document.querySelectorAll('.message-row.chat .message-text')].find(e => e.textContent.includes('已連線 原文'))
+      return message && [getComputedStyle(message).fontSize, getComputedStyle(document.querySelector('[name=chat]')).fontSize]
+    })()`
+    assert.deepEqual(await js(conversationFontSize), ['24px', '24px'])
     await js('(() => { const el=document.querySelector("[name=chat]"); Object.getOwnPropertyDescriptor((el instanceof HTMLTextAreaElement ? HTMLTextAreaElement : HTMLInputElement).prototype,"value").set.call(el,"Draft 未知"); el.dispatchEvent(new Event("input",{bubbles:true})) })()')
     const before = sent.length
-    await js('window.oclr.settings.update({autoRefreshOclr:false,restoreIrcLogin:false,closeToBackground:false,language:"zh-Hans"})')
+    const updateSettings = patch => js(`(async () => window.oclr.settings.update({ ...(await window.oclr.settings.snapshot()).preferences, ...${JSON.stringify(patch)} }))()`)
+    assert.equal((await updateSettings({chatFontSize: 25})).ok, false)
+    assert.equal((await updateSettings({language: 'zh-Hans', chatFontSize: 14})).ok, true)
     await until(() => js('document.documentElement.lang==="zh-Hans"'))
+    assert.deepEqual(await js(conversationFontSize), ['14px', '14px'])
     assert.equal(await js('document.querySelector(".conversation-title h2").textContent'), '未知 房間')
     assert.ok((await js('document.querySelector(".match-status").textContent')).includes('歌曲 原文'))
     assert.equal(await js('document.querySelector(".slot-player strong").textContent'), '未知')
     assert.ok((await js('document.querySelector(".message-area").textContent')).includes('已連線 原文'))
     assert.equal(await js('document.querySelector("[name=chat]").value'), 'Draft 未知')
     assert.deepEqual(sent.slice(before).filter(line=>!/^PRIVMSG #mp_\d+ :!mp (?:settings|listrefs)$/.test(line)), [])
-    await js('window.oclr.settings.update({autoRefreshOclr:false,restoreIrcLogin:false,closeToBackground:false,language:"en"})')
+    assert.equal((await updateSettings({language: 'en', chatFontSize: 24})).ok, true)
     await until(() => js('document.querySelector(".tools-heading").textContent.includes("Room tools")'))
     assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom<=innerHeight'), true)
   }
@@ -173,10 +191,10 @@ async function main() {
     const state = handlers.get('irc:snapshot')({ sender: window.webContents, senderFrame: window.webContents.mainFrame })
     assert.equal(state.connection, 'offline')
     const saved = JSON.parse(fs.readFileSync(path.join(profile, 'preferences.json'), 'utf8'))
-    assert.deepEqual(saved.preferences, { closeToBackground: false, language: 'en', restoreIrcLogin: false, autoRefreshOclr: false })
+    assert.deepEqual(saved.preferences, { closeToBackground: false, language: 'en', restoreIrcLogin: false, autoRefreshOclr: false, chatFontSize: 24 })
   })
   app.on('will-quit', () => {
-    const report = { evidence: restart ? 'synthetic-settings-restart' : 'synthetic-settings-localization', passed: restart ? ['new application process restores locale and close behavior', 'close without background exits'] : ['HeroUI language selection for all four options', 'language changes without relogin or IRC commands', 'chat, names, maps and draft remain literal', '900x640 settings, about and composer', 'no sidebar quit button', 'fixed About link allowlist', 'invalid IPC inputs and sender rejected', 'preferences survive renderer reload', 'close without background exits and cleans authentication'], limitation: 'Synthetic services and OS language. Physical tray/IME acceptance remains separate.' }
+    const report = { evidence: restart ? 'synthetic-settings-restart' : 'synthetic-settings-localization', passed: restart ? ['new application process restores locale, close behavior and chat font size', 'close without background exits'] : ['HeroUI language selection for all four options', 'language changes without relogin or IRC commands', 'chat font size applies to messages and the composer', 'chat, names, maps and draft remain literal', '900x640 settings, about and composer', 'no sidebar quit button', 'fixed About link allowlist', 'invalid IPC inputs and sender rejected', 'preferences survive renderer reload', 'close without background exits and cleans authentication'], limitation: 'Synthetic services and OS language. Physical tray/IME acceptance remains separate.' }
     fs.mkdirSync('artifacts', { recursive: true }); fs.writeFileSync(`artifacts/settings${restart ? '-restart' : ''}-smoke.json`, JSON.stringify(report, null, 2)); console.log(JSON.stringify(report))
   })
   window.close()
