@@ -3,11 +3,12 @@ import { Button, Tabs } from '@heroui/react'
 import { WorkspaceCheckbox, WorkspaceSelect } from './controls'
 import { tr } from './i18n'
 import { BrandIcon } from './brand'
-import { CHAT_FONT_SIZES, type AppPreferences, type AppSettings, type LanguagePreference } from '../../shared/preferences'
+import { CHAT_FONT_FAMILIES, CHAT_FONT_SIZES, type AppPreferences, type AppSettings, type LanguagePreference } from '../../shared/preferences'
 
 export function SettingsView({ settings, onChange }: { settings: AppSettings; onChange: (settings: AppSettings) => void }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const chatFontLabels = { default: tr('預設字型'), serif: tr('襯線字型'), monospace: tr('等寬字型') }
   async function save(patch: Partial<AppPreferences>) {
     if (!window.oclr || busy) return
     setBusy(true); setError('')
@@ -47,11 +48,19 @@ export function SettingsView({ settings, onChange }: { settings: AppSettings; on
             { value: 'system', label: tr('跟隨系統') }, { value: 'zh-Hans', label: '简体中文' }, { value: 'zh-Hant', label: '繁體中文' }, { value: 'en', label: 'English' }
           ]} />
         </section>
-        <section className="settings-section"><h2>{tr('聊天字號')}</h2>
-          <WorkspaceSelect className="chat-font-size-select" label={tr('聊天字號')} value={String(settings.preferences.chatFontSize)} disabled={busy || !window.oclr} onChange={value => {
-            const chatFontSize = CHAT_FONT_SIZES.find(size => size === Number(value))
-            if (chatFontSize !== undefined) void save({ chatFontSize })
-          }} options={CHAT_FONT_SIZES.map(size => ({ value: String(size), label: `${size} px` }))} />
+        <section className="settings-section chat-font-settings">
+          <div><h2>{tr('聊天字號')}</h2>
+            <WorkspaceSelect className="chat-font-size-select" label={tr('聊天字號')} value={String(settings.preferences.chatFontSize)} disabled={busy || !window.oclr} onChange={value => {
+              const chatFontSize = CHAT_FONT_SIZES.find(size => size === Number(value))
+              if (chatFontSize !== undefined) void save({ chatFontSize })
+            }} options={CHAT_FONT_SIZES.map(size => ({ value: String(size), label: `${size} px` }))} />
+          </div>
+          <div><h2>{tr('聊天字型')}</h2>
+            <WorkspaceSelect className="chat-font-family-select" label={tr('聊天字型')} value={settings.preferences.chatFontFamily} disabled={busy || !window.oclr} onChange={value => {
+              const chatFontFamily = CHAT_FONT_FAMILIES.find(font => font === value)
+              if (chatFontFamily !== undefined) void save({ chatFontFamily })
+            }} options={CHAT_FONT_FAMILIES.map(value => ({ value, label: chatFontLabels[value] }))} />
+          </div>
         </section>
       </Tabs.Panel>
       <Tabs.Panel id="about">

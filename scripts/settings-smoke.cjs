@@ -59,6 +59,7 @@ async function main() {
   assert.equal(settings.preferences.closeToBackground, !restart)
   assert.equal(settings.preferences.autoRefreshOclr, !restart)
   assert.equal(settings.preferences.chatFontSize, restart ? 24 : 12)
+  assert.equal(settings.preferences.chatFontFamily, restart ? 'monospace' : 'default')
   assert.equal(await js('document.documentElement.lang'), 'en')
   assert.equal(await js('document.body.textContent.includes("Quit")'), false)
   assert.equal(await js('Boolean(document.querySelector(".sidebar-note"))'), false)
@@ -122,6 +123,13 @@ async function main() {
     await until(() => js(`document.querySelector('${chatSize}').textContent === "24 px"`))
     await until(() => js('!document.querySelector("[role=option]")'))
     assert.equal((await js('window.oclr.settings.snapshot()')).preferences.chatFontSize, 24)
+    const chatFont = '.chat-font-family-select button[aria-haspopup]'
+    await until(() => js(`!document.querySelector('${chatFont}').disabled`))
+    assert.equal(await js(`document.querySelector('${chatFont}').textContent`), 'Default font')
+    await js(`document.querySelector('${chatFont}').click()`)
+    await until(() => js('Array.from(document.querySelectorAll("[role=option]")).some(option => option.textContent === "Monospace")'))
+    await js('Array.from(document.querySelectorAll("[role=option]")).find(option => option.textContent === "Monospace").click()')
+    await until(() => js(`document.querySelector('${chatFont}').textContent === "Monospace" && !document.querySelector("[role=option]")`))
     assert.equal(await js('document.querySelector(".settings-section:has(input[name=autoRefreshOclr]) .label").textContent'), 'Automatically update OCLR website data')
     assert.equal(await js('document.documentElement.scrollWidth<=innerWidth'), true)
     assert.ok((await js('document.querySelector(".settings-section:has(input[name=closeToBackground]) .label").textContent')).endsWith('closed'))
@@ -169,21 +177,29 @@ async function main() {
     })()`
     const waitForChatSize = size => until(() => js(`(${conversationFontSize})?.every(font => font === "${size}px") === true`))
     await waitForChatSize(24)
+    const waitForChatFont = family => until(() => js(`(() => {
+      const message = [...document.querySelectorAll('.message-row.chat .message-text')].find(e => e.textContent.includes('已連線 原文'))
+      const composer = document.querySelector('[name=chat]')
+      return message && composer && [message, composer].every(el => getComputedStyle(el).fontFamily.startsWith('ui-${family},'))
+    })()`))
+    await waitForChatFont('monospace')
     await js('(() => { const el=document.querySelector("[name=chat]"); Object.getOwnPropertyDescriptor((el instanceof HTMLTextAreaElement ? HTMLTextAreaElement : HTMLInputElement).prototype,"value").set.call(el,"Draft 未知"); el.dispatchEvent(new Event("input",{bubbles:true})) })()')
     const before = sent.length
     const updateSettings = patch => js(`(async () => window.oclr.settings.update({ ...(await window.oclr.settings.snapshot()).preferences, ...${JSON.stringify(patch)} }))()`)
     assert.equal((await updateSettings({chatFontSize: 25})).ok, false)
-    assert.equal((await updateSettings({language: 'zh-Hans', chatFontSize: 14})).ok, true)
+    assert.equal((await updateSettings({chatFontFamily: 'Arial'})).ok, false)
+    assert.equal((await updateSettings({language: 'zh-Hans', chatFontSize: 14, chatFontFamily: 'serif'})).ok, true)
     await until(() => js('document.documentElement.lang==="zh-Hans"'))
     // The locale and the virtual message list can render in separate frames.
     await waitForChatSize(14)
+    await waitForChatFont('serif')
     assert.equal(await js('document.querySelector(".conversation-title h2").textContent'), '未知 房間')
     assert.ok((await js('document.querySelector(".match-status").textContent')).includes('歌曲 原文'))
     assert.equal(await js('document.querySelector(".slot-player strong").textContent'), '未知')
     assert.ok((await js('document.querySelector(".message-area").textContent')).includes('已連線 原文'))
     assert.equal(await js('document.querySelector("[name=chat]").value'), 'Draft 未知')
     assert.deepEqual(sent.slice(before).filter(line=>!/^PRIVMSG #mp_\d+ :!mp (?:settings|listrefs)$/.test(line)), [])
-    assert.equal((await updateSettings({language: 'en', chatFontSize: 24})).ok, true)
+    assert.equal((await updateSettings({language: 'en', chatFontSize: 24, chatFontFamily: 'monospace'})).ok, true)
     await until(() => js('document.querySelector(".tools-heading").textContent.includes("Room tools")'))
     assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom<=innerHeight'), true)
   }
@@ -193,7 +209,7 @@ async function main() {
     const state = handlers.get('irc:snapshot')({ sender: window.webContents, senderFrame: window.webContents.mainFrame })
     assert.equal(state.connection, 'offline')
     const saved = JSON.parse(fs.readFileSync(path.join(profile, 'preferences.json'), 'utf8'))
-    assert.deepEqual(saved.preferences, { closeToBackground: false, language: 'en', restoreIrcLogin: false, autoRefreshOclr: false, chatFontSize: 24 })
+    assert.deepEqual(saved.preferences, { closeToBackground: false, language: 'en', restoreIrcLogin: false, autoRefreshOclr: false, chatFontSize: 24, chatFontFamily: 'monospace' })
   })
   app.on('will-quit', () => {
     const report = { evidence: restart ? 'synthetic-settings-restart' : 'synthetic-settings-localization', passed: restart ? ['new application process restores locale, close behavior and chat font size', 'close without background exits'] : ['HeroUI language selection for all four options', 'language changes without relogin or IRC commands', 'chat font size applies to messages and the composer', 'chat, names, maps and draft remain literal', '900x640 settings, about and composer', 'no sidebar quit button', 'fixed About link allowlist', 'invalid IPC inputs and sender rejected', 'preferences survive renderer reload', 'close without background exits and cleans authentication'], limitation: 'Synthetic services and OS language. Physical tray/IME acceptance remains separate.' }

@@ -16,8 +16,9 @@ export class PreferencesStore {
       if (!stat.isFile() || stat.size > 1024) return
       const saved = JSON.parse(readFileSync(fd, 'utf8'))
       const { schema, preferences, ircLoginActive } = saved
-      if (![1, 2, 3, 4].includes(schema) || !preferences) return
+      if (![1, 2, 3, 4, 5].includes(schema) || !preferences) return
       if (schema !== 1 && typeof ircLoginActive !== 'boolean') return
+      if (schema < 5 && Object.hasOwn(preferences, 'chatFontFamily')) return
       if (schema < 4 && Object.hasOwn(preferences, 'chatFontSize')) return
       if (schema < 3 && Object.hasOwn(preferences, 'autoRefreshOclr')) return
       if (schema === 1 && Object.hasOwn(preferences, 'restoreIrcLogin')) return
@@ -25,7 +26,8 @@ export class PreferencesStore {
         ...preferences,
         ...(schema === 1 ? { restoreIrcLogin: false } : {}),
         ...(schema < 3 ? { autoRefreshOclr: DEFAULT_PREFERENCES.autoRefreshOclr } : {}),
-        ...(schema < 4 ? { chatFontSize: DEFAULT_PREFERENCES.chatFontSize } : {})
+        ...(schema < 4 ? { chatFontSize: DEFAULT_PREFERENCES.chatFontSize } : {}),
+        ...(schema < 5 ? { chatFontFamily: DEFAULT_PREFERENCES.chatFontFamily } : {})
       })
       this.active = this.value.restoreIrcLogin && ircLoginActive === true
     } catch { /* Missing/corrupt preferences use defaults without touching other application data. */ }
@@ -45,7 +47,7 @@ export class PreferencesStore {
     mkdirSync(dirname(this.file), { recursive: true, mode: 0o700 })
     const temp = this.file + '.tmp'
     try {
-      writeFileSync(temp, JSON.stringify({ schema: 4, preferences: value, ircLoginActive: active }), { mode: 0o600 })
+      writeFileSync(temp, JSON.stringify({ schema: 5, preferences: value, ircLoginActive: active }), { mode: 0o600 })
       renameSync(temp, this.file)
     } finally { rmSync(temp, { force: true }) }
     this.value = value; this.active = active
