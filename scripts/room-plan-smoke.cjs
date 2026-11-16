@@ -1,6 +1,6 @@
 // Desktop UI integration QA. Transport is replaced in this process only, before
 // loading the built Main. No production environment flag or renderer host override.
-const { app, BrowserWindow, shell, powerMonitor } = require('electron')
+const { app, BrowserWindow, shell } = require('electron')
 const net = require('node:net')
 const fs = require('node:fs')
 const path = require('node:path')
@@ -14,13 +14,10 @@ const output = path.resolve('artifacts')
 fs.mkdirSync(output, { recursive: true })
 const sent = []
 let username = ''
-let playing = false, individualSlots = false
-let roomName = 'SYNTHETIC QA ROOM', teamMode = 'HeadToHead', playerSlot = 1, playerTeam = 'Red'
-let peer
+let roomName = 'SYNTHETIC QA ROOM', teamMode = 'HeadToHead'
 const opened = []
 shell.openExternal = async url => { opened.push(url) }
 const server = net.createServer(socket => {
-  peer = socket
   let pending = ''
   socket.on('data', chunk => {
     pending += chunk.toString()
@@ -36,11 +33,9 @@ const server = net.createServer(socket => {
       if (line.startsWith('PRIVMSG BanchoBot :!mp make ')) socket.write(`:BanchoBot PRIVMSG ${username} :Created the tournament match https://osu.ppy.sh/mp/900000003 ${line.slice('PRIVMSG BanchoBot :!mp make '.length)}\n`)
       if (line.includes(':!mp name ')) roomName = line.split(':!mp name ')[1]
       if (line.includes(':!mp set ')) teamMode = 'TeamVs'
-      if (/:!mp move #101 (\d+)$/.test(line)) playerSlot = Number(/:!mp move #101 (\d+)$/.exec(line)[1])
-      if (line.includes(':!mp team #101 blue')) playerTeam = 'Blue'
       const channel = line.split(' ')[1]
       const id = channel?.replace('#mp_', '')
-      if (line.endsWith(':!mp settings')) socket.write(`:BanchoBot PRIVMSG ${channel} :Room name: ${roomName}, History: https://osu.ppy.sh/mp/${id}\n:BanchoBot PRIVMSG ${channel} :Beatmap: https://osu.ppy.sh/b/123 Synthetic Artist - Map\n:BanchoBot PRIVMSG ${channel} :Team mode: ${teamMode}, Win condition: ScoreV2\n:BanchoBot PRIVMSG ${channel} :Active mods: None\n:BanchoBot PRIVMSG ${channel} :Players: 2\n:BanchoBot PRIVMSG ${channel} :Slot ${playerSlot} ${playing ? 'Playing' : 'Ready'} https://osu.ppy.sh/u/101 Synthetic Red [${teamMode === 'HeadToHead' && individualSlots ? 'Host' : `Host / Team ${playerTeam}` }]\n:BanchoBot PRIVMSG ${channel} :Slot 4 Not Ready https://osu.ppy.sh/u/102 Synthetic Blue${teamMode === 'HeadToHead' && individualSlots ? '' : ' [Team Blue]'}\n`)
+      if (line.endsWith(':!mp settings')) socket.write(`:BanchoBot PRIVMSG ${channel} :Room name: ${roomName}, History: https://osu.ppy.sh/mp/${id}\n:BanchoBot PRIVMSG ${channel} :Beatmap: https://osu.ppy.sh/b/123 Synthetic Artist - Map\n:BanchoBot PRIVMSG ${channel} :Team mode: ${teamMode}, Win condition: ScoreV2\n:BanchoBot PRIVMSG ${channel} :Active mods: None\n:BanchoBot PRIVMSG ${channel} :Players: 2\n:BanchoBot PRIVMSG ${channel} :Slot 1 Ready https://osu.ppy.sh/u/101 Synthetic Red [Host / Team Red]\n:BanchoBot PRIVMSG ${channel} :Slot 4 Not Ready https://osu.ppy.sh/u/102 Synthetic Blue [Team Blue]\n`)
       if (line.endsWith(':!mp listrefs')) socket.write(`:BanchoBot PRIVMSG ${channel} :Match referees:\n:BanchoBot PRIVMSG ${channel} :${username}\n`)
     }
   })
@@ -106,7 +101,6 @@ async function main() {
     await js(`Array.from(document.querySelectorAll('.mp-controls button')).find(b => b.textContent === ${JSON.stringify(text)}).click()`)
   }
   async function fill(name,value) { await js(`(() => {const e=document.querySelector('input[name=${name}]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,${JSON.stringify(value)});e.dispatchEvent(new Event('input',{bubbles:true}))})()`) }
-  async function choose(label,value) { await js(`document.querySelector('button[aria-label="${label}"]').click()`); await until(()=>js('Boolean(document.querySelector("[role=option]"))')); await js(`Array.from(document.querySelectorAll('[role=option]')).find(e=>e.textContent===${JSON.stringify(value)}).click()`) }
   await refresh()
   await js('document.querySelector(".room-initialization").open = true')
   await fill('planRoomName','SYNTHETIC initialized')
@@ -117,40 +111,10 @@ async function main() {
   await button('執行逐步計畫')
   await until(()=>js('(async()=>(await window.oclr.snapshot()).roomPlan?.state === "observed")()'),150)
   assert.deepEqual(sent.filter(line=>/:!mp (name|set) /.test(line)),['PRIVMSG #mp_900000001 :!mp name SYNTHETIC initialized','PRIVMSG #mp_900000001 :!mp set 2 3'])
-  await js('document.querySelector(".room-initialization").open = false; document.querySelector(".manual-lineup").open = true')
-  await fill('lineupUid','101');await fill('lineupName','Synthetic Red')
-  await js('Array.from(document.querySelectorAll(".manual-lineup button")).find(b=>b.textContent==="加入手動名單").click()')
-  await until(()=>js('Boolean(document.querySelector(".lineup-entry"))'))
-  await js('document.querySelector(".lineup-entry input[type=checkbox]").click()')
-  await choose('Synthetic Red 隊伍','藍隊');await choose('Synthetic Red 槽位','2')
-  await js('Array.from(document.querySelectorAll(".manual-lineup button")).find(b=>b.textContent==="預覽陣容計畫").click()')
-  await until(()=>js('Boolean(document.querySelector(".manual-lineup .room-plan-confirm"))'))
-  await js('document.querySelectorAll(".manual-lineup .room-plan-confirm input[type=checkbox]").forEach(e=>e.click())')
-  assert.equal(await js('Array.from(document.querySelectorAll(".manual-lineup .room-plan-confirm button")).find(b=>b.textContent==="執行逐步計畫").disabled'),true)
-  await js(`(() => {const e=document.querySelector('.manual-lineup .room-plan-confirm input:not([type=checkbox])');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'Synthetic Red');e.dispatchEvent(new Event('input',{bubbles:true}))})()`)
-  await until(()=>js('Array.from(document.querySelectorAll(".manual-lineup .room-plan-confirm button")).find(b=>b.textContent==="執行逐步計畫").disabled === false'))
-  await js('Array.from(document.querySelectorAll(".manual-lineup .room-plan-confirm button")).find(b=>b.textContent==="執行逐步計畫").click()')
-  await until(()=>js('(async()=>(await window.oclr.snapshot()).roomPlan?.steps[0].command === "!mp move #101 2" && (await window.oclr.snapshot()).roomPlan.state === "observed")()'),150)
-  assert.deepEqual(sent.filter(line=>/:!mp (move|team) /.test(line)),['PRIVMSG #mp_900000001 :!mp move #101 2','PRIVMSG #mp_900000001 :!mp team #101 blue'])
-  // Switching to a known individual mode removes team choices and sends only move.
-  teamMode = 'HeadToHead'; individualSlots = true
-  await refresh()
-  await until(()=>js(`!document.querySelector('.manual-lineup button[aria-label="Synthetic Red 隊伍"]')`))
-  await choose('Synthetic Red 槽位','3')
-  await js('Array.from(document.querySelectorAll(".manual-lineup button")).find(b=>b.textContent==="預覽陣容計畫").click()')
-  await until(()=>js('Boolean(document.querySelector(".manual-lineup .room-plan-confirm"))'))
-  assert.equal(await js('document.querySelector(".manual-lineup .room-plan-confirm").textContent.includes("!mp team")'), false)
-  await js('document.querySelectorAll(".manual-lineup .room-plan-confirm input[type=checkbox]").forEach(e=>e.click())')
-  await js(`(() => {const e=document.querySelector('.manual-lineup .room-plan-confirm input:not([type=checkbox])');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'Synthetic Red');e.dispatchEvent(new Event('input',{bubbles:true}))})()`)
-  await until(()=>js('Array.from(document.querySelectorAll(".manual-lineup .room-plan-confirm button")).find(b=>b.textContent==="執行逐步計畫").disabled === false'))
-  await js('Array.from(document.querySelectorAll(".manual-lineup .room-plan-confirm button")).find(b=>b.textContent==="執行逐步計畫").click()')
-  await until(()=>js('(async()=>(await window.oclr.snapshot()).roomPlan?.steps[0].command === "!mp move #101 3" && (await window.oclr.snapshot()).roomPlan.state === "observed")()'),150)
-  assert.equal(sent.filter(line=>line.includes(':!mp team ')).length, 1)
-  assert.equal(sent.filter(line=>line.includes(':!mp move #101 3')).length, 1)
   window.setContentSize(900,640);await delay(200)
   assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'),true)
   fs.writeFileSync(path.join(output,'room-plan-synthetic.png'),(await capture()).toPNG())
   assert.deepEqual(errors,[])
-  console.log(JSON.stringify({evidence:'synthetic-room-lineup-plans',passed:['room name then rules UI','lineup names and policy confirmations','ordered move then team observations','HeadToHead move without team commands','900x640 composer'],sent}));app.exit(0)
+  console.log(JSON.stringify({evidence:'synthetic-room-plan',passed:['room name then rules UI','explicit confirmation','900x640 composer'],sent}));app.exit(0)
 }
 main().catch(error=>{console.error(error.stack);app.exit(1)})

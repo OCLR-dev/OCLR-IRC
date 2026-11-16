@@ -86,7 +86,7 @@ export class IrcSession extends EventEmitter {
   private creationJoins = new Set<string>()
   private creationTimer: ReturnType<typeof setTimeout> | null = null
 
-  private lobbyPreview: { source: 'manual' | 'oclr'; command: string; playerName?: string; token: string; intent: LobbyIntent; view: RoomView; fingerprint: string; deadline: number } | null = null
+  private lobbyPreview: { source: 'manual' | 'oclr'; command: string; token: string; intent: LobbyIntent; view: RoomView; fingerprint: string; deadline: number } | null = null
   private roomPlan: OperationPlan | null = null
   private roomPlanPreview: { definition: RoomPlanDefinition; view: RoomView; token: string; fingerprint: string; deadline: number } | null = null
   private manualPool = new ManualPool()
@@ -601,26 +601,29 @@ export class IrcSession extends EventEmitter {
   private previewLobbyIntent(input: unknown, source: 'manual' | 'oclr'): LobbyPreview {
     this.lobbyPreview = null
     const view = this.target(input), intent = lobbyIntent((input as { intent?: unknown }).intent)
-    if (source === 'oclr' && intent.kind !== 'invite') throw new Error('無效的玩家邀請。')
+    if (source === 'oclr' && (intent.kind !== 'invite' || !intent.target.startsWith('#'))) throw new Error('無效的玩家邀請。')
     this.mpReady(view, '', true); this.profileIdle(view)
     if (this.mapPlan?.active || this.roomPlan?.active) throw new Error('請先停止目前的選圖計畫。')
     if (intent.kind === 'host' && !view.room.slots.some(slot => slot.osuId === Number(intent.osuId))) throw new Error('玩家不在目前已核對的槽位內。')
     let playerName: string | undefined
-    if (['invite', 'move', 'team', 'kick'].includes(intent.kind) && 'osuId' in intent) {
+    if (intent.kind === 'invite') {
+      const target = intent.target
+      const isUid = target.startsWith('#')
+      const inRoom = view.room.slots.some(player =>
+        isUid ? player.osuId === Number(target.slice(1)) : normalize(player.username) === normalize(target)
+      )
+      if (inRoom) throw new Error('玩家已在目前房間內。')
+      playerName = target
+    } else if (intent.kind === 'move' || intent.kind === 'team' || intent.kind === 'kick') {
       const slot = view.room.slots.find(player => player.osuId === Number(intent.osuId))
-      if (intent.kind === 'invite') {
-        if (slot) throw new Error('玩家已在目前房間內。')
-        playerName = intent.name
-      } else {
-        if (!slot) throw new Error('玩家不在目前已核對的槽位內。')
-        playerName = slot.username
-      }
-      if (intent.kind === 'move' && view.room.slots.some(player => player.slot === Number(intent.slot) && player.osuId !== Number(intent.osuId))) throw new Error('目標槽位已有其他玩家。')
+      if (!slot) throw new Error('玩家不在目前已核對的槽位內。')
+      playerName = slot.username
+      if (intent.kind === 'move' && view.room.slots.some(player => player.slot === Number(intent.slot) && player.osuId !== slot.osuId)) throw new Error('目標槽位已有其他玩家。')
       if (intent.kind === 'team' && !/^(?:TeamVs|TagTeamVs)\b/.test(view.room.mode ?? '')) throw new Error('目前不是已核對的分隊模式。')
     }
     const token = randomUUID()
     const command = source === 'oclr' ? relayCommand(lobbyCommand(intent)) : lobbyCommand(intent)
-    this.lobbyPreview = { source, command, playerName, token, intent, view, fingerprint: this.mpFingerprint(view.room), deadline: performance.now() + 10000 }
+    this.lobbyPreview = { source, command, token, intent, view, fingerprint: this.mpFingerprint(view.room), deadline: performance.now() + 10000 }
     return { token, channel: view.room.channel, command, kind: intent.kind, ...(playerName ? { playerName } : {}), ...(intent.kind === 'password' ? { passwordMode: intent.mode } : {}), expiresAt: new Date(Date.now() + 10000).toISOString() }
   }
   executeLobby(input: unknown) { this.executeLobbyIntent(input, 'manual') }
@@ -630,7 +633,6 @@ export class IrcSession extends EventEmitter {
     const view = this.target(input), value = input as Record<string, unknown>
     if (!preview || preview.source !== source || preview.view !== view || preview.token !== value.token || value.reviewed !== true || performance.now() >= preview.deadline || preview.fingerprint !== this.mpFingerprint(view.room) || this.mapPlan?.active || this.roomPlan?.active) throw new Error('房間設定確認已失效。')
     this.mpReady(view, '', true); this.profileIdle(view)
-    if (source === 'manual' && preview.playerName !== undefined && value.playerName !== preview.playerName) throw new Error('請輸入預覽中的玩家名稱以確認身份。')
     if (preview.intent.kind === 'close' && value.closeRoom !== view.room.channel) throw new Error('請輸入完整頻道名稱以確認關房。')
     if (preview.intent.kind === 'password' && preview.intent.mode === 'set' && value.password === undefined) throw new Error('請輸入房間密碼。')
     const command = source === 'oclr' ? preview.command : lobbyCommand(preview.intent, value.password), masked = source === 'oclr' ? preview.command : lobbyCommand(preview.intent)
@@ -649,7 +651,7 @@ export class IrcSession extends EventEmitter {
     if (this.mapPlan?.active || this.roomPlan?.active) throw new Error('請先停止目前的計畫。')
     const definition = roomPlan((input as { plan?: unknown }).plan, view.room), token = randomUUID()
     this.roomPlanPreview = { definition, view, token, fingerprint: this.mpFingerprint(view.room), deadline: performance.now() + 10000 }
-    return { token, channel: view.room.channel, kind: definition.kind, commands: definition.steps.map(s => s.command), names: definition.names, expiresAt: new Date(Date.now() + 10000).toISOString() }
+    return { token, channel: view.room.channel, commands: definition.steps.map(s => s.command), expiresAt: new Date(Date.now() + 10000).toISOString() }
   }
   cancelRoomPlan(input: unknown) {
     if (!input || typeof input !== 'object' || (input as { id?: unknown }).id !== this.roomPlan?.state.id) throw new Error('計畫已變更。')
@@ -660,10 +662,9 @@ export class IrcSession extends EventEmitter {
     const view = this.target(input), value = input as Record<string, unknown>
     if (!preview || preview.view !== view || preview.token !== value.token || value.reviewed !== true || performance.now() >= preview.deadline || preview.fingerprint !== this.mpFingerprint(view.room) || this.mapPlan?.active || this.roomPlan?.active) throw new Error('計畫確認已失效。')
     const definition = preview.definition
-    if (definition.kind === 'lineup' && (value.policyReviewed !== true || JSON.stringify(value.names) !== JSON.stringify(definition.names))) throw new Error('請核對所有玩家名稱與本次換人政策。')
     this.mpReady(view, '', true); this.profileIdle(view)
     const generation = this.generation, epoch = view.room.epoch, stepMs = this.timing.queryMs * 2 + this.timing.floodMs * 4
-    const id = this.operations.begin('manual', definition.kind === 'room' ? 'roomplan' : 'lineupplan', view.room.id, epoch, generation, '', stepMs + 1000)
+    const id = this.operations.begin('manual', 'roomplan', view.room.id, epoch, generation, '', stepMs + 1000)
     const queries: (string | undefined)[] = []
     const valid = () => this.connection === 'online' && this.generation === generation && this.views.get(view.room.id) === view && view.room.epoch === epoch && view.room.joined && this.selected === view.room.id && this.operations.snapshot.records.some(r => r.id === id && r.state === 'awaiting')
     this.roomPlan = new OperationPlan({id, roomId:view.room.id, roomEpoch:epoch, revision:randomUUID(), state:'queued', steps:definition.steps.map(s=>({command:s.command,state:'queued'}))}, {

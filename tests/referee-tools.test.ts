@@ -21,7 +21,8 @@ test('Cmd/Ctrl K navigates only outside editors and composition; repeated or mod
 })
 
 test('workspace search reaches only registered panels and never interprets raw commands', () => {
-  for (const [query,value] of [['圖池','profile'],['password','lobby'],['初始化','initialization'],['invite','player'],['替補','lineup']]) assert.ok(searchWorkspaceActions(query).some(action=>action.value===value))
+  assert.deepEqual(searchWorkspaceActions('手動陣容核對'), [])
+  for (const [query,value] of [['圖池','profile'],['password','lobby'],['初始化','initialization'],['invite','player']]) assert.ok(searchWorkspaceActions(query).some(action=>action.value===value))
   assert.deepEqual(searchWorkspaceActions('!mp close'),[])
   assert.deepEqual(searchWorkspaceActions('javascript:alert(1)'),[])
   assert.equal(new Set(PANEL_ACTIONS.map(action=>action.value)).size,PANEL_ACTIONS.length)

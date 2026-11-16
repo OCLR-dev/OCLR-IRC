@@ -12,7 +12,7 @@ import type { WorkspaceAction } from '../../shared/referee-tools'
 import type { MpIntent, MpPreview } from '../../shared/mp-command'
 import type { Snapshot } from '../../shared/types'
 function localizedSearch(query: string) { const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean); return [...MP_ACTIONS, ...PANEL_ACTIONS].filter(action => terms.every(term => `${tr(action.label)} ${action.label} ${action.keywords}`.toLowerCase().includes(term))) }
-export function MpControls({ state, onReveal }: { state: Snapshot; onReveal?: (players: boolean) => void }) {
+export function MpControls({ state, onReveal }: { state: Snapshot; onReveal?: () => void }) {
   const details = useRef<HTMLDetailsElement>(null)
   const searchInput = useRef<HTMLInputElement>(null)
   const composing = useRef(false)
@@ -26,7 +26,7 @@ export function MpControls({ state, onReveal }: { state: Snapshot; onReveal?: (p
       if (!commandSearchShortcut(event, editing, composing.current)) return
       event.preventDefault()
       if (details.current) details.current.open = true
-      onReveal?.(false)
+      onReveal?.()
       requestAnimationFrame(() => searchInput.current?.focus())
     }
     window.addEventListener('keydown', keydown)
@@ -84,7 +84,7 @@ export function MpControls({ state, onReveal }: { state: Snapshot; onReveal?: (p
     }
     const target = details.current?.closest('.room-inspector')?.querySelector<HTMLDetailsElement>(action.target)
     if (!target) return
-    onReveal?.(action.target === '.manual-lineup')
+    onReveal?.()
     target.open = true
     requestAnimationFrame(() => {
       target.scrollIntoView({ block: 'nearest' })

@@ -80,7 +80,7 @@ test('manual IPC cannot execute a roster invitation and unconfirmed or forged UI
   const f = await fixture()
   try {
     let preview = await f.controller.prepare(f.input())
-    assert.throws(() => f.irc.executeLobby({...f.target(), token: preview.token, reviewed: true, playerName: preview.playerName}))
+    assert.throws(() => f.irc.executeLobby({...f.target(), token: preview.token, reviewed: true}))
     preview = await f.controller.prepare(f.input())
     await assert.rejects(f.controller.execute({...f.target(), token: preview.token, reviewed: false}))
     preview = await f.controller.prepare(f.input())

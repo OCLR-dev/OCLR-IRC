@@ -68,10 +68,10 @@ export interface DesktopAPI {
   replaceManualPool(input: ManualPoolUpdate): Promise<{ok: boolean; error?: string}>
   previewPoolEntry(input: RoomTarget & {revision: string; entryId: string}): Promise<{ok: boolean; preview?: MapPlanPreview; error?: string}>
   previewRoomPlan(input: RoomTarget & { plan: RoomPlanInput }): Promise<{ok: boolean; preview?: RoomPlanPreview; error?: string}>
-  executeRoomPlan(input: RoomTarget & {token: string; reviewed: boolean; names?: string[]; policyReviewed?: boolean}): Promise<{ok: boolean; error?: string}>
+  executeRoomPlan(input: RoomTarget & {token: string; reviewed: boolean}): Promise<{ok: boolean; error?: string}>
   cancelRoomPlan(input: {id: string}): Promise<{ok: boolean; error?: string}>
   previewLobby(input: RoomTarget & { intent: LobbyIntent }): Promise<{ ok: boolean; preview?: LobbyPreview; error?: string }>
-  executeLobby(input: RoomTarget & { token: string; reviewed: boolean; password?: string; closeRoom?: string; playerName?: string }): Promise<{ ok: boolean; error?: string }>
+  executeLobby(input: RoomTarget & { token: string; reviewed: boolean; password?: string; closeRoom?: string }): Promise<{ ok: boolean; error?: string }>
   previewProfile(input: RoomTarget & { profile: MapProfile }): Promise<{ ok: boolean; preview?: MapPlanPreview; error?: string }>
   executeProfile(input: RoomTarget & { token: string; reviewed: boolean; individualReviewed: boolean }): Promise<{ ok: boolean; error?: string }>
   cancelProfile(input: { id: string }): Promise<{ ok: boolean; error?: string }>
