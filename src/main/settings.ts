@@ -1,6 +1,30 @@
 import { randomUUID } from 'node:crypto'
-import { redact } from './protocol.ts'
-import type { Room } from '../shared/types.ts'
+import { normalize, redact } from './protocol.ts'
+import type { PlayerSlot, Room } from '../shared/types.ts'
+
+type SlotChange = { username: string } & ({ slot: number } | { team: 'red' | 'blue' })
+
+export function slotChange(body: string): SlotChange | null {
+  const move = /^(.+) moved to slot (\d+)[.!]?$/.exec(body)
+  if (move) return { username: move[1], slot: Number(move[2]) }
+  const team = /^(.+) changed to (?:Team )?(Blue|Red)[.!]?$/.exec(body)
+  return team ? { username: team[1], team: team[2] === 'Blue' ? 'blue' : 'red' } : null
+}
+
+export function applySlotChange(slots: PlayerSlot[], change: SlotChange): boolean {
+  const matches = slots.filter(player => normalize(player.username) === normalize(change.username))
+  if (matches.length !== 1) return false
+  const [player] = matches
+  if ('slot' in change) {
+    if (change.slot < 1 || change.slot > 16 || slots.some(other => other !== player && other.slot === change.slot)) return false
+    player.slot = change.slot
+    slots.sort((a, b) => a.slot - b.slot)
+  } else if (player.team !== change.team) {
+    player.team = change.team
+    if (/^ready$/i.test(player.status)) player.status = 'Not Ready'
+  }
+  return true
+}
 
 export function blankObservation(): Pick<Room, 'syncState' | 'observedAt' | 'beatmap' | 'mods' | 'slots' | 'phase' | 'match' | 'slotsVerified' | 'duration' | 'timer' | 'startCountdown'> {
   return { syncState: 'unknown', observedAt: null, beatmap: null, mods: null, slots: [], phase: 'unknown', match: null, slotsVerified: false, duration: null, timer: null, startCountdown: null }
@@ -20,6 +44,7 @@ export class SettingsCollector {
   private header = false
   private malformed = false
   private count: number | null = null
+  private slotChanges: SlotChange[] = []
   private result: Pick<Room, 'binding' | 'name' | 'mode' | 'players' | 'beatmap' | 'mods' | 'slots'> = {
     binding: 'unknown', name: null, mode: null, players: null, beatmap: null, mods: null, slots: []
   }
@@ -28,6 +53,12 @@ export class SettingsCollector {
   private readonly capturedAt = new Date().toISOString()
   private readonly connectionGeneration: number
   constructor(id: number, connectionGeneration = 0) { this.id = id; this.connectionGeneration = connectionGeneration }
+  recordSlotChange(change: SlotChange) {
+    // The settings header starts the snapshot. Replay later events once all rows arrive.
+    if (!this.header) return
+    if (this.slotChanges.length < 256) this.slotChanges.push(change)
+    else this.malformed = true
+  }
   observations(roomEpoch: number, timedOut = false) {
     const observedAt = this.capturedAt
     const field = <T>(value: T | null): FieldObservation<T> => ({
@@ -73,6 +104,9 @@ export class SettingsCollector {
     return this.count !== null && this.result.slots.length === this.count
   }
   apply(room: Room, timedOut = false) {
+    for (const change of this.slotChanges) {
+      if (!applySlotChange(this.result.slots, change)) this.malformed = true
+    }
     Object.assign(room, structuredClone(this.result))
     room.slots.sort((a, b) => a.slot - b.slot)
     room.slotsVerified = !timedOut && !this.malformed && room.binding === 'verified' && this.count !== null && room.slots.length === this.count
