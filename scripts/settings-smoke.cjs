@@ -1,5 +1,5 @@
 // Isolated settings/localization acceptance; no live IRC or external browser opens.
-const { app, BrowserWindow, ipcMain, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, shell, Notification } = require('electron')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
@@ -11,6 +11,9 @@ let osLanguages = ['en-US']
 app.getPreferredSystemLanguages = () => osLanguages
 const restart = process.argv.includes('--restart-check')
 const handlers = new Map(), opened = [], sent = [], errors = []
+const notifications = []
+Notification.isSupported = () => true
+Notification.prototype.show = function () { notifications.push(this.title) }
 const handle = ipcMain.handle.bind(ipcMain)
 ipcMain.handle = (name, fn) => { handlers.set(name, fn); handle(name, fn) }
 shell.openExternal = async url => { opened.push(url) }
@@ -59,6 +62,11 @@ async function main() {
   assert.equal(settings.preferences.closeToBackground, !restart)
   assert.equal(settings.preferences.autoRefreshOclr, !restart)
   assert.equal(settings.preferences.chatFontSize, restart ? 24 : 12)
+  assert.equal(settings.preferences.chatFontFamily, restart ? 'monospace' : 'default')
+  assert.equal(settings.preferences.chatTimestamp, restart ? 'minutes' : 'seconds')
+  assert.equal(settings.preferences.notifyPlayersReady, true)
+  assert.equal(settings.preferences.notifyMatchFinished, !restart)
+  assert.equal(settings.preferences.notifyOnlyInBackground, restart)
   assert.equal(await js('document.documentElement.lang'), 'en')
   assert.equal(await js('document.body.textContent.includes("Quit")'), false)
   assert.equal(await js('Boolean(document.querySelector(".sidebar-note"))'), false)
@@ -113,6 +121,11 @@ async function main() {
     await until(() => js('document.documentElement.lang==="en"'))
     await choose('English', 'en', 'en')
     assert.equal(await js('document.querySelector(".settings-view h1").textContent'), 'Settings')
+    for (const [name, selected] of [['notifyMatchFinished', false], ['notifyOnlyInBackground', true]]) {
+      await until(() => js(`!document.querySelector('input[name=${name}]').disabled`))
+      await js(`document.querySelector('input[name=${name}]').click()`)
+      await until(() => js(`(async () => (await window.oclr.settings.snapshot()).preferences.${name} === ${selected})()`))
+    }
     const chatSize = '.chat-font-size-select button[aria-haspopup]'
     await until(() => js(`!document.querySelector('${chatSize}').disabled`))
     assert.equal(await js(`document.querySelector('${chatSize}').textContent`), '12 px')
@@ -122,6 +135,20 @@ async function main() {
     await until(() => js(`document.querySelector('${chatSize}').textContent === "24 px"`))
     await until(() => js('!document.querySelector("[role=option]")'))
     assert.equal((await js('window.oclr.settings.snapshot()')).preferences.chatFontSize, 24)
+    const chatFont = '.chat-font-family-select button[aria-haspopup]'
+    await until(() => js(`!document.querySelector('${chatFont}').disabled`))
+    assert.equal(await js(`document.querySelector('${chatFont}').textContent`), 'Default font')
+    await js(`document.querySelector('${chatFont}').click()`)
+    await until(() => js('Array.from(document.querySelectorAll("[role=option]")).some(option => option.textContent === "Monospace")'))
+    await js('Array.from(document.querySelectorAll("[role=option]")).find(option => option.textContent === "Monospace").click()')
+    await until(() => js(`document.querySelector('${chatFont}').textContent === "Monospace" && !document.querySelector("[role=option]")`))
+    const timestamps = '.chat-timestamp-select button[aria-haspopup]'
+    await until(() => js(`!document.querySelector('${timestamps}').disabled`))
+    assert.equal(await js(`document.querySelector('${timestamps}').textContent`), 'HH:mm:ss')
+    await js(`document.querySelector('${timestamps}').scrollIntoView({block:"nearest"}); document.querySelector('${timestamps}').click()`)
+    await until(() => js('Array.from(document.querySelectorAll("[role=option]")).some(option => option.textContent === "HH:mm")'))
+    await js('Array.from(document.querySelectorAll("[role=option]")).find(option => option.textContent === "HH:mm").click()')
+    await until(() => js(`document.querySelector('${timestamps}').textContent === "HH:mm" && !document.querySelector("[role=option]")`))
     assert.equal(await js('document.querySelector(".settings-section:has(input[name=autoRefreshOclr]) .label").textContent'), 'Automatically update OCLR website data')
     assert.equal(await js('document.documentElement.scrollWidth<=innerWidth'), true)
     assert.ok((await js('document.querySelector(".settings-section:has(input[name=closeToBackground]) .label").textContent')).endsWith('closed'))
@@ -169,23 +196,63 @@ async function main() {
     })()`
     const waitForChatSize = size => until(() => js(`(${conversationFontSize})?.every(font => font === "${size}px") === true`))
     await waitForChatSize(24)
+    const waitForChatFont = family => until(() => js(`(() => {
+      const message = [...document.querySelectorAll('.message-row.chat .message-text')].find(e => e.textContent.includes('已連線 原文'))
+      const composer = document.querySelector('[name=chat]')
+      return message && composer && [message, composer].every(el => getComputedStyle(el).fontFamily.startsWith('ui-${family},'))
+    })()`))
+    await waitForChatFont('monospace')
+    const timestamp = `(() => {
+      const message = [...document.querySelectorAll('.message-row.chat .message-text')].find(e => e.textContent.includes('已連線 原文'))
+      const row = message?.closest('.message-row')
+      return row && { text: row.querySelector('time')?.textContent ?? null, columns: getComputedStyle(row).gridTemplateColumns.split(' ').length }
+    })()`
+    const waitForTimestamp = (format, columns = 3) => until(async () => {
+      const value = await js(timestamp)
+      return value?.columns === columns && (format ? format.test(value.text) : value.text === null)
+    })
+    await waitForTimestamp(/^\d{2}:\d{2}$/)
     await js('(() => { const el=document.querySelector("[name=chat]"); Object.getOwnPropertyDescriptor((el instanceof HTMLTextAreaElement ? HTMLTextAreaElement : HTMLInputElement).prototype,"value").set.call(el,"Draft 未知"); el.dispatchEvent(new Event("input",{bubbles:true})) })()')
     const before = sent.length
     const updateSettings = patch => js(`(async () => window.oclr.settings.update({ ...(await window.oclr.settings.snapshot()).preferences, ...${JSON.stringify(patch)} }))()`)
     assert.equal((await updateSettings({chatFontSize: 25})).ok, false)
-    assert.equal((await updateSettings({language: 'zh-Hans', chatFontSize: 14})).ok, true)
+    assert.equal((await updateSettings({chatFontFamily: 'Arial'})).ok, false)
+    assert.equal((await updateSettings({chatTimestamp: 'invalid'})).ok, false)
+    assert.equal((await updateSettings({language: 'zh-Hans', chatFontSize: 14, chatFontFamily: 'serif', chatTimestamp: 'hidden'})).ok, true)
     await until(() => js('document.documentElement.lang==="zh-Hans"'))
     // The locale and the virtual message list can render in separate frames.
     await waitForChatSize(14)
+    await waitForChatFont('serif')
+    await waitForTimestamp(null, 2)
     assert.equal(await js('document.querySelector(".conversation-title h2").textContent'), '未知 房間')
     assert.ok((await js('document.querySelector(".match-status").textContent')).includes('歌曲 原文'))
     assert.equal(await js('document.querySelector(".slot-player strong").textContent'), '未知')
     assert.ok((await js('document.querySelector(".message-area").textContent')).includes('已連線 原文'))
     assert.equal(await js('document.querySelector("[name=chat]").value'), 'Draft 未知')
     assert.deepEqual(sent.slice(before).filter(line=>!/^PRIVMSG #mp_\d+ :!mp (?:settings|listrefs)$/.test(line)), [])
-    assert.equal((await updateSettings({language: 'en', chatFontSize: 24})).ok, true)
+    assert.equal((await updateSettings({language: 'en', chatFontSize: 24, chatFontFamily: 'monospace', chatTimestamp: 'seconds'})).ok, true)
     await until(() => js('document.querySelector(".tools-heading").textContent.includes("Room tools")'))
+    await waitForTimestamp(/^\d{2}:\d{2}:\d{2}$/)
     assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom<=innerHeight'), true)
+    assert.equal((await updateSettings({chatTimestamp: 'minutes'})).ok, true)
+
+    async function checkNotifications(marker, expected) {
+      const before = notifications.length
+      const room = '#mp_900000008'
+      peer.write(`:BanchoBot PRIVMSG ${room} :All players are ready\n:BanchoBot PRIVMSG ${room} :The match has finished!\n:Player PRIVMSG ${room} :${marker}\n`)
+      await until(() => js(`(async () => (await window.oclr.snapshot()).messages.some(message => message.text === ${JSON.stringify(marker)}))()`))
+      assert.deepEqual(notifications.slice(before), expected)
+    }
+    window.setAlwaysOnTop(true); app.focus({steal: true}); window.show(); window.focus(); window.webContents.focus()
+    await until(() => window.isFocused())
+    await checkNotifications('foreground notifications', [])
+    window.hide()
+    await until(() => !window.isVisible())
+    await checkNotifications('background ready notification', ['All players are ready'])
+    assert.equal((await updateSettings({notifyPlayersReady: false, notifyMatchFinished: true})).ok, true)
+    await checkNotifications('background finish notification', ['The match has finished'])
+    assert.equal((await updateSettings({notifyPlayersReady: true, notifyMatchFinished: false})).ok, true)
+    window.show()
   }
   assert.deepEqual(errors, [])
   assert.ok(sent.filter(line => line.includes('!mp')).every(line => /:!mp (settings|listrefs)$/.test(line)))
@@ -193,7 +260,11 @@ async function main() {
     const state = handlers.get('irc:snapshot')({ sender: window.webContents, senderFrame: window.webContents.mainFrame })
     assert.equal(state.connection, 'offline')
     const saved = JSON.parse(fs.readFileSync(path.join(profile, 'preferences.json'), 'utf8'))
-    assert.deepEqual(saved.preferences, { closeToBackground: false, language: 'en', restoreIrcLogin: false, autoRefreshOclr: false, chatFontSize: 24 })
+    assert.deepEqual(saved.preferences, {
+      closeToBackground: false, language: 'en', restoreIrcLogin: false, autoRefreshOclr: false,
+      chatFontSize: 24, chatFontFamily: 'monospace', chatTimestamp: 'minutes',
+      notifyPlayersReady: true, notifyMatchFinished: false, notifyOnlyInBackground: true
+    })
   })
   app.on('will-quit', () => {
     const report = { evidence: restart ? 'synthetic-settings-restart' : 'synthetic-settings-localization', passed: restart ? ['new application process restores locale, close behavior and chat font size', 'close without background exits'] : ['HeroUI language selection for all four options', 'language changes without relogin or IRC commands', 'chat font size applies to messages and the composer', 'chat, names, maps and draft remain literal', '900x640 settings, about and composer', 'no sidebar quit button', 'fixed About link allowlist', 'invalid IPC inputs and sender rejected', 'preferences survive renderer reload', 'close without background exits and cleans authentication'], limitation: 'Synthetic services and OS language. Physical tray/IME acceptance remains separate.' }

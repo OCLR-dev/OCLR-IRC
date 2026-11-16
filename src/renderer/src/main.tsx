@@ -212,10 +212,10 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
             </div>)}
           </div>}
           {error && (!connecting || formError || state.credentialError) && <div className="error-message room-error" role="alert">{tr(error)}</div>}
-          <div className={`room-grid ${state.room ? '' : 'room-grid-empty'}`}><section className="conversation" aria-label={tr("房間訊息")} style={{ '--chat-font-size': `${settings.preferences.chatFontSize}px` } as React.CSSProperties}>
+          <div className={`room-grid ${state.room ? '' : 'room-grid-empty'}`}><section className="conversation" aria-label={tr("房間訊息")} data-chat-font={settings.preferences.chatFontFamily === 'default' ? undefined : settings.preferences.chatFontFamily} style={{ '--chat-font-size': `${settings.preferences.chatFontSize}px` } as React.CSSProperties}>
             <div className="conversation-header"><div className="conversation-title"><h2>{state.room?.name || state.room?.channel || tr("尚未加入房間")}</h2><div className="conversation-meta"><span className="channel-name">{state.room?.channel}</span><span className="query-status" role="status" aria-label={state.pending ? tr("正在等待伺服器回覆…") : undefined}>{state.pending && <><Spinner size="sm" aria-hidden="true" /><span>{tr("正在等待伺服器回覆…")}</span></>}</span></div></div><div className="query-actions"><ActionIconButton icon="settings" label={tr("讀取設定")} disabled={!online || !state.room?.joined || state.room.kind !== 'match'} busy={Boolean(state.pending)} onPress={() => void query('settings')} /><ActionIconButton icon="referees" label={tr("裁判名單")} disabled={!online || !state.room?.joined || state.room.kind !== 'match'} busy={Boolean(state.pending)} onPress={() => void query('listrefs')} /></div></div>
             {state.room?.kind === 'match' && <MatchStatus room={state.room} />}
-            <MessageList key={`messages-${state.room?.epoch ?? 0}`} state={state} onError={setFormError} />
+            <MessageList key={`messages-${state.room?.epoch ?? 0}`} state={state} timestamp={settings.preferences.chatTimestamp} onError={setFormError} />
             <Composer key={`composer-${state.room?.epoch ?? 0}-${state.connection}`} state={state} onError={setFormError} />
           </section></div></div>{state.room && <aside id="room-tools" className="room-inspector" hidden={!toolsOpen} aria-label={tr("房內工具")}>
           <div className="tool-resizer" role="separator" aria-label={tr("調整工具欄寬度")} aria-orientation="vertical" aria-valuemin={280} aria-valuemax={420} aria-valuenow={toolWidth} tabIndex={0}

@@ -97,8 +97,10 @@ app.whenReady().then(() => {
   }
   irc.on('room-notification', (kind: keyof typeof roomNotificationTitles, channel: string) => {
     try {
+      const { preferences: prefs, locale } = settingsSnapshot()
+      if (!(kind === 'ready' ? prefs.notifyPlayersReady : prefs.notifyMatchFinished)) return
+      if (prefs.notifyOnlyInBackground && window && !window.isDestroyed() && window.isVisible() && !window.isMinimized() && window.isFocused()) return
       if (!Notification.isSupported()) return
-      const locale = settingsSnapshot().locale
       new Notification({ title: roomNotificationTitles[kind][locale], body: channel }).show()
     } catch { /* A notification failure must not interrupt IRC processing. */ }
   })
