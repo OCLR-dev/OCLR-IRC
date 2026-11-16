@@ -6,6 +6,9 @@ import { tmpdir } from 'node:os'
 import { PreferencesStore } from '../src/main/preferences-store.ts'
 import { DEFAULT_PREFERENCES, preferencesInput, resolveLocale } from '../src/shared/preferences.ts'
 
+const { chatTimestamp, notifyPlayersReady, notifyMatchFinished, notifyOnlyInBackground, ...previousDefaults } = DEFAULT_PREFERENCES
+const newDefaults = { chatTimestamp, notifyPlayersReady, notifyMatchFinished, notifyOnlyInBackground }
+
 test('preferences persist across new instances; invalid, corrupt and failed writes preserve safe state', () => {
   const dir = mkdtempSync(join(tmpdir(), 'oclr-settings-test-')), file = join(dir, 'preferences.json')
   try {
@@ -14,7 +17,7 @@ test('preferences persist across new instances; invalid, corrupt and failed writ
     const desired = { ...DEFAULT_PREFERENCES, closeToBackground: false, language: 'en' as const, restoreIrcLogin: true, autoRefreshOclr: false, chatFontSize: 24 as const, chatFontFamily: 'serif' as const }
     store.set(desired)
     assert.deepEqual(new PreferencesStore(file).get(), desired)
-    assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), { schema: 5, preferences: desired, ircLoginActive: false })
+    assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), { schema: 6, preferences: desired, ircLoginActive: false })
     for (const bad of [null, [], {}, { ...desired, language: 'fr' }, { ...desired, closeToBackground: 'false' }, { ...desired, restoreIrcLogin: 'true' }, { ...desired, autoRefreshOclr: 'false' }, { ...desired, token: 'not-allowed' }]) {
       assert.throws(() => store.set(bad)); assert.deepEqual(store.get(), desired)
     }
@@ -77,8 +80,8 @@ test('schema 2 migration enables OCLR updates without losing existing login elig
     const restarted = new PreferencesStore(file)
     assert.equal(restarted.get().autoRefreshOclr, false)
     assert.equal(restarted.ircLoginActive, true)
-    assert.equal(JSON.parse(readFileSync(file, 'utf8')).schema, 5)
-    writeFileSync(file, JSON.stringify({ schema: 5, preferences: { ...store.get(), autoRefreshOclr: 'false' }, ircLoginActive: true }))
+    assert.equal(JSON.parse(readFileSync(file, 'utf8')).schema, 6)
+    writeFileSync(file, JSON.stringify({ schema: 6, preferences: { ...store.get(), autoRefreshOclr: 'false' }, ircLoginActive: true }))
     assert.deepEqual(new PreferencesStore(file).get(), DEFAULT_PREFERENCES)
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
@@ -89,11 +92,11 @@ test('schema 3 keeps existing settings and login eligibility while defaulting ch
     const preferences = { closeToBackground: false, language: 'zh-Hans', restoreIrcLogin: true, autoRefreshOclr: false }
     writeFileSync(file, JSON.stringify({ schema: 3, preferences, ircLoginActive: true }))
     const store = new PreferencesStore(file)
-    assert.deepEqual(store.get(), { ...preferences, chatFontSize: 12, chatFontFamily: 'default' })
+    assert.deepEqual(store.get(), { ...DEFAULT_PREFERENCES, ...preferences })
     assert.equal(store.ircLoginActive, true)
     store.set({ ...store.get(), chatFontSize: 10 })
     const restarted = new PreferencesStore(file)
-    assert.deepEqual(restarted.get(), { ...preferences, chatFontSize: 10, chatFontFamily: 'default' })
+    assert.deepEqual(restarted.get(), { ...DEFAULT_PREFERENCES, ...preferences, chatFontSize: 10 })
     assert.equal(restarted.ircLoginActive, true)
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
@@ -104,10 +107,28 @@ test('schema 4 preserves chat size, other preferences and login eligibility when
     const preferences = { closeToBackground: false, language: 'en', restoreIrcLogin: true, autoRefreshOclr: false, chatFontSize: 18 }
     writeFileSync(file, JSON.stringify({ schema: 4, preferences, ircLoginActive: true }))
     const store = new PreferencesStore(file)
-    assert.deepEqual(store.get(), { ...preferences, chatFontFamily: 'default' })
+    assert.deepEqual(store.get(), { ...DEFAULT_PREFERENCES, ...preferences })
     store.set({ ...store.get(), chatFontFamily: 'monospace' })
     const restarted = new PreferencesStore(file)
-    assert.deepEqual(restarted.get(), { ...preferences, chatFontFamily: 'monospace' })
+    assert.deepEqual(restarted.get(), { ...DEFAULT_PREFERENCES, ...preferences, chatFontFamily: 'monospace' })
     assert.equal(restarted.ircLoginActive, true)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('schema 5 supplies notification and timestamp defaults and preserves explicit choices after restart', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'oclr-notification-settings-')), file = join(dir, 'preferences.json')
+  try {
+    const previous = { ...previousDefaults, restoreIrcLogin: true, chatFontSize: 18, chatFontFamily: 'serif' }
+    writeFileSync(file, JSON.stringify({ schema: 5, preferences: previous, ircLoginActive: true }))
+    const store = new PreferencesStore(file)
+    assert.deepEqual(store.get(), { ...previous, ...newDefaults })
+    const choices = { ...store.get(), chatTimestamp: 'minutes', notifyPlayersReady: false, notifyOnlyInBackground: true }
+    store.set(choices)
+    assert.deepEqual(new PreferencesStore(file).get(), choices)
+    assert.equal(new PreferencesStore(file).ircLoginActive, true)
+    for (const invalid of [{ chatTimestamp: 'full' }, { notifyPlayersReady: 'false' }, { notifyMatchFinished: 0 }, { notifyOnlyInBackground: null }]) {
+      assert.throws(() => store.set({ ...choices, ...invalid }))
+      assert.deepEqual(new PreferencesStore(file).get(), choices)
+    }
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })

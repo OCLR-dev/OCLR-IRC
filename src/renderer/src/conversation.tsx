@@ -7,7 +7,8 @@ import { Button, TextArea, TextField } from '@heroui/react'
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
 import Linkify from 'linkify-react'
 import type { Snapshot } from '../../shared/types'
-export function MessageList({ state, onError }: { state: Snapshot; onError: (message: string) => void }) {
+import type { ChatTimestamp } from '../../shared/preferences'
+export function MessageList({ state, timestamp, onError }: { state: Snapshot; timestamp: ChatTimestamp; onError: (message: string) => void }) {
   const list = useRef<VirtuosoHandle>(null)
   const [atBottom, setAtBottom] = useState(true)
   let latestSentId: number | undefined
@@ -33,14 +34,17 @@ export function MessageList({ state, onError }: { state: Snapshot; onError: (mes
     } catch { onError('無法開啟此連結。') }
   }
   if (!state.messages.length) return <div className="message-area empty-state"><h2>{tr("連接你的比賽房間")}</h2></div>
-  return <div className="message-area" role="region" aria-label={tr("IRC 訊息")}>
+  const timeFormat = timestamp === 'hidden' ? null : new Intl.DateTimeFormat(uiLocale(), {
+    hour12: false, hour: '2-digit', minute: '2-digit', ...(timestamp === 'seconds' ? { second: '2-digit' } : {})
+  })
+  return <div className="message-area" data-timestamp={timestamp} role="region" aria-label={tr("IRC 訊息")}>
     <Virtuoso key={lastFollowedSend} ref={list} className="message-list" data={state.messages}
       firstItemIndex={state.messageStartIndex}
       computeItemKey={(_index, message) => message.id}
       initialTopMostItemIndex={{ index: 'LAST', align: 'end' }}
       defaultItemHeight={32} minOverscanItemCount={2} followOutput="auto" atBottomStateChange={setAtBottom} atBottomThreshold={50}
       itemContent={(_index, message) => <div className={`message-row ${message.kind}`}>
-        <time dateTime={message.time}>{new Date(message.time).toLocaleTimeString(uiLocale(), { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time>
+        {timeFormat && <time dateTime={message.time}>{timeFormat.format(new Date(message.time))}</time>}
         <span className="message-sender" title={message.kind === 'system' ? tr(message.sender) : message.sender}>{message.kind === 'system' ? tr(message.sender) : message.sender}</span>
         <span className="message-text"><Linkify options={{ validate: { email: false, url: (value: string) => !/^(?!https?:)[a-z][a-z\d+.-]*:/i.test(value) }, attributes: { onClick: openLink, onAuxClick: (event: React.MouseEvent) => event.preventDefault() } }}>{message.kind === 'system' ? tr(message.text) : message.text}</Linkify>
           {message.delivery === 'sent' && <span className="delivery-note">{tr("已送出")}</span>}
