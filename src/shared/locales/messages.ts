@@ -2293,9 +2293,9 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
     "zh-Hans": "请输入完整频道名称以确认关房。",
     "en": "Enter the full channel name to confirm closing the room."
   },
-  "請輸入待核對的玩家名稱。": {
-    "zh-Hans": "请输入待核对的玩家名称。",
-    "en": "Enter the player name to verify."
+  "請輸入有效的玩家名稱或 #UID。": {
+    "zh-Hans": "请输入有效的玩家名称或 #UID。",
+    "en": "Enter a valid player name or #UID."
   },
   "請輸入房間密碼。": {
     "zh-Hans": "请输入房间密码。",
@@ -2324,10 +2324,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
   "請輸入訊息。": {
     "zh-Hans": "请输入讯息。",
     "en": "Enter a message."
-  },
-  "請輸入預覽中的玩家名稱以確認身份。": {
-    "zh-Hans": "请输入预览中的玩家名称以确认身份。",
-    "en": "Enter the player name shown in the preview to confirm identity."
   },
   "請選擇 1–16 的槽位。": {
     "zh-Hans": "请选择 1–16 的槽位。",
@@ -2421,9 +2417,9 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
     "zh-Hans": "输入 IRC 专用密码",
     "en": "Enter your IRC password"
   },
-  "輸入玩家名稱以核對 UID": {
-    "zh-Hans": "输入玩家名称以核对 UID",
-    "en": "Enter player name to verify UID"
+  "玩家名稱或 #UID": {
+    "zh-Hans": "玩家名称或 #UID",
+    "en": "Player name or #UID"
   },
   "輸入頻道名稱以關閉房間": {
     "zh-Hans": "输入频道名称以关闭房间",

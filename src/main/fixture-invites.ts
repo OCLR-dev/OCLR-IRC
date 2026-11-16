@@ -56,8 +56,8 @@ export class FixtureInvites {
       while (!this.irc.relayReady(parsed, current.command) && performance.now() < deadline && generation === this.generation && scope === this.scope(parsed)) await new Promise(resolve => setTimeout(resolve, 50))
     }
     if (generation !== this.generation || scope !== this.scope(parsed) || current.fingerprint !== fixtureInviteSource(this.oclr.state, parsed.teamId, parsed.osuId).fingerprint) throw new Error('場次資料已失效，請重新同步。')
-    const local = this.irc.previewWebsiteInvite({...parsed, intent: {kind: 'invite', osuId: String(parsed.osuId), name: current.player.username}})
-    const preview = {...local, fixtureLabel: this.oclr.state.panel!.workspace.fixture.label, teamName: current.team.name, osuId: parsed.osuId}
+    const local = this.irc.previewWebsiteInvite({...parsed, intent: {kind: 'invite', target: `#${parsed.osuId}`}})
+    const preview = {...local, playerName: current.player.username, fixtureLabel: this.oclr.state.panel!.workspace.fixture.label, teamName: current.team.name, osuId: parsed.osuId}
     this.preview = {value: preview, target: {roomId: parsed.roomId, roomEpoch: parsed.roomEpoch}, teamId: parsed.teamId, fingerprint: current.fingerprint, scope}
     this.previewTimer = setTimeout(() => this.clearPreview(), 10000); this.previewTimer.unref()
     return {...preview}

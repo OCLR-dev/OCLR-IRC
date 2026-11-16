@@ -53,7 +53,7 @@ test('queued room refresh fences readiness until both reads and shared throttle 
     assert.equal(f.session.relayReady(f.target(), '!mp invite New_Player'), false)
     await until(() => f.session.relayReady(f.target(), '!mp invite New_Player'))
     assert.equal(f.sent.filter(line => line.endsWith(':!mp settings')).length, priorReads + 1)
-    const preview = f.session.previewWebsiteInvite({...f.target(), intent: {kind: 'invite', osuId: '999', name: 'New Player'}})
+    const preview = f.session.previewWebsiteInvite({...f.target(), intent: {kind: 'invite', target: '#999'}})
     f.session.executeWebsiteInvite({...f.target(), token: preview.token, reviewed: true})
     await until(() => f.sent.includes('PRIVMSG #mp_9 :!mp invite #999'))
     assert.equal(f.sent.filter(line => line.includes('!mp invite')).length, 1)
@@ -99,35 +99,52 @@ test('mapless settings allow independent room controls; changed state invalidate
   } finally { await f.close() }
 })
 
-test('player commands require typed UID, explicit name confirmation and one-use fixed target', async () => {
-  for (const intent of [{kind:'invite',osuId:'999',name:'Manual Player'}, {kind:'move',osuId:'101',slot:'4'}, {kind:'team',osuId:'101',team:'blue'}, {kind:'kick',osuId:'101'}]) {
+test('player commands use a fixed target and a one-use preview without typing a confirmation name', async () => {
+  const cases = [
+    [{kind:'invite',target:'#999'}, '#999', '!mp invite #999'],
+    [{kind:'invite',target:'  Manual Player  '}, 'Manual_Player', '!mp invite Manual_Player'],
+    [{kind:'invite',target:'12345'}, '12345', '!mp invite 12345'],
+    [{kind:'move',osuId:'101',slot:'4'}, 'Synthetic', '!mp move #101 4'],
+    [{kind:'team',osuId:'101',team:'blue'}, 'Synthetic', '!mp team #101 blue'],
+    [{kind:'kick',osuId:'101'}, 'Synthetic', '!mp kick #101']
+  ] as const
+  for (const [intent, playerName, command] of cases) {
     const f = await fixture()
     try {
       const first = f.session.previewLobby({...f.target(),intent})
-      assert.equal(first.playerName, intent.kind === 'invite' ? 'Manual Player' : 'Synthetic')
-      assert.throws(() => f.session.executeLobby({...f.target(),token:first.token,reviewed:true,playerName:'Wrong Player'}))
-      assert.throws(() => f.session.executeLobby({...f.target(),token:first.token,reviewed:true,playerName:first.playerName}))
-      const next = f.session.previewLobby({...f.target(),intent})
-      f.session.executeLobby({...f.target(),token:next.token,reviewed:true,playerName:next.playerName})
-      await until(() => f.sent.some(line => line.includes(`:!mp ${intent.kind} `)))
-      assert.equal(f.sent.filter(line=>line.includes(`:!mp ${intent.kind} `)).length, 1)
+      assert.equal(first.playerName, playerName)
+      assert.equal(first.command, command)
+      assert.throws(() => f.session.executeLobby({...f.target(),token:first.token,reviewed:false}))
+      assert.throws(() => f.session.executeLobby({...f.target(),token:first.token,reviewed:true}))
+
+      const preview = f.session.previewLobby({...f.target(),intent})
+      const confirmation = {...f.target(),token:preview.token,reviewed:true,target:'#555'}
+      f.session.executeLobby(confirmation)
+      assert.throws(() => f.session.executeLobby(confirmation))
+      const line = `PRIVMSG #mp_9 :${command}`
+      await until(() => f.sent.includes(line))
+      assert.deepEqual(f.sent.filter(line => /:!mp (invite|move|team|kick) /.test(line)), [line])
       assert.equal(f.session.state.operations!.records.at(-1)!.state, 'awaiting')
-      // Invitation does not create a player observation.
-      assert.equal(f.session.state.room!.slots.some(player=>player.osuId === 999), false)
+      assert.deepEqual(f.session.state.room!.slots.map(player => player.osuId), [101])
     } finally { await f.close() }
   }
 })
 test('unknown targets, existing invitees, invalid slots and unsafe player identity are blocked', async () => {
   const f = await fixture()
   try {
-    for (const intent of [{kind:'invite',osuId:'101',name:'Synthetic'}, {kind:'move',osuId:'999',slot:'2'}, {kind:'kick',osuId:'999'}, {kind:'team',osuId:'101',team:'green'}, {kind:'move',osuId:'101',slot:'17'}, {kind:'invite',osuId:'123\nQUIT',name:'X'}, {kind:'invite',osuId:'123',name:'X\nQUIT'}]) assert.throws(() => f.session.previewLobby({...f.target(),intent}))
+    for (const target of ['', '#101', 'sYnthetic', '#0', '#9007199254740992', '#123\nQUIT', 'X\nQUIT', 'X\u202e', 'X:QUIT']) {
+      assert.throws(() => f.session.previewLobby({...f.target(),intent:{kind:'invite',target}}))
+    }
+    assert.throws(() => f.session.previewWebsiteInvite({...f.target(),intent:{kind:'invite',target:'Manual Player'}}))
+    for (const intent of [{kind:'move',osuId:'999',slot:'2'}, {kind:'kick',osuId:'999'}, {kind:'team',osuId:'101',team:'green'}, {kind:'move',osuId:'101',slot:'17'}]) {
+      assert.throws(() => f.session.previewLobby({...f.target(),intent}))
+    }
     const preview = f.session.previewLobby({...f.target(),intent:{kind:'kick',osuId:'101'}})
     f.session.logout()
-    assert.throws(() => f.session.executeLobby({roomId:9,roomEpoch:1,token:preview.token,reviewed:true,playerName:'Synthetic'}))
+    assert.throws(() => f.session.executeLobby({roomId:9,roomEpoch:1,token:preview.token,reviewed:true}))
     assert.equal(f.sent.some(line=>/:!mp (invite|move|team|kick) /.test(line)), false)
   } finally { await f.close() }
 })
-
 test('occupied destinations and non-team modes block player mutations', async () => {
   for (const mode of ['occupied','solo']) {
     const f = await fixture(mode)
