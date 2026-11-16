@@ -9,6 +9,7 @@
 ## 下載
 
 - [GitHub Releases](https://github.com/OCLR-dev/OCLR-IRC/releases)：已發布的預覽版、校驗碼與建置資訊。
+- [v0.8.13 更新說明](docs/releases/v0.8.13.md)：玩家換位或換隊時即時更新名單，減少房間設定查詢。
 - [v0.8.12 更新說明](docs/releases/v0.8.12.md)：完局比分顯示隊名、房間 Ready 標記與通知，以及改善聊天捲動和房間設定查詢。
 - [v0.8.11 更新說明](docs/releases/v0.8.11.md)：逐圖結果確認後，在綁定的 IRC 房間播報暫記比分與下一手 Ban／Pick 隊伍。
 - [v0.8.10 更新說明](docs/releases/v0.8.10.md)：可從裁判工作臺建立與加入房間，也能在未開房時先連接網站 IRC。
