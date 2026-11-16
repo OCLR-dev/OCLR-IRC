@@ -126,10 +126,10 @@ export class IrcSession extends EventEmitter {
   }
   private clearLoginTimer() { if (this.loginTimer) clearTimeout(this.loginTimer); this.loginTimer = null }
   private clearTimer(view: RoomView) { if (view.timer) clearTimeout(view.timer); view.timer = null }
-  private note(view: RoomView, text: string, kind: Message['kind'] = 'system', sender = '系統', delivery?: Message['delivery']) {
+  private note(view: RoomView, text: string, kind: Message['kind'] = 'system', sender = '系統', delivery?: Message['delivery'], playerChat = false) {
     view.totalMessages++
     view.messages.push({ id: ++this.nextMessage, time: new Date().toISOString(), kind, sender: redact(sender), text: redact(text), ...(delivery ? { delivery } : {}) })
-    this.emit('message', { roomId: view.room.id, roomEpoch: view.room.epoch, message: { ...view.messages.at(-1)! } })
+    this.emit('message', { roomId: view.room.id, roomEpoch: view.room.epoch, message: { ...view.messages.at(-1)! }, matchChat: playerChat && view.room.kind === 'match' && view.room.joined })
     if (view.messages.length > 1000) view.messages = view.messages.slice(-1000)
     if (view.room.id !== this.selected && kind !== 'self') {
       view.unread = Math.min(999, view.unread + 1)
@@ -862,7 +862,8 @@ export class IrcSession extends EventEmitter {
     }
     onDispatch?.()
     this.send(`PRIVMSG ${view.room.channel} :${text}`); this.lastQueryAt = Date.now()
-    this.note(view, text, 'self', this.username, isChatCommand(text) ? 'unconfirmed' : 'sent'); view.error = null; this.publish()
+    const command = isChatCommand(text)
+    this.note(view, text, 'self', this.username, command ? 'unconfirmed' : 'sent', !command); view.error = null; this.publish()
   }
   async chatBatch(input: unknown): Promise<{ok: boolean; error?: string; remainingText?: string}> {
     const view = this.target(input), lines = chatLines((input as {text?: unknown}).text, view.room.channel)
@@ -960,7 +961,7 @@ export class IrcSession extends EventEmitter {
     if (command === 'PART' || command === 'KICK') { room.members = room.members.filter(n => normalize(n) !== normalize(command === 'KICK' ? params[1] : sender)); this.publish(); return }
     if (command !== 'PRIVMSG' || params.length !== 2) return
     const body = params[1]; const bot = normalize(sender) === 'banchobot'
-    this.note(view, body, bot ? 'bot' : self ? 'self' : 'chat', sender)
+    this.note(view, body, bot ? 'bot' : self ? 'self' : 'chat', sender, undefined, !bot && !self && !isChatCommand(body))
     if (bot && room.joined && room.kind === 'match') {
       this.operations.observe(room.id, room.epoch, this.generation, body)
       if (/^All players are ready[!.]?$/.test(body)) this.emit('room-notification', 'ready', room.channel)

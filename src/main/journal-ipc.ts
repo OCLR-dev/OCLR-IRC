@@ -2,7 +2,7 @@ import { localize } from '../shared/localization.ts'
 import type { AppLocale } from '../shared/preferences.ts'
 import { dialog, ipcMain, type IpcMainInvokeEvent } from 'electron'
 import { writeFile } from 'node:fs/promises'
-import type { EncryptedJournal } from './encrypted-journal.ts'
+import type { EncryptedJournal, JournalEvent } from './encrypted-journal.ts'
 import type { OclrSession } from './oclr.ts'
 import type { IrcSession } from './irc.ts'
 import { normalize } from './protocol.ts'
@@ -12,10 +12,13 @@ export function registerJournal(journal: EncryptedJournal | null, irc: IrcSessio
   let account: string | null = null
   let generation = 0
   const privateRooms = new Set<string>()
+  // Main marks player chat at the IRC input boundary. Older rows have no marker.
+  const visible = (entry: JournalEvent) => entry.matchChat === true || !privateRooms.has(normalize(entry.room))
   const markPrivateScope = (room: string) => {
-    if (!privateRooms.has(normalize(room))) {
-      privateRooms.add(normalize(room)); generation++; invalidate()
-      void journal?.clear(room).catch(() => {})
+    const scope = normalize(room)
+    if (!privateRooms.has(scope)) {
+      privateRooms.add(scope); generation++; invalidate()
+      void journal?.clear(room, entry => !entry.matchChat).catch(() => {})
     }
   }
   const markPrivate = (roomId: number) => markPrivateScope(`#mp_${roomId}`)
@@ -40,11 +43,12 @@ export function registerJournal(journal: EncryptedJournal | null, irc: IrcSessio
       if (!isQuitting()) void journal?.logout().catch(() => {})
     }
   })
-  irc.on('message', ({ roomId, roomEpoch, message }) => {
+  irc.on('message', ({ roomId, roomEpoch, message, matchChat }) => {
     if (!account || !journal) return
     const room = irc.state.rooms.find(item => item.id === roomId && item.epoch === roomEpoch)
-    if (!room || privateRooms.has(normalize(room.channel))) return
-    void journal.append({ time: Date.parse(message.time), room: room.channel, text: `${message.sender}: ${message.text}` }).catch(() => {})
+    if (!room) return
+    const entry: JournalEvent = { time: Date.parse(message.time), room: room.channel, text: `${message.sender}: ${message.text}`, ...(matchChat === true ? { matchChat: true } : {}) }
+    if (visible(entry)) void journal.append(entry).catch(() => {})
   })
   function scope(value: unknown) {
     if (value === undefined) return undefined
@@ -69,14 +73,14 @@ export function registerJournal(journal: EncryptedJournal | null, irc: IrcSessio
         const room = scope(input)
         if (!account || !journal) throw new Error('Unavailable')
         if (operation === 'clear') { invalidate(); await journal.clear(room); return { ok: true } }
-        let entries = (await journal.read(room)).filter(entry => !privateRooms.has(normalize(entry.room)))
+        let entries = await journal.read(room, visible)
         if (expectedGeneration !== generation || journal.status !== 'saving') throw new Error('Unavailable')
         if (operation === 'read') return { ok: true, entries }
         const result = await dialog.showSaveDialog({ title: room ? localize(locale(), '匯出 {{v0}} 日誌（最多 1,000 則）', { v0: room }) : localize(locale(), '匯出本帳號日誌（最多 1,000 則）'), defaultPath: 'oclr-irc-history.json', filters: [{ name: 'JSON', extensions: ['json'] }] })
         if (result.canceled || !result.filePath) return { ok: true, cancelled: true }
         if (expectedGeneration !== generation) throw new Error('Session changed')
         // Re-read after the dialog: deletion/disable/expiry while it was open must win.
-        entries = (await journal.read(room)).filter(entry => !privateRooms.has(normalize(entry.room)))
+        entries = await journal.read(room, visible)
         if (expectedGeneration !== generation || journal.status !== 'saving') throw new Error('Unavailable')
         await writeFile(result.filePath, JSON.stringify({ exportedAt: new Date().toISOString(), scope: room ?? 'account', entries }, null, 2), { mode: 0o600 })
         return { ok: true }

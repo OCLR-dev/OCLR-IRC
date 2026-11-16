@@ -108,8 +108,8 @@ async function main() {
   await js('document.querySelector("nav [data-page=room]").click()')
   await until(() => js('Boolean(document.querySelector(".room-inspector") && document.querySelector(".composer"))'))
   assert.equal((await js('window.oclr.website.snapshot()')).relay.status, 'off')
-  peer.write(`:Player PRIVMSG #mp_${roomId} :SYNTHETIC_PRIVATE_RELAY_HISTORY\n`)
-  await until(() => js('(async () => (await window.oclr.snapshot()).messages.some(m => m.text === "SYNTHETIC_PRIVATE_RELAY_HISTORY"))()'))
+  peer.write(`:Player PRIVMSG #mp_${roomId} :SYNTHETIC_MATCH_CHAT\n`)
+  await until(() => js('(async () => (await window.oclr.snapshot()).messages.some(m => m.text === "SYNTHETIC_MATCH_CHAT"))()'))
   // Room tools share the authenticated round pool and both rosters.
   window.setSize(900, 640)
   await js('Array.from(document.querySelectorAll("[role=tab]")).find(b => b.textContent === "圖池").click()')
@@ -144,6 +144,8 @@ async function main() {
   await until(() => sent.includes(`PRIVMSG #mp_${roomId} :!mp invite #900000011`))
   assert.equal(sent.filter(line => line.includes('!mp invite')).length, 1)
   assert.equal((await js('window.oclr.snapshot()')).room.players, 0, 'invitation does not imply arrival')
+  const activeRoom = (await js('window.oclr.snapshot()')).room
+  assert.equal((await js(`window.oclr.chat(${JSON.stringify({roomId, roomEpoch: activeRoom.epoch, text: 'SYNTHETIC_OUTGOING_MATCH_CHAT'})})`)).ok, true)
   assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
   assert.equal(await js('document.documentElement.scrollWidth <= innerWidth'), true)
   await js('document.querySelector(".tools-scroll").scrollTop=0')
@@ -182,13 +184,18 @@ async function main() {
     await until(() => js('(async () => (await window.oclr.journal.read()).entries?.some(e => e.text.includes("SYNTHETIC_PUBLIC_CONTROL")))()'))
     const history = await js('window.oclr.journal.read()')
     assert.equal(history.ok, true)
-    assert.equal(history.entries.some(e => e.room === `#mp_${roomId}`), false)
+    assert.deepEqual(history.entries.filter(e => e.room === `#mp_${roomId}`).map(e => e.text), [
+      'Player: SYNTHETIC_MATCH_CHAT', `${username}: SYNTHETIC_OUTGOING_MATCH_CHAT`
+    ])
+    const scoped = await js(`window.oclr.journal.read("#mp_${roomId}")`)
+    assert.deepEqual(scoped.entries, history.entries.filter(e => e.room === `#mp_${roomId}`))
+    assert.equal(fs.readFileSync(path.join(profile, 'irc-journal.sqlite')).includes(Buffer.from('SYNTHETIC_MATCH_CHAT')), false)
     assert.equal(history.entries.some(e => e.room.toLowerCase() === 'banchobot'), false)
   } else assert.equal((await js('window.oclr.journal.status()')).status, 'memory_only')
   const db = new DatabaseSync(path.join(profile, 'operation-recovery.sqlite'), {readOnly: true})
   try { assert.equal(db.prepare('SELECT COUNT(*) AS count FROM operations').get().count, 0) } finally { db.close() }
   assert.equal(sent.filter(line => line.startsWith('PRIVMSG BanchoBot :!mp make ')).length, 1)
-  console.log(JSON.stringify({evidence: 'synthetic-relay-creation', passed: ['pre-creation website relay connects while a private chat is selected', 'single make despite duplicate command ID', 'sent receipt at dispatch boundary', 'late creation after relay stop still joins and reads settings/listrefs', 'round pool and both team rosters in room tools', 'pool selection and command copy send no IRC', 'bound room and automatic roster UID before one explicit invitation without name input', 'invitation never means player arrival', '900x640 composer and independent tools', 'one dependency recheck CTA opens fixed assigned-fixture anchor; refresh restores copying without IRC resend', 'logout clears private roster and pool', 'website operation history stays memory only', ...(process.platform !== 'linux' ? ['private room excluded before first journal message', 'ordinary IRC history positive control'] : ['Linux journal remains memory only'])], limitation: 'Synthetic HTTP/IRC and crypto provider; real OAuth, Bancho and native provider acceptance remain separate.'}))
+  console.log(JSON.stringify({evidence: 'synthetic-relay-creation', passed: ['pre-creation website relay connects while a private chat is selected', 'single make despite duplicate command ID', 'sent receipt at dispatch boundary', 'late creation after relay stop still joins and reads settings/listrefs', 'round pool and both team rosters in room tools', 'pool selection and command copy send no IRC', 'bound room and automatic roster UID before one explicit invitation without name input', 'invitation never means player arrival', '900x640 composer and independent tools', 'one dependency recheck CTA opens fixed assigned-fixture anchor; refresh restores copying without IRC resend', 'logout clears private roster and pool', 'website operation history stays memory only', ...(process.platform !== 'linux' ? ['encrypted player chat kept and website room automation excluded', 'ordinary IRC history positive control'] : ['Linux journal remains memory only'])], limitation: 'Synthetic HTTP/IRC and crypto provider; real OAuth, Bancho and native provider acceptance remain separate.'}))
   app.exit(0)
 }
 main().catch(async error => {
