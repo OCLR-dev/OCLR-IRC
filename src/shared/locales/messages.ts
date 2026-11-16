@@ -13,6 +13,7 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
   "記錄中心": {"zh-Hans": "记录中心", "en": "Records"},
   "記錄分類": {"zh-Hans": "记录分类", "en": "Record categories"},
   "聊天日誌": {"zh-Hans": "聊天日志", "en": "Chat logs"},
+  "聊天字號": {"zh-Hans": "聊天字号", "en": "Chat font size"},
   "裁判工作臺": {"zh-Hans": "裁判工作台", "en": "Referee workbench"},
   "IRC 聊天": {"zh-Hans": "IRC 聊天", "en": "IRC chat"},
   "開啟 IRC 聊天": {"zh-Hans": "打开 IRC 聊天", "en": "Open IRC chat"},
