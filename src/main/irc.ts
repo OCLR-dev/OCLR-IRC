@@ -26,6 +26,7 @@ interface RoomView {
   pending: Pending
   error: string | null
   totalMessages: number
+  totalMessageRows: number
   messages: Message[]
   unread: number
   mentions: number
@@ -37,6 +38,7 @@ interface RoomView {
   timer: ReturnType<typeof setTimeout> | null
 }
 const MAX_ROOMS = 8
+const refereeListHeader = /^(?:Match referees|Referees):\s*(.*)$/
 interface Timing { retryBaseMs: number; retryMaxMs: number; stableMs: number; floodMs: number; queryMs: number; creationMs: number; loginMs: number; heartbeatMs: number; heartbeatTimeoutMs: number; roomRefreshMs: number }
 const defaults: Timing = { retryBaseMs: 1000, retryMaxMs: 30000, stableMs: 60000, floodMs: 1000, queryMs: 8000, creationMs: 15000, loginMs: 15000, heartbeatMs: 30000, heartbeatTimeoutMs: 15000, roomRefreshMs: 1000 }
 
@@ -116,7 +118,8 @@ export class IrcSession extends EventEmitter {
       creation: { ...this.creation },
       retryAttempt: this.retryAttempt, retryAt: this.retryAt, connection: this.connection, username: this.username, leavingChannels: [...this.departing],
       error: this.error || view?.error || null, room: view?.room || null,
-      pending: view?.pending || null, messageStartIndex: view ? view.totalMessages - view.messages.length + 1 : 1, messages: view?.messages || [],
+      pending: view?.pending || null, messageStartIndex: view ? view.totalMessages - view.messages.length + 1 : 1,
+      foldedMessageStartIndex: view?.messages[0]?.rowIndex ?? 1, messages: view?.messages || [],
       rooms: [...this.views.values()].map(v => ({ id: v.room.id, epoch: v.room.epoch, channel: v.room.channel, joined: v.room.joined, unread: v.unread, mentions: v.mentions, pending: v.pending, error: v.error }))
     }
   }
@@ -126,9 +129,11 @@ export class IrcSession extends EventEmitter {
   }
   private clearLoginTimer() { if (this.loginTimer) clearTimeout(this.loginTimer); this.loginTimer = null }
   private clearTimer(view: RoomView) { if (view.timer) clearTimeout(view.timer); view.timer = null }
-  private note(view: RoomView, text: string, kind: Message['kind'] = 'system', sender = '系統', delivery?: Message['delivery'], playerChat = false) {
+  private note(view: RoomView, text: string, kind: Message['kind'] = 'system', sender = '系統', delivery?: Message['delivery'], playerChat = false, queryReply?: Message['queryReply']) {
     view.totalMessages++
-    view.messages.push({ id: ++this.nextMessage, time: new Date().toISOString(), kind, sender: redact(sender), text: redact(text), ...(delivery ? { delivery } : {}) })
+    // Adjacent replies share a row index, including when raw history trims the first reply.
+    if (!queryReply || view.messages.at(-1)?.queryReply !== queryReply) view.totalMessageRows++
+    view.messages.push({ id: ++this.nextMessage, rowIndex: view.totalMessageRows, time: new Date().toISOString(), kind, sender: redact(sender), text: redact(text), ...(delivery ? { delivery } : {}), ...(queryReply ? { queryReply } : {}) })
     this.emit('message', { roomId: view.room.id, roomEpoch: view.room.epoch, message: { ...view.messages.at(-1)! }, matchChat: playerChat && view.room.kind === 'match' && view.room.joined })
     if (view.messages.length > 1000) view.messages = view.messages.slice(-1000)
     if (view.room.id !== this.selected && kind !== 'self') {
@@ -332,7 +337,7 @@ export class IrcSession extends EventEmitter {
     if (existing) { this.clearTimer(existing); this.clearFresh(existing) }
     const view: RoomView = {
       room: { ...blankObservation(), kind: 'match', members: [], id, epoch: ++this.roomEpoch, channel: `#mp_${id}`, joined: false, binding: 'unknown', referee: 'unknown', name: null, mode: null, players: null },
-      joinSent: false, needsSync: false, restore: true, collector: null, pending: 'join', error: null, totalMessages: 0, messages: [], unread: 0, mentions: 0, refsHeader: false, timer: null
+      joinSent: false, needsSync: false, restore: true, collector: null, pending: 'join', error: null, totalMessages: 0, totalMessageRows: 0, messages: [], unread: 0, mentions: 0, refsHeader: false, timer: null
     }
     this.views.set(id, view); this.selected = id
     this.note(view, '正在加入房間…')
@@ -356,7 +361,7 @@ export class IrcSession extends EventEmitter {
     const id = this.nextLocalId--
     const view: RoomView = {
       room: { ...blankObservation(), kind: kind as 'channel' | 'private', members: [], id, epoch: ++this.roomEpoch, channel: name, joined: kind === 'private', binding: 'unknown', referee: 'unknown', name: null, mode: null, players: null },
-      joinSent: false, needsSync: false, restore: true, collector: null, pending: kind === 'channel' ? 'join' : null, error: null, totalMessages: 0, messages: [], unread: 0, mentions: 0, refsHeader: false, timer: null
+      joinSent: false, needsSync: false, restore: true, collector: null, pending: kind === 'channel' ? 'join' : null, error: null, totalMessages: 0, totalMessageRows: 0, messages: [], unread: 0, mentions: 0, refsHeader: false, timer: null
     }
     this.views.set(id, view); this.selected = id
     if (kind === 'channel') this.enqueue(view, 'join')
@@ -962,7 +967,13 @@ export class IrcSession extends EventEmitter {
     if (command === 'PART' || command === 'KICK') { room.members = room.members.filter(n => normalize(n) !== normalize(command === 'KICK' ? params[1] : sender)); this.publish(); return }
     if (command !== 'PRIVMSG' || params.length !== 2) return
     const body = params[1]; const bot = normalize(sender) === 'banchobot'
-    this.note(view, body, bot ? 'bot' : self ? 'self' : 'chat', sender, undefined, !bot && !self && !isChatCommand(body))
+    const observing = bot && view.pending === 'settings'
+    const readingRefs = bot && view.pending === 'listrefs'
+    const refsHeading = readingRefs ? refereeListHeader.exec(body) : null
+    // A bare line after a referee heading may also be an unrelated bot notice.
+    const knownRef = readingRefs && view.refsHeader && [this.username, ...room.members].some(name => normalize(name) === normalize(body.trim()))
+    const queryReply = observing && view.collector?.isReply(body) ? 'settings' : refsHeading || knownRef ? 'listrefs' : undefined
+    this.note(view, body, bot ? 'bot' : self ? 'self' : 'chat', sender, undefined, !bot && !self && !isChatCommand(body), queryReply)
     if (bot && room.joined && room.kind === 'match') {
       this.operations.observe(room.id, room.epoch, this.generation, body)
       if (/^All players are ready[!.]?$/.test(body)) this.emit('room-notification', 'ready', room.channel)
@@ -1007,14 +1018,12 @@ export class IrcSession extends EventEmitter {
       this.refreshAfter.set(view, Date.now() + this.timing.roomRefreshMs)
       this.publish(); return
     }
-    const observing = bot && view.pending === 'settings'
-    const readingRefs = bot && view.pending === 'listrefs'
     if (observing) {
       if (view.collector?.feed(body)) {
         view.collector.apply(room); if (room.binding === 'verified' && room.slotsVerified) this.operations.observeRoom(room.id, room.epoch, this.generation, {players:room.slots}); this.loadDuration(view); this.settingsEvidence.set(view, view.collector.observations(room.epoch)); this.expire(view); view.collector = null; this.clearTimer(view); view.pending = null
       }
-    } else if (bot && view.pending === 'listrefs') {
-      const header = /^(?:Match referees|Referees):\s*(.*)$/.exec(body)
+    } else if (readingRefs) {
+      const header = refsHeading
       if (header) view.refsHeader = true
       const names = header ? header[1].split(',') : view.refsHeader ? [body] : []
       this.operations.observeRoom(room.id, room.epoch, this.generation, {referees:names.filter(name => /^[A-Za-z0-9_\[\] -]{1,50}$/.test(name.trim()))})

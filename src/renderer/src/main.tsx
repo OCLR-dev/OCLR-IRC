@@ -20,7 +20,7 @@ import { MpControls } from './mp-controls'
 import { PlayerSlots } from './player-slots'
 import { FixtureSource, FixturePool, FixtureRoster, useFixtureSource } from './fixture-tools'
 declare global { interface Window { oclr?: DesktopAPI } }
-const initial: Snapshot = { creation: { status: 'unreviewed', requestId: '', roomId: null, message: null }, retryAttempt: 0, retryAt: null, connection: 'offline', username: '', room: null, pending: null, error: null, messages: [], rooms: [], leavingChannels: [], messageStartIndex: 1 }
+const initial: Snapshot = { creation: { status: 'unreviewed', requestId: '', roomId: null, message: null }, retryAttempt: 0, retryAt: null, connection: 'offline', username: '', room: null, pending: null, error: null, messages: [], rooms: [], leavingChannels: [], messageStartIndex: 1, foldedMessageStartIndex: 1 }
 const statusText = { offline: '未連線', connecting: '正在連線', online: '已連線', error: '連線失敗', reconnecting: '正在重連', suspended: '休眠暫停' }
 
 function App({ initialSettings }: { initialSettings: AppSettings }) {
@@ -215,8 +215,8 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           <div className={`room-grid ${state.room ? '' : 'room-grid-empty'}`}><section className="conversation" aria-label={tr("房間訊息")} data-chat-font={settings.preferences.chatFontFamily === 'default' ? undefined : settings.preferences.chatFontFamily} style={{ '--chat-font-size': `${settings.preferences.chatFontSize}px` } as React.CSSProperties}>
             <div className="conversation-header"><div className="conversation-title"><h2>{state.room?.name || state.room?.channel || tr("尚未加入房間")}</h2><div className="conversation-meta"><span className="channel-name">{state.room?.channel}</span><span className="query-status" role="status" aria-label={state.pending ? tr("正在等待伺服器回覆…") : undefined}>{state.pending && <><Spinner size="sm" aria-hidden="true" /><span>{tr("正在等待伺服器回覆…")}</span></>}</span></div></div><div className="query-actions"><ActionIconButton icon="settings" label={tr("讀取設定")} disabled={!online || !state.room?.joined || state.room.kind !== 'match'} busy={Boolean(state.pending)} onPress={() => void query('settings')} /><ActionIconButton icon="referees" label={tr("裁判名單")} disabled={!online || !state.room?.joined || state.room.kind !== 'match'} busy={Boolean(state.pending)} onPress={() => void query('listrefs')} /></div></div>
             {state.room?.kind === 'match' && <MatchStatus room={state.room} />}
-            <MessageList key={`messages-${state.room?.epoch ?? 0}`} state={state} timestamp={settings.preferences.chatTimestamp} onError={setFormError} />
-            <Composer key={`composer-${state.room?.epoch ?? 0}-${state.connection}`} state={state} onError={setFormError} />
+            <MessageList key={`messages-${state.room?.epoch ?? 0}`} state={state} timestamp={settings.preferences.chatTimestamp} foldQueryReplies={settings.preferences.foldBanchoQueries} onError={setFormError} />
+            <Composer key={`composer-${state.room?.epoch ?? 0}-${state.connection}`} state={state} sendShortcut={settings.preferences.chatSendShortcut} platform={settings.platform} onError={setFormError} />
           </section></div></div>{state.room && <aside id="room-tools" className="room-inspector" hidden={!toolsOpen} aria-label={tr("房內工具")}>
           <div className="tool-resizer" role="separator" aria-label={tr("調整工具欄寬度")} aria-orientation="vertical" aria-valuemin={280} aria-valuemax={420} aria-valuenow={toolWidth} tabIndex={0}
             onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); setToolWidth(width => Math.max(280, Math.min(420, width + (event.key === 'ArrowLeft' ? 16 : -16)))) } }}

@@ -23,8 +23,9 @@ export class PreferencesStore {
       if (!stat.isFile() || stat.size > 1024) return
       const saved = JSON.parse(readFileSync(fd, 'utf8'))
       const { schema, preferences, ircLoginActive } = saved
-      if (![1, 2, 3, 4, 5, 6].includes(schema) || !preferences) return
+      if (![1, 2, 3, 4, 5, 6, 7].includes(schema) || !preferences) return
       if (schema !== 1 && typeof ircLoginActive !== 'boolean') return
+      if (schema < 7 && (Object.hasOwn(preferences, 'chatSendShortcut') || Object.hasOwn(preferences, 'foldBanchoQueries'))) return
       if (schema < 6 && Object.keys(schema6Defaults).some(key => Object.hasOwn(preferences, key))) return
       if (schema < 5 && Object.hasOwn(preferences, 'chatFontFamily')) return
       if (schema < 4 && Object.hasOwn(preferences, 'chatFontSize')) return
@@ -36,7 +37,8 @@ export class PreferencesStore {
         ...(schema < 3 ? { autoRefreshOclr: DEFAULT_PREFERENCES.autoRefreshOclr } : {}),
         ...(schema < 4 ? { chatFontSize: DEFAULT_PREFERENCES.chatFontSize } : {}),
         ...(schema < 5 ? { chatFontFamily: DEFAULT_PREFERENCES.chatFontFamily } : {}),
-        ...(schema < 6 ? schema6Defaults : {})
+        ...(schema < 6 ? schema6Defaults : {}),
+        ...(schema < 7 ? { chatSendShortcut: DEFAULT_PREFERENCES.chatSendShortcut, foldBanchoQueries: DEFAULT_PREFERENCES.foldBanchoQueries } : {})
       })
       this.active = this.value.restoreIrcLogin && ircLoginActive === true
     } catch { /* Missing/corrupt preferences use defaults without touching other application data. */ }
@@ -56,7 +58,7 @@ export class PreferencesStore {
     mkdirSync(dirname(this.file), { recursive: true, mode: 0o700 })
     const temp = this.file + '.tmp'
     try {
-      writeFileSync(temp, JSON.stringify({ schema: 6, preferences: value, ircLoginActive: active }), { mode: 0o600 })
+      writeFileSync(temp, JSON.stringify({ schema: 7, preferences: value, ircLoginActive: active }), { mode: 0o600 })
       renameSync(temp, this.file)
     } finally { rmSync(temp, { force: true }) }
     this.value = value; this.active = active
