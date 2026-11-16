@@ -4,9 +4,9 @@ import { Button, Input, Label, TextField } from '@heroui/react'
 import { WorkspaceCheckbox, WorkspaceSelect } from './controls'
 import type { RoomPlanInput, RoomPlanPreview } from '../../shared/room-plan'
 import type { Room, Snapshot } from '../../shared/types'
-export function PlanControl({ room, plan }: { room: Room; plan: RoomPlanInput }) {
-  const [preview,setPreview] = useState<RoomPlanPreview|null>(null), [names,setNames] = useState<string[]>([]), [reviewed,setReviewed] = useState(false), [policy,setPolicy] = useState(false), [busy,setBusy] = useState(false), [error,setError] = useState('')
-  function clear() { setPreview(null); setNames([]); setReviewed(false); setPolicy(false) }
+function PlanControl({ room, plan }: { room: Room; plan: RoomPlanInput }) {
+  const [preview,setPreview] = useState<RoomPlanPreview|null>(null), [reviewed,setReviewed] = useState(false), [busy,setBusy] = useState(false), [error,setError] = useState('')
+  function clear() { setPreview(null); setReviewed(false) }
   useEffect(clear,[room.id,room.epoch,room.joined,JSON.stringify(plan)])
   useEffect(()=>{if (!preview) return; const timer=setTimeout(clear,Math.max(0,Date.parse(preview.expiresAt)-Date.now()));return ()=>clearTimeout(timer)},[preview])
   async function prepare() {
@@ -16,15 +16,13 @@ export function PlanControl({ room, plan }: { room: Room; plan: RoomPlanInput })
   }
   async function execute() {
     if(!window.oclr||!preview)return
-    const input={roomId:room.id,roomEpoch:room.epoch,token:preview.token,reviewed,names,policyReviewed:policy};clear();setBusy(true)
+    const input={roomId:room.id,roomEpoch:room.epoch,token:preview.token,reviewed};clear();setBusy(true)
     try{const result=await window.oclr.executeRoomPlan(input);if(!result.ok)setError(result.error??'計畫未開始。')}catch{setError('結果不明，請核對房間。')}finally{setBusy(false)}
   }
   return <div className="room-plan-control">{preview?<div className="mp-confirm room-plan-confirm"><strong>{preview.channel}</strong>{preview.commands.map((command,i)=><code key={i}>{i+1}. {command}</code>)}
-    {preview.names.map((name,i)=><TextField key={i} value={names[i]??''} onChange={value=>setNames(items=>{const next=[...items];next[i]=value;return next})}><Label>{tr("核對玩家：")}{name}</Label><Input autoComplete="off" /></TextField>)}
-    {preview.kind==='lineup'&&<WorkspaceCheckbox selected={policy} onChange={setPolicy}>{tr("本次出賽名單與換人時機已獲核准")}</WorkspaceCheckbox>}
     <WorkspaceCheckbox selected={reviewed} onChange={setReviewed}>{tr("我已核對房間與全部步驟")}</WorkspaceCheckbox>
-    <Button size="sm" variant="danger" isDisabled={busy||!reviewed||preview.kind==='lineup'&&(!policy||preview.names.some((name,i)=>name!==names[i]))} onPress={()=>void execute()}>{tr("執行逐步計畫")}</Button><Button size="sm" variant="ghost" onPress={clear}>{tr("取消計畫預覽")}</Button>
-  </div>:<Button size="sm" variant="secondary" isDisabled={busy||!room.joined} onPress={()=>void prepare()}>{plan.kind==='room'?tr("預覽房名與規則計畫"):tr("預覽陣容計畫")}</Button>}{error&&<p role="alert">{tr(error)}</p>}</div>
+    <Button size="sm" variant="danger" isDisabled={busy||!reviewed} onPress={()=>void execute()}>{tr("執行逐步計畫")}</Button><Button size="sm" variant="ghost" onPress={clear}>{tr("取消計畫預覽")}</Button>
+  </div>:<Button size="sm" variant="secondary" isDisabled={busy||!room.joined} onPress={()=>void prepare()}>{tr("預覽房名與規則計畫")}</Button>}{error&&<p role="alert">{tr(error)}</p>}</div>
 }
 export function RoomPlanControls({state}:{state:Snapshot}) {
   const [name,setName]=useState(''),[team,setTeam]=useState('2'),[score,setScore]=useState('3')

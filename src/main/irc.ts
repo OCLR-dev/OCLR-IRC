@@ -651,7 +651,7 @@ export class IrcSession extends EventEmitter {
     if (this.mapPlan?.active || this.roomPlan?.active) throw new Error('請先停止目前的計畫。')
     const definition = roomPlan((input as { plan?: unknown }).plan, view.room), token = randomUUID()
     this.roomPlanPreview = { definition, view, token, fingerprint: this.mpFingerprint(view.room), deadline: performance.now() + 10000 }
-    return { token, channel: view.room.channel, kind: definition.kind, commands: definition.steps.map(s => s.command), names: definition.names, expiresAt: new Date(Date.now() + 10000).toISOString() }
+    return { token, channel: view.room.channel, commands: definition.steps.map(s => s.command), expiresAt: new Date(Date.now() + 10000).toISOString() }
   }
   cancelRoomPlan(input: unknown) {
     if (!input || typeof input !== 'object' || (input as { id?: unknown }).id !== this.roomPlan?.state.id) throw new Error('計畫已變更。')
@@ -662,10 +662,9 @@ export class IrcSession extends EventEmitter {
     const view = this.target(input), value = input as Record<string, unknown>
     if (!preview || preview.view !== view || preview.token !== value.token || value.reviewed !== true || performance.now() >= preview.deadline || preview.fingerprint !== this.mpFingerprint(view.room) || this.mapPlan?.active || this.roomPlan?.active) throw new Error('計畫確認已失效。')
     const definition = preview.definition
-    if (definition.kind === 'lineup' && (value.policyReviewed !== true || JSON.stringify(value.names) !== JSON.stringify(definition.names))) throw new Error('請核對所有玩家名稱與本次換人政策。')
     this.mpReady(view, '', true); this.profileIdle(view)
     const generation = this.generation, epoch = view.room.epoch, stepMs = this.timing.queryMs * 2 + this.timing.floodMs * 4
-    const id = this.operations.begin('manual', definition.kind === 'room' ? 'roomplan' : 'lineupplan', view.room.id, epoch, generation, '', stepMs + 1000)
+    const id = this.operations.begin('manual', 'roomplan', view.room.id, epoch, generation, '', stepMs + 1000)
     const queries: (string | undefined)[] = []
     const valid = () => this.connection === 'online' && this.generation === generation && this.views.get(view.room.id) === view && view.room.epoch === epoch && view.room.joined && this.selected === view.room.id && this.operations.snapshot.records.some(r => r.id === id && r.state === 'awaiting')
     this.roomPlan = new OperationPlan({id, roomId:view.room.id, roomEpoch:epoch, revision:randomUUID(), state:'queued', steps:definition.steps.map(s=>({command:s.command,state:'queued'}))}, {

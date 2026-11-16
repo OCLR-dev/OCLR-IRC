@@ -63,9 +63,7 @@ Main 從固定官方 `https://osu.ppy.sh/osu/{beatmapId}` 讀取公開譜面（�
 
 回覆格式參考 [bancho.js 上游解析](https://github.com/ThePooN/bancho.js/blob/master/lib/Multiplayer/BanchoLobbyRegexes.js)，指令語義依 [osu! 官方管理指令](https://osu.ppy.sh/wiki/en/osu!_tournament_client/osu!tourney/Tournament_management_commands)。合成測試與真實回覆證據分開記錄；完整操作日誌／恢復與 OCLR context 尚依賴 #6、#7、#14，不宣稱 #11 全部驗收完成。
 
-## 2026-10-31：手動 HeadToHead 陣容與 relay Mods 檢查
-
-已核對的 HeadToHead 手動陣容按 UID 與槽位比較，不要求紅／藍隊；陣容逐步計畫只產生 move。TeamVs／TagTeamVs 仍須明確隊色，未知模式阻擋計畫。所有移位仍需原有一次性預覽、玩家姓名／政策人工核對、可信新 settings 讀回；這不把手動陣容升格為正式 roster，也不放寬 Start。
+## 2026-10-31：relay Mods 檢查
 
 網站 relay 現與手動操作共用重複與互斥 Mods 檢查（EZ／HR、DT／HT／NC、NF／SD／PF）。各入口保留自己的名稱白名單；無效組合在 Main 建立操作或寫線前拒絕。網站收到 failed 回執，相同 command ID 不會重試。
 
@@ -93,3 +91,5 @@ Main 從固定官方 `https://osu.ppy.sh/osu/{beatmapId}` 讀取公開譜面（�
 - 邀請接受玩家名稱或 `#UID`，例如 `#123456`。純數字名稱按名稱處理；名稱中的空格由 Main 轉成底線。預覽顯示目前房間、目標與實際指令，按「確認邀請」送出。
 - 移位、換隊和移出從已核對的房內玩家選擇目標，預覽後勾選核對並確認。Main 核對房間、裁判資格及一次性預覽，並拒絕邀請已在房內的玩家。
 - 送出後等待房間或伺服器證據核對結果。未知結果保留待核對，不會自動重送。
+
+2026-11-16 移除手動陣容核對和批次移位／換隊計畫。玩家分頁顯示 OCLR 場次名單和房內槽位，單筆移位與換隊使用手動玩家操作。

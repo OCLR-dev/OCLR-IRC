@@ -189,10 +189,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
     "zh-Hans": "IRC 频道名称",
     "en": "IRC channel name"
   },
-  "lineup roster 陣容 名單 出賽 替補": {
-    "zh-Hans": "lineup roster 阵容 名单 出赛 替补",
-    "en": "lineup roster players substitutes"
-  },
   "map beatmap 地圖": {
     "zh-Hans": "map beatmap 地图",
     "en": "map beatmap"
@@ -308,10 +304,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
   "上次開房結果不明。請先核對 BanchoBot 訊息及既有房間，避免重複建立。": {
     "zh-Hans": "上次开房结果不明。请先核对 BanchoBot 讯息及既有房间，避免重复建立。",
     "en": "The previous room creation result is unknown. Check BanchoBot messages and existing rooms to avoid duplicates."
-  },
-  "不在手動名單": {
-    "zh-Hans": "不在手动名单",
-    "en": "Not on the manual roster"
   },
   "不支援指令或換行": {
     "zh-Hans": "不支援指令或换行",
@@ -481,14 +473,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
     "zh-Hans": "最近建立的房间：",
     "en": "Recently created room: "
   },
-  "出賽 UID、隊伍或槽位有缺漏或重複。": {
-    "zh-Hans": "出赛 UID、队伍或槽位有缺漏或重复。",
-    "en": "A lineup UID, team or slot is missing or duplicated."
-  },
-  "出賽玩家尚未全部到場。": {
-    "zh-Hans": "出赛玩家尚未全部到场。",
-    "en": "Not all selected players are present."
-  },
   "切換地圖": {
     "zh-Hans": "切换地图",
     "en": "Change beatmap"
@@ -544,10 +528,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
   "加入房間逾時，請手動重新加入。": {
     "zh-Hans": "加入房间逾时，请手动重新加入。",
     "en": "Joining the room timed out. Join again manually."
-  },
-  "加入手動名單": {
-    "zh-Hans": "加入手动名单",
-    "en": "Add to manual roster"
   },
   "加入直播裁判": {
     "zh-Hans": "加入直播裁判",
@@ -709,10 +689,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
     "zh-Hans": "尚不可用",
     "en": "Unavailable"
   },
-  "尚未到場": {
-    "zh-Hans": "尚未到场",
-    "en": "Not present"
-  },
   "尚未加入房間": {
     "zh-Hans": "尚未加入房间",
     "en": "No room joined"
@@ -748,10 +724,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
   "尚未讀取": {
     "zh-Hans": "尚未读取",
     "en": "Not loaded"
-  },
-  "尚未選擇出賽玩家": {
-    "zh-Hans": "尚未选择出赛玩家",
-    "en": "No lineup selected"
   },
   "尚未配對": {
     "zh-Hans": "尚未配对",
@@ -1137,10 +1109,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
     "zh-Hans": "手动设置",
     "en": "Manual settings"
   },
-  "手動陣容核對": {
-    "zh-Hans": "手动阵容核对",
-    "en": "Manual lineup review"
-  },
   "找不到開放中的房間。請確認 MP 編號，或改用新的比賽房間。": {
     "zh-Hans": "找不到开放中的房间。请确认 MP 编号，或改用新的比赛房间。",
     "en": "No open room found. Check the MP ID or use a new match room."
@@ -1317,10 +1285,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
     "zh-Hans": "未进行",
     "en": "Not in progress"
   },
-  "未選出賽但在房內": {
-    "zh-Hans": "未选出赛但在房内",
-    "en": "Present but not selected"
-  },
   "本人場次": {
     "zh-Hans": "本人场次",
     "en": "My fixtures"
@@ -1341,14 +1305,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
     "zh-Hans": "本地登入资料已清除，远端撤销尚未确认；可到 OCLR 网站管理桌面连接。",
     "en": "Local login cleared; remote revocation is unconfirmed. Manage desktop sessions on the OCLR website."
   },
-  "本次出賽": {
-    "zh-Hans": "本次出赛",
-    "en": "Selected for this lineup"
-  },
-  "本次出賽名單與換人時機已獲核准": {
-    "zh-Hans": "本次出赛名单与换人时机已获核准",
-    "en": "This lineup and substitution timing have been approved"
-  },
   "查詢未完成。": {
     "zh-Hans": "查询未完成。",
     "en": "Query did not complete."
@@ -1357,10 +1313,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
     "zh-Hans": "核对失败。",
     "en": "Review failed."
   },
-  "核對玩家：": {
-    "zh-Hans": "核对玩家：",
-    "en": "Verify player: "
-  },
   "桌面服務無法回應。": {
     "zh-Hans": "桌面服务无法回应。",
     "en": "The desktop service is not responding."
@@ -1368,10 +1320,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
   "桌面服務無法回應。請先核對房間，勿重複開房。": {
     "zh-Hans": "桌面服务无法回应。请先核对房间，勿重复开房。",
     "en": "The desktop service is not responding. Check existing rooms before creating another."
-  },
-  "槽位不符": {
-    "zh-Hans": "槽位不符",
-    "en": "Slot mismatch"
   },
   "模式與容量": {
     "zh-Hans": "模式与容量",
@@ -1773,10 +1721,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
     "zh-Hans": "玩家槽位",
     "en": "Player slots"
   },
-  "玩家觀測待更新": {
-    "zh-Hans": "玩家观测待更新",
-    "en": "Player snapshot needs refreshing"
-  },
   "登入 IRC": {
     "zh-Hans": "登入 IRC",
     "en": "Log in to IRC"
@@ -1848,10 +1792,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
   "目標槽位": {
     "zh-Hans": "目标槽位",
     "en": "Target slot"
-  },
-  "目標槽位已佔用或形成交換循環，請先手動騰出槽位。": {
-    "zh-Hans": "目标槽位已占用或形成交换循环，请先手动腾出槽位。",
-    "en": "Target slots are occupied or form a move cycle. Free a slot manually first."
   },
   "目標槽位已有其他玩家。": {
     "zh-Hans": "目标槽位已有其他玩家。",
@@ -1928,10 +1868,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
   "空位": {
     "zh-Hans": "空位",
     "en": "Empty"
-  },
-  "符合手動陣容": {
-    "zh-Hans": "符合手动阵容",
-    "en": "Matches manual lineup"
   },
   "第": {
     "zh-Hans": "第",
@@ -2249,10 +2185,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
     "zh-Hans": "请明确选择红队或蓝队。",
     "en": "Choose red team or blue team explicitly."
   },
-  "請核對所有玩家名稱與本次換人政策。": {
-    "zh-Hans": "请核对所有玩家名称与本次换人政策。",
-    "en": "Review all player names and the substitution policy."
-  },
   "請檢查使用者名稱與 IRC 專用密碼。": {
     "zh-Hans": "请检查使用者名称与 IRC 专用密码。",
     "en": "Check your username and IRC password."
@@ -2301,14 +2233,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
     "zh-Hans": "请输入房间密码。",
     "en": "Enter the room password."
   },
-  "請輸入有效 UID 與玩家名稱。": {
-    "zh-Hans": "请输入有效 UID 与玩家名称。",
-    "en": "Enter a valid UID and player name."
-  },
-  "請輸入有效 UID。": {
-    "zh-Hans": "请输入有效 UID。",
-    "en": "Enter a valid UID."
-  },
   "請輸入有效的 beatmap ID（不是圖組 ID）。": {
     "zh-Hans": "请输入有效的 beatmap ID（不是图组 ID）。",
     "en": "Enter a valid beatmap ID, not a beatmap-set ID."
@@ -2328,10 +2252,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
   "請選擇 1–16 的槽位。": {
     "zh-Hans": "请选择 1–16 的槽位。",
     "en": "Select a slot from 1–16."
-  },
-  "請選擇已核對模式的出賽玩家。": {
-    "zh-Hans": "请选择已核对模式的出赛玩家。",
-    "en": "Select lineup players for the verified mode."
   },
   "請選擇有效的隊伍模式、計分與 1–16 個槽位。": {
     "zh-Hans": "请选择有效的队伍模式、计分与 1–16 个槽位。",
@@ -2573,10 +2493,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
     "zh-Hans": "重新连接",
     "en": "Reconnect"
   },
-  "重複 UID": {
-    "zh-Hans": "重复 UID",
-    "en": "Duplicate UID"
-  },
   "重試失敗": {
     "zh-Hans": "重试失败",
     "en": "Retry failed"
@@ -2681,14 +2597,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
     "zh-Hans": "阵容计划",
     "en": "Lineup plan"
   },
-  "隊伍不符": {
-    "zh-Hans": "队伍不符",
-    "en": "Team mismatch"
-  },
-  "隊伍或槽位尚未指定": {
-    "zh-Hans": "队伍或槽位尚未指定",
-    "en": "Team or slot not assigned"
-  },
   "隊伍模式": {
     "zh-Hans": "队伍模式",
     "en": "Team mode"
@@ -2725,10 +2633,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
     "zh-Hans": "面板目前不可用",
     "en": "Panel unavailable"
   },
-  "預定槽位重複": {
-    "zh-Hans": "预定槽位重复",
-    "en": "Duplicate target slot"
-  },
   "預覽 {{v0}}{{v1}}": {
     "zh-Hans": "预览 {{v0}}{{v1}}",
     "en": "Preview {{v0}}{{v1}}"
@@ -2756,10 +2660,6 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
   "預覽選圖計畫": {
     "zh-Hans": "预览选图计划",
     "en": "Preview beatmap plan"
-  },
-  "預覽陣容計畫": {
-    "zh-Hans": "预览阵容计划",
-    "en": "Preview lineup plan"
   },
   "顯示密碼": {
     "zh-Hans": "显示密码",
