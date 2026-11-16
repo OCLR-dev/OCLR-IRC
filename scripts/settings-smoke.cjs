@@ -167,14 +167,16 @@ async function main() {
       const message = [...document.querySelectorAll('.message-row.chat .message-text')].find(e => e.textContent.includes('已連線 原文'))
       return message && [getComputedStyle(message).fontSize, getComputedStyle(document.querySelector('[name=chat]')).fontSize]
     })()`
-    assert.deepEqual(await js(conversationFontSize), ['24px', '24px'])
+    const waitForChatSize = size => until(() => js(`(${conversationFontSize})?.every(font => font === "${size}px") === true`))
+    await waitForChatSize(24)
     await js('(() => { const el=document.querySelector("[name=chat]"); Object.getOwnPropertyDescriptor((el instanceof HTMLTextAreaElement ? HTMLTextAreaElement : HTMLInputElement).prototype,"value").set.call(el,"Draft 未知"); el.dispatchEvent(new Event("input",{bubbles:true})) })()')
     const before = sent.length
     const updateSettings = patch => js(`(async () => window.oclr.settings.update({ ...(await window.oclr.settings.snapshot()).preferences, ...${JSON.stringify(patch)} }))()`)
     assert.equal((await updateSettings({chatFontSize: 25})).ok, false)
     assert.equal((await updateSettings({language: 'zh-Hans', chatFontSize: 14})).ok, true)
     await until(() => js('document.documentElement.lang==="zh-Hans"'))
-    assert.deepEqual(await js(conversationFontSize), ['14px', '14px'])
+    // The locale and the virtual message list can render in separate frames.
+    await waitForChatSize(14)
     assert.equal(await js('document.querySelector(".conversation-title h2").textContent'), '未知 房間')
     assert.ok((await js('document.querySelector(".match-status").textContent')).includes('歌曲 原文'))
     assert.equal(await js('document.querySelector(".slot-player strong").textContent'), '未知')
