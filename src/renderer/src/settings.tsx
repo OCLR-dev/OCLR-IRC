@@ -3,7 +3,7 @@ import { Button, Tabs } from '@heroui/react'
 import { WorkspaceCheckbox, WorkspaceSelect } from './controls'
 import { tr } from './i18n'
 import { BrandIcon } from './brand'
-import { CHAT_FONT_FAMILIES, CHAT_FONT_SIZES, CHAT_TIMESTAMPS, type AppPreferences, type AppSettings, type LanguagePreference } from '../../shared/preferences'
+import { CHAT_FONT_FAMILIES, CHAT_FONT_SIZES, CHAT_SEND_SHORTCUTS, CHAT_TIMESTAMPS, modifiedEnterLabel, type AppPreferences, type AppSettings, type LanguagePreference } from '../../shared/preferences'
 
 export function SettingsView({ settings, onChange }: { settings: AppSettings; onChange: (settings: AppSettings) => void }) {
   const [busy, setBusy] = useState(false)
@@ -75,6 +75,18 @@ export function SettingsView({ settings, onChange }: { settings: AppSettings; on
               if (chatTimestamp !== undefined) void save({ chatTimestamp })
             }} options={CHAT_TIMESTAMPS.map(value => ({ value, label: timestampLabels[value] }))} />
           </div>
+        </section>
+        <section className="settings-section"><h2>{tr('傳送快捷鍵')}</h2>
+          <WorkspaceSelect className="chat-send-shortcut-select" label={tr('傳送快捷鍵')} value={settings.preferences.chatSendShortcut} disabled={busy || !window.oclr} onChange={value => {
+            const chatSendShortcut = CHAT_SEND_SHORTCUTS.find(shortcut => shortcut === value)
+            if (chatSendShortcut !== undefined) void save({ chatSendShortcut })
+          }} options={[
+            { value: 'enter', label: 'Enter' },
+            { value: 'modifier-enter', label: modifiedEnterLabel(settings.platform) }
+          ]} />
+        </section>
+        <section className="settings-section">
+          <WorkspaceCheckbox name="foldBanchoQueries" selected={settings.preferences.foldBanchoQueries} disabled={busy || !window.oclr} onChange={value => void save({ foldBanchoQueries: value })}>{tr('摺疊 BanchoBot 查詢回覆')}</WorkspaceCheckbox>
         </section>
       </Tabs.Panel>
       <Tabs.Panel id="about">

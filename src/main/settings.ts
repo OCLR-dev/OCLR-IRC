@@ -39,6 +39,16 @@ export interface FieldObservation<T> {
   queryId: string
 }
 
+const replyPatterns = {
+  header: /^Room name: (.*), History: https:\/\/osu\.ppy\.sh\/(?:mp|community\/matches)\/(\d+)$/,
+  map: /^Beatmap: https:\/\/osu\.ppy\.sh\/(?:b|beatmaps)\/(\d+) (.+)$/,
+  mode: /^Team mode: (.+), Win condition: (.+)$/,
+  mods: /^Active mods: (.*)$/,
+  count: /^Players: (\d+)$/,
+  slot: /^Slot\s+(\d+)\s+(.+?)\s+https:\/\/osu\.ppy\.sh\/(?:u|users)\/(\d+)\s+(.+?)(?:\s+\[([^\]]+)\])?$/
+}
+const settingsFields = [replyPatterns.map, replyPatterns.mode, replyPatterns.mods, replyPatterns.count, replyPatterns.slot]
+
 /** A bounded, query-scoped snapshot. No inferred mods, player membership or UID. */
 export class SettingsCollector {
   private header = false
@@ -53,6 +63,11 @@ export class SettingsCollector {
   private readonly capturedAt = new Date().toISOString()
   private readonly connectionGeneration: number
   constructor(id: number, connectionGeneration = 0) { this.id = id; this.connectionGeneration = connectionGeneration }
+  isReply(body: string) {
+    const header = replyPatterns.header.exec(body)
+    if (header) return !this.header && Number(header[2]) === this.id
+    return this.result.binding === 'verified' && settingsFields.some(pattern => pattern.test(body))
+  }
   recordSlotChange(change: SlotChange) {
     // The settings header starts the snapshot. Replay later events once all rows arrive.
     if (!this.header) return
@@ -73,18 +88,18 @@ export class SettingsCollector {
     }
   }
   feed(body: string): boolean {
-    const header = /^Room name: (.*), History: https:\/\/osu\.ppy\.sh\/(?:mp|community\/matches)\/(\d+)$/.exec(body)
+    const header = replyPatterns.header.exec(body)
     if (header) {
       if (this.header) this.malformed = true
       this.header = true; this.result.name = redact(header[1]); this.result.binding = Number(header[2]) === this.id ? 'verified' : 'mismatch'
       return false
     }
     if (!this.header) return false
-    const map = /^Beatmap: https:\/\/osu\.ppy\.sh\/(?:b|beatmaps)\/(\d+) (.+)$/.exec(body)
+    const map = replyPatterns.map.exec(body)
     if (map) { if (this.result.beatmap) this.malformed = true; const id = Number(map[1]); if (Number.isSafeInteger(id) && id > 0) this.result.beatmap = { id, title: redact(map[2]) }; else this.malformed = true }
-    const mode = /^Team mode: (.+), Win condition: (.+)$/.exec(body)
+    const mode = replyPatterns.mode.exec(body)
     if (mode) { if (this.result.mode) this.malformed = true; this.result.mode = `${mode[1]} · ${mode[2]}` }
-    const mods = /^Active mods: (.*)$/.exec(body)
+    const mods = replyPatterns.mods.exec(body)
     if (mods) {
       if (this.result.mods !== null) this.malformed = true
       const value = mods[1].trim()
@@ -92,9 +107,9 @@ export class SettingsCollector {
       else if (value) { const list = value.split(/,\s*|\s+/); if (list.length <= 32) this.result.mods = list; else this.malformed = true }
       else this.malformed = true
     }
-    const count = /^Players: (\d+)$/.exec(body)
+    const count = replyPatterns.count.exec(body)
     if (count) { if (this.count !== null) this.malformed = true; const n = Number(count[1]); if (n <= 16) { this.count = n; this.result.players = n } else this.malformed = true }
-    const slot = /^Slot\s+(\d+)\s+(.+?)\s+https:\/\/osu\.ppy\.sh\/(?:u|users)\/(\d+)\s+(.+?)(?:\s+\[([^\]]+)\])?$/.exec(body)
+    const slot = replyPatterns.slot.exec(body)
     if (slot) {
       const n = Number(slot[1]), osuId = Number(slot[3])
       if (n < 1 || n > 16 || !Number.isSafeInteger(osuId) || osuId < 1 || this.result.slots.some(s => s.slot === n || s.osuId === osuId)) this.malformed = true

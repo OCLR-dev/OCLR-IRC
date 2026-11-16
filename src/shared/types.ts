@@ -9,7 +9,7 @@ import type { OclrSnapshot } from './oclr-contracts.ts'
 import type { AppPreferences, AppSettings } from './preferences.ts'
 
 export type Connection = 'offline' | 'connecting' | 'online' | 'error' | 'reconnecting' | 'suspended'
-export interface Message { id: number; time: string; sender: string; text: string; kind: 'system' | 'bot' | 'chat' | 'self'; delivery?: 'sent' | 'unconfirmed' | 'unknown' }
+export interface Message { id: number; rowIndex: number; time: string; sender: string; text: string; kind: 'system' | 'bot' | 'chat' | 'self'; delivery?: 'sent' | 'unconfirmed' | 'unknown'; queryReply?: 'settings' | 'listrefs' }
 export interface RoomTarget { roomId: number; roomEpoch: number }
 export interface PlayerSlot { slot: number; osuId: number; username: string; status: string; team: 'red' | 'blue' | null; host: boolean }
 export interface Room { timer?: Countdown | null; startCountdown?: Countdown | null; duration?: { beatmapId: number; milliseconds: number } | null; slotsVerified?: boolean; match?: { startedAt: string; beatmap: { id: number; title: string } | null; mods: string[] | null } | null; id: number; epoch: number; channel: string; joined: boolean; binding: 'unknown' | 'verified' | 'mismatch'; referee: 'unknown' | 'listed'; name: string | null; mode: string | null; players: number | null; kind: 'match' | 'channel' | 'private'; members: string[]; syncState: 'unknown' | 'loading' | 'partial' | 'complete' | 'stale'; observedAt: string | null; beatmap: { id: number; title: string } | null; mods: string[] | null; slots: PlayerSlot[]; phase: 'unknown' | 'idle' | 'playing' }
@@ -38,6 +38,7 @@ export interface Snapshot {
   leavingChannels: string[]
   pending: Pending
   messageStartIndex: number
+  foldedMessageStartIndex: number
   messages: Message[]
 }
 export interface JournalEntry { time: number; room: string; text: string }

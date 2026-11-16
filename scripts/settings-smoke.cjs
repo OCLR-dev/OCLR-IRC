@@ -64,6 +64,8 @@ async function main() {
   assert.equal(settings.preferences.chatFontSize, restart ? 24 : 12)
   assert.equal(settings.preferences.chatFontFamily, restart ? 'monospace' : 'default')
   assert.equal(settings.preferences.chatTimestamp, restart ? 'minutes' : 'seconds')
+  assert.equal(settings.preferences.chatSendShortcut, restart ? 'modifier-enter' : 'enter')
+  assert.equal(settings.preferences.foldBanchoQueries, !restart)
   assert.equal(settings.preferences.notifyPlayersReady, true)
   assert.equal(settings.preferences.notifyMatchFinished, !restart)
   assert.equal(settings.preferences.notifyOnlyInBackground, restart)
@@ -149,6 +151,18 @@ async function main() {
     await until(() => js('Array.from(document.querySelectorAll("[role=option]")).some(option => option.textContent === "HH:mm")'))
     await js('Array.from(document.querySelectorAll("[role=option]")).find(option => option.textContent === "HH:mm").click()')
     await until(() => js(`document.querySelector('${timestamps}').textContent === "HH:mm" && !document.querySelector("[role=option]")`))
+    const sendShortcut = '.chat-send-shortcut-select button[aria-haspopup]'
+    const modifiedEnter = process.platform === 'darwin' ? '⌘+Enter' : 'Ctrl+Enter'
+    await until(() => js(`!document.querySelector('${sendShortcut}').disabled`))
+    assert.equal(await js(`document.querySelector('${sendShortcut}').textContent`), 'Enter')
+    await js(`document.querySelector('${sendShortcut}').scrollIntoView({block:"nearest"}); document.querySelector('${sendShortcut}').click()`)
+    const shortcutOption = `Array.from(document.querySelectorAll('[role=option]')).find(option => option.textContent === ${JSON.stringify(modifiedEnter)})`
+    await until(() => js(`Boolean(${shortcutOption})`))
+    await js(`(${shortcutOption}).click()`)
+    await until(() => js(`document.querySelector('${sendShortcut}').textContent === ${JSON.stringify(modifiedEnter)} && !document.querySelector("[role=option]")`))
+    await until(() => js('!document.querySelector("input[name=foldBanchoQueries]").disabled'))
+    await js('document.querySelector("input[name=foldBanchoQueries]").click()')
+    await until(() => js('(async () => !(await window.oclr.settings.snapshot()).preferences.foldBanchoQueries)()'))
     assert.equal(await js('document.querySelector(".settings-section:has(input[name=autoRefreshOclr]) .label").textContent'), 'Automatically update OCLR website data')
     assert.equal(await js('document.documentElement.scrollWidth<=innerWidth'), true)
     assert.ok((await js('document.querySelector(".settings-section:has(input[name=closeToBackground]) .label").textContent')).endsWith('closed'))
@@ -188,6 +202,8 @@ async function main() {
     await js('Array.from(document.querySelectorAll("[role=tab]")).find(e=>e.textContent==="Players").click()')
     await until(() => js('Boolean(document.querySelector(".player-slot.occupied"))'))
     await until(() => js('(async () => { const s=await window.oclr.snapshot(); return s.room.referee==="listed" && !s.pending })()'))
+    await until(() => js('Array.from(document.querySelectorAll(".message-row.bot")).some(row => row.textContent.includes("Match referees:"))'))
+    assert.equal(await js('Boolean(document.querySelector(".query-replies"))'), false)
     peer.write(':系統 PRIVMSG #mp_900000008 :已連線 原文\n')
     await until(() => js('document.querySelector(".message-area").textContent.includes("已連線 原文")'))
     const conversationFontSize = `(() => {
@@ -235,6 +251,19 @@ async function main() {
     await waitForTimestamp(/^\d{2}:\d{2}:\d{2}$/)
     assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom<=innerHeight'), true)
     assert.equal((await updateSettings({chatTimestamp: 'minutes'})).ok, true)
+    await until(() => js(`document.querySelector('.composer-help').textContent.includes(${JSON.stringify(modifiedEnter)})`))
+    const enter = modifiers => js(`!document.querySelector('[name=chat]').dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Enter', bubbles: true, cancelable: true, ...${JSON.stringify(modifiers)}
+    }))`)
+    const modifier = process.platform === 'darwin' ? {metaKey: true} : {ctrlKey: true}
+    assert.equal(await enter({}), false, 'plain Enter keeps the text area default')
+    await js('(() => { const el = document.querySelector("[name=chat]"); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(el, el.value + "\\nsecond line"); el.dispatchEvent(new Event("input", {bubbles:true})) })()')
+    assert.equal(await enter({...modifier, isComposing: true}), false, 'an IME key event does not run the shortcut')
+    assert.equal(await enter(modifier), true, 'the modified Enter shortcut handles the key')
+    await until(() => sent.some(line => line.endsWith(':second line')))
+    assert.deepEqual(sent.filter(line => /:(?:Draft 未知|second line)$/.test(line)), [
+      'PRIVMSG #mp_900000008 :Draft 未知', 'PRIVMSG #mp_900000008 :second line'
+    ])
 
     async function checkNotifications(marker, expected) {
       const before = notifications.length
@@ -243,9 +272,13 @@ async function main() {
       await until(() => js(`(async () => (await window.oclr.snapshot()).messages.some(message => message.text === ${JSON.stringify(marker)}))()`))
       assert.deepEqual(notifications.slice(before), expected)
     }
-    window.setAlwaysOnTop(true); app.focus({steal: true}); window.show(); window.focus(); window.webContents.focus()
-    await until(() => window.isFocused())
-    await checkNotifications('foreground notifications', [])
+    window.show()
+    await until(() => window.isVisible() && !window.isMinimized())
+    // Keep this settings check independent of which native window the test host activates.
+    const isFocused = window.isFocused
+    window.isFocused = () => true
+    try { await checkNotifications('foreground notifications', []) }
+    finally { window.isFocused = isFocused }
     window.hide()
     await until(() => !window.isVisible())
     await checkNotifications('background ready notification', ['All players are ready'])
@@ -262,12 +295,12 @@ async function main() {
     const saved = JSON.parse(fs.readFileSync(path.join(profile, 'preferences.json'), 'utf8'))
     assert.deepEqual(saved.preferences, {
       closeToBackground: false, language: 'en', restoreIrcLogin: false, autoRefreshOclr: false,
-      chatFontSize: 24, chatFontFamily: 'monospace', chatTimestamp: 'minutes',
+      chatFontSize: 24, chatFontFamily: 'monospace', chatTimestamp: 'minutes', chatSendShortcut: 'modifier-enter', foldBanchoQueries: false,
       notifyPlayersReady: true, notifyMatchFinished: false, notifyOnlyInBackground: true
     })
   })
   app.on('will-quit', () => {
-    const report = { evidence: restart ? 'synthetic-settings-restart' : 'synthetic-settings-localization', passed: restart ? ['new application process restores locale, close behavior and chat font size', 'close without background exits'] : ['HeroUI language selection for all four options', 'language changes without relogin or IRC commands', 'chat font size applies to messages and the composer', 'chat, names, maps and draft remain literal', '900x640 settings, about and composer', 'no sidebar quit button', 'fixed About link allowlist', 'invalid IPC inputs and sender rejected', 'preferences survive renderer reload', 'close without background exits and cleans authentication'], limitation: 'Synthetic services and OS language. Physical tray/IME acceptance remains separate.' }
+    const report = { evidence: restart ? 'synthetic-settings-restart' : 'synthetic-settings-localization', passed: restart ? ['new application process restores locale, close behavior, chat display, notifications and send shortcut', 'close without background exits'] : ['HeroUI language selection for all four options', 'language changes without relogin or IRC commands', 'chat display settings and foreground/background notifications', 'send shortcut selection and query folding opt-out', 'chat, names, maps and draft remain literal', '900x640 settings, about and composer', 'no sidebar quit button', 'fixed About link allowlist', 'invalid IPC inputs and sender rejected', 'preferences survive renderer reload', 'close without background exits and cleans authentication'], limitation: 'Synthetic services and OS language. Physical tray/IME acceptance remains separate.' }
     fs.mkdirSync('artifacts', { recursive: true }); fs.writeFileSync(`artifacts/settings${restart ? '-restart' : ''}-smoke.json`, JSON.stringify(report, null, 2)); console.log(JSON.stringify(report))
   })
   window.close()

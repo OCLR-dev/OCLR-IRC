@@ -138,7 +138,7 @@ test('chat validates UTF-8 wire bytes and rejects control/framing injection', ()
 })
 
 test('message links must be safe HTTP(S) URLs still present in retained messages', () => {
-  const messages = [{ id: 1, time: '', kind: 'chat' as const, sender: 'Example', text: 'See https://osu.ppy.sh/mp/900000001 and example.org' }]
+  const messages = [{ id: 1, rowIndex: 1, time: '', kind: 'chat' as const, sender: 'Example', text: 'See https://osu.ppy.sh/mp/900000001 and example.org' }]
   assert.equal(messageLink('https://osu.ppy.sh/mp/900000001', messages), 'https://osu.ppy.sh/mp/900000001')
   assert.equal(messageLink('http://example.org', messages), 'http://example.org/')
   assert.throws(() => messageLink('https://unknown.invalid', messages))

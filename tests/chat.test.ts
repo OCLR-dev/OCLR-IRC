@@ -41,6 +41,41 @@ test('chat commands and multiline drafts validate every line before creating any
   for (const text of ['hello\n\x00QUIT','hello\n\t!mp close','\x01ACTION x\x01','a\n'+'測'.repeat(200),Array(11).fill('hello').join('\n'),'x'.repeat(6001)]) assert.throws(() => chatLines(text, '#mp_9'))
 })
 
+test('only correlated query replies share a display row, with interleaved chat and errors kept in order', async () => {
+  const f = await fixture({roomRefreshMs: 130})
+  try {
+    await until(() => f.session.state.room?.referee === 'listed' && !f.session.state.pending)
+    f.peer().pause()
+    f.session.requestQuery({ ...f.target(), kind: 'settings' })
+    await until(() => f.session.state.pending === 'settings')
+    const start = f.session.state.messages.length
+    f.peer().write([
+      ':BanchoBot PRIVMSG #mp_9 :Room name: Synthetic, History: https://osu.ppy.sh/mp/9',
+      ':BanchoBot PRIVMSG #mp_9 :Beatmap: https://osu.ppy.sh/b/75 Synthetic map',
+      ':Player PRIVMSG #mp_9 :Active mods: HD',
+      ':BanchoBot PRIVMSG #mp_9 :Team mode: TeamVs, Win condition: ScoreV2',
+      ':BanchoBot PRIVMSG #mp_9 :Active mods: None',
+      ':BanchoBot PRIVMSG #mp_9 :Query warning!',
+      ':BanchoBot PRIVMSG #mp_9 :Players: 0',
+      ':BanchoBot PRIVMSG #mp_9 :All players are ready!'
+    ].join('\n') + '\n')
+    await until(() => f.session.state.messages.at(-1)?.text === 'All players are ready!')
+    const messages = f.session.state.messages.slice(start)
+    const first = messages[0].rowIndex
+    assert.deepEqual(messages.map(message => [message.rowIndex - first, message.queryReply]), [
+      [0, 'settings'], [0, 'settings'], [1, undefined], [2, 'settings'], [2, 'settings'],
+      [3, undefined], [4, 'settings'], [5, undefined]
+    ])
+    const dropped = start + 1
+    const added = 1000 - f.session.state.messages.length + dropped
+    f.peer().write(Array.from({ length: added }, (_, i) => `:Player PRIVMSG #mp_9 :retained ${i}\n`).join(''))
+    await until(() => f.session.state.messages.at(-1)?.text === `retained ${added - 1}`)
+    assert.equal(f.session.state.messages[0].id, messages[1].id)
+    assert.equal(f.session.state.messageStartIndex, dropped + 1)
+    assert.equal(f.session.state.foldedMessageStartIndex, first)
+  } finally { await f.close() }
+})
+
 test('typed MP commands and multiline content are sent once to the fixed room with shared flood control', async () => {
   const f = await fixture()
   try {

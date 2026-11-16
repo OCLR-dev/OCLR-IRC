@@ -143,6 +143,9 @@ dd { color: #bdb8c9; font-size: 12px; margin: 0; overflow-wrap: anywhere; }
 .message-area { position: relative; flex: 1; min-height: 120px; }
 .message-area .message-list { height: 100%; min-height: 0; padding: 0; }
 .message-area .message-row { padding: 6px 14px 6px 0; }
+.query-replies > summary { cursor: pointer; }
+.query-replies-label::before { content: "▸"; margin-inline-end: 6px; }
+.query-replies[open] .query-replies-label::before { content: "▾"; }
 .message-area[data-timestamp="minutes"] { --chat-time-width: 36px; }
 .message-area[data-timestamp="hidden"] .message-row { grid-template-columns: var(--chat-sender-width) minmax(0, 1fr); }
 .message-text a { color: #bca3ee; text-decoration: underline; text-underline-offset: 3px; }
@@ -526,6 +529,7 @@ main { min-height: 0; overflow: auto; }
 .language-select { max-width: 320px; }
 .chat-font-settings { display: flex; flex-wrap: wrap; gap: 20px 24px; }
 .chat-font-settings > div { width: min(100%, 180px); }
+.chat-send-shortcut-select { max-width: 180px; }
 .notification-settings { display: grid; gap: 12px; }
 .about-app { display: flex; align-items: center; gap: 20px; }
 .about-app h2 { font-size: 24px; margin: 0; }
