@@ -33,7 +33,7 @@ export function JournalView({ embedded = false, active = true }: { embedded?: bo
     {!embedded && <h1>{tr("本機日誌")}</h1>}
     <div className="journal-toolbar">
       <WorkspaceCheckbox selected={state?.enabled ?? true} disabled={!api || busy || !state} onChange={enabled => { if (!enabled) setConfirm('disable'); else if (api) void run(() => api.setEnabled(true)) }}>{tr("保存加密 IRC 日誌 · 7 天")}</WorkspaceCheckbox>
-      <span role="status">{state && ({ saving: tr("正在保存"), memory_only: tr("僅記憶體"), failed: tr("保存失敗") })[state.status]}</span>
+      <span role="status">{state && ({ saving: tr("加密保存已啟用"), memory_only: tr("僅記憶體"), failed: tr("保存失敗") })[state.status]}</span>
       <RefreshButton variant="secondary" label={tr("讀取歷史")} disabled={!state?.account} busy={busy} onPress={() => api && void run(() => api.read())} />
     </div>
     <div className="journal-toolbar">

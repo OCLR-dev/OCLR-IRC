@@ -1384,9 +1384,9 @@ export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
     "zh-Hans": "歌曲尚未确认",
     "en": "Beatmap not confirmed"
   },
-  "正在保存": {
-    "zh-Hans": "正在保存",
-    "en": "Saving"
+  "加密保存已啟用": {
+    "zh-Hans": "已启用加密保存",
+    "en": "Encrypted logging enabled"
   },
   "正在加入房間…": {
     "zh-Hans": "正在加入房间…",

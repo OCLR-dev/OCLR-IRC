@@ -3,13 +3,14 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:
 import { mkdirSync, chmodSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { normalize, redact } from './protocol.ts'
+import type { JournalEntry } from '../shared/types.ts'
 
 export interface JournalEncryption {
   available(): Promise<boolean>
   encrypt(value: string): Promise<Buffer>
   decrypt(value: Buffer): Promise<{ result: string; shouldReEncrypt: boolean }>
 }
-export interface JournalEvent { time: number; room: string; text: string }
+export interface JournalEvent extends JournalEntry { matchChat?: true }
 function clean(value: string) {
   const normalized = value.replace(/[\p{Cc}\p{Cf}\u2028\u2029]/gu, '')
   return /(?:password|access_token|refresh_token|code_verifier|oclr_desk_|\bPASS\b|\bAUTHENTICATE\b|[?&]code=)/i.test(normalized) ? '〔含敏感資訊，已隱藏〕' : redact(normalized)
@@ -91,7 +92,7 @@ export class EncryptedJournal {
   append(event: JournalEvent) {
     const generation = this.generation
     // Copy and sanitize before queueing; never retain caller-owned event objects.
-    const value = { time: event.time, room: clean(event.room), text: clean(event.text) }
+    const value: JournalEvent = { time: event.time, room: clean(event.room), text: clean(event.text), ...(event.matchChat ? { matchChat: true } : {}) }
     if (this.pendingAppend?.generation === generation && this.pendingAppend.values.length < 256) {
       this.pendingAppend.values.push(value)
       return this.pendingAppend.done
@@ -132,34 +133,37 @@ export class EncryptedJournal {
     decipher.setAuthTag(data.subarray(12, 28)); decipher.setAAD(Buffer.from(JSON.stringify([1, this.account, row.time])))
     const value = JSON.parse(Buffer.concat([decipher.update(data.subarray(28)), decipher.final()]).toString('utf8'))
     if (!value || value.time !== row.time || typeof value.room !== 'string' || typeof value.text !== 'string') throw new Error('Invalid event')
-    return { time: value.time, room: clean(value.room), text: clean(value.text) }
+    return { time: value.time, room: clean(value.room), text: clean(value.text), ...(value.matchChat === true ? { matchChat: true } : {}) }
   }
-  read(room?: string) {
+  read(room?: string, include: (event: JournalEvent) => boolean = () => true) {
     const generation = this.generation
-    return this.run(async (): Promise<JournalEvent[]> => {
+    return this.run(async (): Promise<JournalEntry[]> => {
       if (generation !== this.generation) return []
       try {
         this.cleanup()
         if (!this.key || !this.account || !this.enabled) return []
-        const events: JournalEvent[] = []
+        const events: JournalEntry[] = []
+        const target = room === undefined ? undefined : normalize(room)
         for (const row of this.db.prepare('SELECT time,payload FROM journal_events WHERE account=? ORDER BY id DESC').iterate(this.account)) {
           const event = this.decode(row)
-          if (!room || event.room === room) events.push(event)
+          if ((target === undefined || normalize(event.room) === target) && include(event)) events.push({ time: event.time, room: event.room, text: event.text })
           if (events.length === 1000) break
         }
         return events.reverse()
       } catch { this.clearKey(); this.status = 'failed'; return [] }
     })
   }
-  clear(room?: string) {
+  clear(room?: string, include: (event: JournalEvent) => boolean = () => true) {
     const generation = this.generation
     return this.run(async () => {
       if (generation !== this.generation || !this.account) return
       if (!room) { this.db.prepare('DELETE FROM journal_events WHERE account=?').run(this.account); return }
       if (!this.key) throw new Error('Journal unavailable')
       const ids: number[] = []
+      const target = normalize(room)
       for (const row of this.db.prepare('SELECT id,time,payload FROM journal_events WHERE account=?').iterate(this.account)) {
-        if (this.decode(row).room === room) ids.push(Number(row.id))
+        const event = this.decode(row)
+        if (normalize(event.room) === target && include(event)) ids.push(Number(row.id))
       }
       this.db.exec('BEGIN IMMEDIATE')
       try {

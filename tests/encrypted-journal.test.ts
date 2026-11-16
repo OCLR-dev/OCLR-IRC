@@ -124,3 +124,21 @@ test('bursts preserve order and encryption while clear/read remain strict batch 
     assert.deepEqual((await f.journal.read('#one')).map(e => e.text), ['after clear', 'after read'])
   } finally { await f.close() }
 })
+test('protecting a match room removes unclassified history and keeps encrypted player chat', async () => {
+  const f = fixture()
+  try {
+    await f.journal.authenticate('Alice')
+    const room = '#mp_9'
+    const chat = { time: f.now(), room, text: 'Player: synthetic chat' }
+    const other = { time: f.now(), room: '#test', text: 'Other conversation' }
+    await f.journal.append({ time: f.now(), room, text: 'Unclassified legacy event' })
+    await f.journal.append({ ...chat, matchChat: true })
+    await f.journal.append(other)
+
+    assert.deepEqual(await f.journal.read(room, entry => entry.matchChat === true), [chat])
+    await f.journal.clear(room, entry => !entry.matchChat)
+    assert.deepEqual(await f.journal.read(), [chat, other])
+    await f.journal.clear(room)
+    assert.deepEqual(await f.journal.read(), [other])
+  } finally { await f.close() }
+})

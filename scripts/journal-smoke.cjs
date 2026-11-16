@@ -55,6 +55,7 @@ async function main() {
     assert.equal(fs.readFileSync(path.join(process.env.OCLR_QA_TEMP, 'irc-journal.sqlite')).includes(Buffer.from('SYNTHETIC_PRIVATE_HISTORY')), false)
     await js('document.querySelector("nav [data-page=records]").click()')
     await until(() => js('Boolean(document.querySelector(".journal-view"))'))
+    await until(() => js('document.querySelector(".journal-toolbar [role=status]").textContent === "加密保存已啟用"'))
     await until(() => js('Array.from(document.querySelectorAll(".journal-view button")).some(b => b.getAttribute("aria-label") === "讀取歷史" && !b.disabled)'))
     await js('Array.from(document.querySelectorAll(".journal-view button")).find(b => b.getAttribute("aria-label") === "讀取歷史").click()')
     await until(() => js('document.querySelector(".journal-entries").textContent.includes("SYNTHETIC_PRIVATE_HISTORY")'))

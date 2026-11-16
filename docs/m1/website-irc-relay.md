@@ -2,6 +2,8 @@
 
 本版接上網站 PR #409 的桌面授權及 IRC relay。IRC 密碼和 socket 僅留在 Electron Main；網站只保存本場投影與命令狀態。OCLR 的 osu! OAuth 是網站身分授權，並不取代 osu! IRC 專用密碼登入。
 
+2026-11-16 起，網站關聯房間中可確認來自玩家的 IRC 聊天也會加密保存至本機。下方歷史紀錄的房間排除規則現只適用於其他事件。見 [記錄中心](records-center.md)。
+
 網站同意頁實際以 `POST /api/desktop/v1/auth/decision` 提交 `request_id` 與 `decision`，受同源檢查與登入 session 保護；本機不呼叫此端點。已授權 session 可在網站 `/desktop/sessions` 撤銷。這是目前實作，取代早期候選契約中尚未實作的 approve/deny 路徑。
 
 ## 本機測試
