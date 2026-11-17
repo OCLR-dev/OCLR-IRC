@@ -107,6 +107,8 @@ async function main() {
   await fill('input[name=password]', 'SYNTHETIC_PASSWORD_ONLY')
   assert.equal(await js('document.querySelector("button[type=submit]").disabled'), false)
   await js('document.querySelector("button[type=submit]").click()')
+  await until(() => js('Boolean(document.querySelector(".referee-workbench .connected-panel"))'))
+  await js('document.querySelector(".connected-panel .primary-button").click()')
   await until(() => js('Boolean(document.querySelector(".join-room-button"))'))
   await js('document.querySelector(".join-room-button").click()')
   await until(() => js('Boolean(document.querySelector(".join-form"))'))
@@ -436,21 +438,20 @@ async function main() {
   await until(() => js('(async () => Boolean((await window.oclr.avatar.snapshot()).dataUrl))()'))
   assert.equal(avatarTransport.requests.length, avatarRequests)
   // Wait for this cached login to reach the renderer before changing accounts.
-  // Main IPC can complete while the previous room view is still painted.
-  await until(() => js('document.querySelector(".sidebar-footer")?.getAttribute("aria-label")==="SyntheticRef · 已連線" && Boolean(document.querySelector(".join-room-button"))'))
+  // Main IPC can complete before the connected panel is rendered.
+  await until(() => js('document.querySelector(".sidebar-footer")?.getAttribute("aria-label")==="SyntheticRef · 已連線" && Boolean(document.querySelector(".connected-panel"))'))
   await js('document.querySelector(".sidebar-footer .logout-button").click()')
   await until(() => js('Boolean(document.querySelector("input[name=password]")) && document.querySelector(".sidebar-footer")?.getAttribute("aria-label")==="osu! IRC · 未連線"'))
   await js('window.oclr.login({username:"OtherSynthetic",password:"SYNTHETIC_PASSWORD_ONLY"})')
   await until(() => js('(async () => { const s=await window.oclr.snapshot(); return s.connection==="online" && s.username==="OtherSynthetic" })()'))
-  await until(() => js('Boolean(document.querySelector(".join-room-button"))'))
-  await js(`document.querySelector('nav [data-page="workbench"]').click()`)
+  await until(() => js('Boolean(document.querySelector(".referee-workbench .connected-panel"))'))
   await until(() => js('document.querySelector(".account-avatar")?.textContent === "O"'))
   assert.equal(await js('Boolean(document.querySelector(".account-avatar img"))'), false)
   await js('window.oclr.logout()')
   assert.deepEqual(errors, [])
   const report = { evidence: 'synthetic-desktop-ui', platform: process.platform, arch: process.arch,
     electron: process.versions.electron, recordedAt: new Date().toISOString(),
-    passed: ['renderer and sandboxed preload loaded', 'form login to local fake IRC', 'LF-only settings binding', 'split-line referee membership', 'plain chat sent label without delivery receipt', 'synthetic IME Enter guard', 'typed MP command sent once with execution unconfirmed, Shift+Enter multiline drafts and Enter sending, control characters and unsafe links blocked', 'safe external link and escaped HTML', '1000 retained rows with under 100 DOM rows', 'incoming messages preserve history position and new outgoing messages jump to latest', 'ready and finish notifications require BanchoBot in a match room', '900x640 composer visible', 'multiple room tabs and unread mention routing', 'renderer reload preserves connection and tabs', 'leave sends PART not mp close', 'socket reconnect renews epoch and settings/listrefs without chat replay', 'complete map/mods snapshot after recovery', 'powerMonitor suspend/resume restores reads', 'kick disables room actions', 'generic channel UI with NAMES Tab completion', 'private inbox preserves selection and sends fixed-target reply', 'create form requires explicit existing-room review', 'make confirmation joins actual MP and queries settings/listrefs', 'old create request cannot be submitted twice', 'created room composer visible at 900x640', 'single sidebar IRC logout and secret clearing', 'osu avatar rendered at 900x640, disk cache reused offline and other-account letter fallback', 'no renderer console errors'],
+    passed: ['renderer and sandboxed preload loaded', 'form login to local fake IRC stays on the referee workbench until chat is opened', 'LF-only settings binding', 'split-line referee membership', 'plain chat sent label without delivery receipt', 'synthetic IME Enter guard', 'typed MP command sent once with execution unconfirmed, Shift+Enter multiline drafts and Enter sending, control characters and unsafe links blocked', 'safe external link and escaped HTML', '1000 retained rows with under 100 DOM rows', 'incoming messages preserve history position and new outgoing messages jump to latest', 'ready and finish notifications require BanchoBot in a match room', '900x640 composer visible', 'multiple room tabs and unread mention routing', 'renderer reload preserves connection and tabs', 'leave sends PART not mp close', 'socket reconnect renews epoch and settings/listrefs without chat replay', 'complete map/mods snapshot after recovery', 'powerMonitor suspend/resume restores reads', 'kick disables room actions', 'generic channel UI with NAMES Tab completion', 'private inbox preserves selection and sends fixed-target reply', 'create form requires explicit existing-room review', 'make confirmation joins actual MP and queries settings/listrefs', 'old create request cannot be submitted twice', 'created room composer visible at 900x640', 'single sidebar IRC logout and secret clearing', 'osu avatar rendered at 900x640, disk cache reused offline and other-account letter fallback', 'no renderer console errors'],
     sent, limitation: 'Local fake server only; no live account credentials, no OCLR OAuth, no Windows/Linux verification; synthetic composition event is not a real IME test.' }
   fs.writeFileSync(path.join(output, 'ui-smoke-recovery.json'), JSON.stringify(report, null, 2) + '\n')
   fs.writeFileSync(path.join(output, 'ui-smoke-creation.json'), JSON.stringify(report, null, 2) + '\n')

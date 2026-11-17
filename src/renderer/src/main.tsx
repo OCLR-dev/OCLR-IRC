@@ -84,7 +84,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     void window.oclr.snapshot().then(next => { if (!eventArrived) setState(next) })
     return off
   }, [])
-  useEffect(() => { if (online) { setPage(current => current === 'workbench' && !launch && !website.subject ? 'room' : current); setFormError(null) } }, [online])
+  useEffect(() => { if (online) setFormError(null) }, [online])
   async function login(event: React.FormEvent) {
     event.preventDefault()
     if (!window.oclr || busy || connecting) return
