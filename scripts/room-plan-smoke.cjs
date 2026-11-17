@@ -83,6 +83,8 @@ async function main() {
   assert.equal(await js('typeof window.require'), 'undefined')
   assert.equal(window.webContents.getLastWebPreferences().sandbox, true)
   assert.equal((await js('window.oclr.login({username:"SyntheticRef",password:"SYNTHETIC_PASSWORD_ONLY"})')).ok, true)
+  await until(() => js('Boolean(document.querySelector(".referee-workbench .connected-panel"))'))
+  await js('document.querySelector(".connected-panel .primary-button").click()')
   await until(() => js('Boolean(document.querySelector(".join-room-button"))'))
   assert.equal((await js('window.oclr.join("900000001")')).ok, true)
   await until(() => js('(async () => (await window.oclr.snapshot()).room?.joined)()'))

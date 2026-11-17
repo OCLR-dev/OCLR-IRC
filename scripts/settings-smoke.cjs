@@ -189,6 +189,8 @@ async function main() {
     await until(() => js('Boolean(document.querySelector(".sidebar-settings button"))'))
     assert.equal(await js('document.documentElement.lang'), 'en')
     await js('window.oclr.login({username:"SyntheticRef",password:"SYNTHETIC_ONLY"})')
+    await until(() => js('Boolean(document.querySelector(".referee-workbench .connected-panel"))'))
+    await js('document.querySelector(".connected-panel .primary-button").click()')
     await until(() => js('Boolean(document.querySelector(".join-room-button"))'))
     assert.equal((await js('window.oclr.join("900000008")')).ok, true)
     await until(() => js('(async () => { const s=await window.oclr.snapshot(); return s.room?.joined && !s.pending })()'))

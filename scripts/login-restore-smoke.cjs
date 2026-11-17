@@ -101,6 +101,7 @@ async function main() {
     assert.equal(logins, 1)
   } else if (phase === 'restore') {
     await online(); assert.equal(logins, 1); assert.equal((await state()).username, 'SyntheticRef')
+    await until(() => js('Boolean(document.querySelector(".referee-workbench .connected-panel"))'))
     assert.deepEqual((await state()).rooms, [])
     assert.equal((await js('window.oclr.website.snapshot()')).status, 'disconnected')
     window.webContents.reload(); await until(() => !window.webContents.isLoading())
