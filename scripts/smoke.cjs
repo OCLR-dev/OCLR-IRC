@@ -322,8 +322,11 @@ async function main() {
   fs.writeFileSync(path.join(output, 'workspace-tabs-synthetic.png'), (await capture()).toPNG())
   // Reloading the renderer preserves Main's socket, tabs and observations.
   const welcomesBeforeReload = sent.filter(line => line.startsWith('USER ')).length
+  const reloaded = new Promise(resolve => window.webContents.once('did-finish-load', resolve))
   window.webContents.reload()
-  await delay(500)
+  await reloaded
+  await until(() => js('Boolean(document.querySelector(".referee-workbench .connected-panel"))'))
+  await js('document.querySelector(".connected-panel .primary-button").click()')
   await until(() => js('document.querySelectorAll(".room-tab").length === 2'))
   assert.equal(sent.filter(line => line.startsWith('USER ')).length, welcomesBeforeReload)
   assert.equal((await js('window.oclr.snapshot()')).room.binding, 'verified')
