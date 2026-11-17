@@ -9,6 +9,7 @@
 ## 下載
 
 - [GitHub Releases](https://github.com/OCLR-dev/OCLR-IRC/releases)：已發布的預覽版、校驗碼與建置資訊。
+- [v0.8.16 更新說明](docs/releases/v0.8.16.md)：登入與啟動恢復登入後留在裁判工作臺。
 - [v0.8.15 更新說明](docs/releases/v0.8.15.md)：聊天字型、時間戳、傳送快捷鍵、查詢回覆摺疊與桌面通知選項。
 - [v0.8.14 更新說明](docs/releases/v0.8.14.md)：新增聊天字號設定，並保存網站關聯比賽房間的一般聊天。
 - [v0.8.13 更新說明](docs/releases/v0.8.13.md)：玩家換位或換隊時即時更新名單，減少房間設定查詢。
