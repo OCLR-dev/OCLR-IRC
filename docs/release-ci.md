@@ -1,5 +1,7 @@
 # GitHub Release CI
 
+2026-11-21 v0.9.0：OCLR IRC 的首個正式版，新增 SOCKS5／HTTP CONNECT 網路代理。見 [更新說明](releases/v0.9.0.md)。
+
 2026-11-17 v0.8.16：手動登入 IRC 或啟動恢復登入後留在裁判工作臺。從網站選擇重新加入房間仍會開啟指定房間。見 [更新說明](releases/v0.8.16.md)。
 
 2026-11-16 v0.8.15：整合聊天字型、時間戳、傳送快捷鍵、BanchoBot 查詢回覆摺疊和桌面通知偏好（#147–#149），以及手動玩家操作調整（#146）。見 [更新說明](releases/v0.8.15.md)。
@@ -37,7 +39,7 @@
 - 手動正式執行必須選擇已存在的版本 tag，取消 dry_run；從 main 取消 dry_run 會被驗證拒絕。
 - Windows x64 安裝版 EXE／ZIP、Linux x64 tar.gz、macOS arm64 DMG／ZIP、合併 SHA256SUMS.txt 及 build-info.json 成為 GitHub Release assets。直接從 Releases 下載，不受 Actions artifacts 的 30 天保留期限限制。
 
-日常測試包保留 ad-hoc 模式；版本 Release 現已要求 macOS Developer ID 簽章與 Apple 公證（見 [設定及驗證](apple-signing-ci.md)）。發行階段仍統一發布為 **Pre-release、非 Latest**，即使 tag 沒有 `-rc` 後綴也不宣稱正式穩定版。Release 說明保留 Linux 憑證保存與 M1 實機驗收限制。
+從 `v0.9.0` 起，沒有預發佈後綴的版本 tag 會發佈為 GitHub 正式版並設為 **Latest**。帶有 `-rc.1` 等預發佈後綴的 tag 會發佈為 **Pre-release**。正式發佈要求 macOS Developer ID 簽章與 Apple 公證。一般 CI 測試包使用 ad-hoc 簽章，見 [簽章設定及驗證](apple-signing-ci.md)。
 
 macOS 建置自 #95 使用 `macos-26` arm64 runner 與 Xcode 26+，在簽章前編譯 Icon Composer 原生圖示，並保留舊系統的 ICNS。壓縮包驗證會檢查實際 `Assets.car`／圖層及 Info.plist 圖示名稱，不能僅以 ICNS 存在視為圖示正確；App 與 DMG 簽章、公證要求沿用原流程。
 
@@ -47,10 +49,8 @@ macOS 建置自 #95 使用 `macos-26` arm64 runner 與 Xcode 26+，在簽章前�
 2. 只下載同一次 workflow run 的三份 App artifacts；逐一比對完整 commit、版本、平台、架構與 SHA-256，缺少、混入或損壞的成品均停止發布。
 3. build／validate 僅 contents:read，彙整只另外需要 actions:read；只有最後 publish job 有 contents:write。
 4. 發布前再次確認遠端 tag 對應建置 commit，並再次驗證壓縮包 SHA-256。
-5. 先建立 draft 並上傳全部 assets，成功後才公開為 Pre-release。既有同名 Release 不覆寫，不使用 `--clobber`。中途失敗可能留下 draft；檢查失敗原因後由維護者處理該 draft，再重跑，不能假報已公開完整版本。
+5. 先建立 draft 並上傳全部 assets，成功後才依版本 tag 公開。若有同名 Release，流程會停止。上傳途中失敗時，維護者先檢查並處理留下的 draft，再重跑。
 6. 相同 ref 的 Release runs 序列執行，不在上傳途中被新 run 自動取消。
-
-這份 CI 不代表 M1 已驗收，也不自行產生 milestone tag。既有「全部 milestone 驗收通過後自動 tag／push」規則保持；使用者本次新增 Release CI 的授權，使之在合法版本 tag 推送後自動產生 Pre-release。Apple 簽章／公證流程見上述設定文件；正式 Latest 發行仍另行規劃。
 
 ## 驗證紀錄
 

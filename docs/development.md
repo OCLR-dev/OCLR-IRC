@@ -32,12 +32,12 @@ npm run test:ui
 
 ## 發布
 
-推送與 `package.json` 版本相符的 `v*` tag，會觸發三平台測試、打包與校驗，通過後發布 GitHub Pre-release。發布要求 macOS Developer ID 簽章與 Apple 公證；也可手動執行不發布的 dry-run。詳見 [Release CI](release-ci.md)。
+推送與 `package.json` 版本相符的 `v*` tag，會觸發三平台測試、打包與校驗。從 v0.9.0 起，一般版本 tag 發佈為正式版（Latest），帶預發佈後綴的版本則發佈為 Pre-release。發佈要求 macOS Developer ID 簽章與 Apple 公證。手動 dry-run 可在發佈前執行建置驗證。詳見 [Release CI](release-ci.md)。
 
 ## 進度與驗證紀錄
 
 - [持續開發紀錄](m1/issue-progress-2026-10-31.md)：逐項修正、驗證與待驗收條件。
-- [剩餘工作](desktop-backlog.md)／[MVP 任務](mvp-plan.md)：目前範圍與依賴。
+- [剩餘工作](desktop-backlog.md)／[早期開發計畫](mvp-plan.md)：後續工作、歷史進度與依賴。
 - [README 開發紀錄存檔](development-history.md)：由原 README 移出的歷史進度。
 
 文件調整檢查連結、內容一致性與 `git diff --check` 即可。程式、IPC 或契約修改依 AGENTS.md 執行相關核心及 Electron 驗證；合成結果、真實服務驗證與提交對應的 CI 狀態分別記錄。

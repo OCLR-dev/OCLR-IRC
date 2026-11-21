@@ -1,6 +1,6 @@
 {
   "name": "oclr-ref-tools",
-  "version": "0.8.16",
+  "version": "0.9.0",
   "private": true,
   "description": "OCLR referee desktop — IRC chat workspace",
   "license": "MIT",

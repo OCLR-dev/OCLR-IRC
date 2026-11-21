@@ -19,6 +19,7 @@ import { OclrView } from './oclr'
 import { MpControls } from './mp-controls'
 import { PlayerSlots } from './player-slots'
 import { FixtureSource, FixturePool, FixtureRoster, useFixtureSource } from './fixture-tools'
+import { version as appVersion } from '../../../package.json'
 declare global { interface Window { oclr?: DesktopAPI } }
 const initial: Snapshot = { creation: { status: 'unreviewed', requestId: '', roomId: null, message: null }, retryAttempt: 0, retryAt: null, connection: 'offline', username: '', room: null, pending: null, error: null, messages: [], rooms: [], leavingChannels: [], messageStartIndex: 1, foldedMessageStartIndex: 1 }
 const statusText = { offline: '未連線', connecting: '正在連線', online: '已連線', error: '連線失敗', reconnecting: '正在重連', suspended: '休眠暫停' }
@@ -229,7 +230,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   </div>
 }
 async function bootstrap() {
-  let settings: AppSettings = { preferences: { ...DEFAULT_PREFERENCES }, locale: resolveLocale('system', navigator.languages), version: '0.8.16', platform: '' }
+  let settings: AppSettings = { preferences: { ...DEFAULT_PREFERENCES }, locale: resolveLocale('system', navigator.languages), version: appVersion, platform: '' }
   try { if (window.oclr) settings = await window.oclr.settings.snapshot() } catch { /* Preview defaults; never read credentials here. */ }
   await changeLocale(settings.locale)
   createRoot(document.getElementById('root')!).render(<App initialSettings={settings} />)

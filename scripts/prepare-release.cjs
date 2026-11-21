@@ -42,11 +42,38 @@ async function assemble(input, output, version, sha, requireSignedMac = false) {
   fs.writeFileSync(path.join(output, 'SHA256SUMS.txt'), checked.flatMap(item => item.checksums).join('\n') + '\n')
   fs.writeFileSync(path.join(output, 'build-info.json'), JSON.stringify(checked.map(item => item.metadata), null, 2) + '\n')
   const signedMac = checked.some(item => item.metadata.platform === 'macos' && item.metadata.signed)
-  const signingNote = signedMac ? 'macOS App and DMG are Developer ID signed, Apple notarized and stapled. Windows EXE/ZIP and Linux are unsigned test builds.' : 'These builds have no public signing identity/notarization; macOS uses ad-hoc app integrity signing.'
+  const signingNote = signedMac ? 'The macOS App and DMG are Developer ID signed and Apple notarized with stapled tickets.' : 'The macOS app uses an ad-hoc signature.'
+  const releaseLabel = version.includes('-') ? '公開預覽版 / Pre-release' : '正式版 / Stable release'
   const base = `https://github.com/OCLR-dev/OCLR-IRC/releases/download/v${version}`
+  const source = `https://github.com/OCLR-dev/OCLR-IRC/blob/${sha}`
+  const changelog = `docs/releases/v${version}.md`
+  const changes = fs.existsSync(path.join(__dirname, '..', changelog)) ? `\n\n[本版更新說明 / What's new](${source}/${changelog})` : ''
   const names = { windows: 'Windows', linux: 'Linux', macos: 'macOS (Apple Silicon)' }
   const downloads = checked.map(item => `| ${names[item.metadata.platform]} | ${item.metadata.arch} | ${item.installer ? `[${item.installer.format === 'nsis' ? 'Installer EXE' : 'DMG'}](${base}/${item.installer.file})` : '—'} | [${item.metadata.platform === 'linux' ? 'tar.gz' : 'ZIP'}](${base}/${item.archive}) |`).join('\n')
-  fs.writeFileSync(path.join(output, 'RELEASE_NOTES.md'), `# OCLR IRC v${version}\n\n公開預覽版 / Pre-release。此版本不代表完整 MVP 或三平台實機驗收完成。\n\n## 三平台下載 / Downloads\n\n| 平台 / Platform | 架構 / Architecture | 安裝版 / Installer | 可攜式 / Portable |\n| --- | --- | --- | --- |\n${downloads}\n\n[SHA256 校驗碼](${base}/SHA256SUMS.txt) · [建置與簽章資訊](${base}/build-info.json)\n\nWindows：執行 Setup EXE 依精靈安裝，完成後從開始功能表啟動；卸載保留使用者資料。macOS：開啟 DMG，將 OCLR IRC.app 拖至 Applications，退出磁碟映像後從應用程式啟動。Linux 或 ZIP 備用版請完整解壓縮再執行。\n\nWindows: run the setup EXE. macOS: open the DMG, drag the app to Applications and eject the disk image. Extract portable archives completely before launching. Verify all downloads using SHA256SUMS.txt.\n\n## 簽章與驗收 / Signing and acceptance\n\n${signingNote} Published as a pre-release, not Latest. Linux credential persistence remains disabled. CI checks do not replace real IME, OS sleep, keychain or Bancho acceptance. This release does not declare M1 complete.\n\nSource commit: ${sha}\n\n[本版功能與使用方式 / Features and usage](https://github.com/OCLR-dev/OCLR-IRC/blob/${sha}/README.md) · [Acceptance guide](https://github.com/OCLR-dev/OCLR-IRC/blob/${sha}/docs/m1/platform-acceptance.md)\n`)
+  fs.writeFileSync(path.join(output, 'RELEASE_NOTES.md'), `# OCLR IRC v${version}
+
+${releaseLabel}${changes}
+
+## 三平台下載 / Downloads
+
+| 平台 / Platform | 架構 / Architecture | 安裝版 / Installer | 可攜式 / Portable |
+| --- | --- | --- | --- |
+${downloads}
+
+[SHA256 校驗碼](${base}/SHA256SUMS.txt) · [建置與簽章資訊](${base}/build-info.json)
+
+Windows 請執行 Setup EXE，安裝後從開始功能表啟動。macOS 請開啟 DMG，將 OCLR IRC.app 拖至 Applications。使用 Linux 或可攜版時，請完整解壓縮後再執行。
+
+Run the setup EXE on Windows. On macOS, open the DMG and drag the app to Applications. Extract portable archives completely before launching. Verify downloads using SHA256SUMS.txt.
+
+## 簽章 / Signing
+
+${signingNote} Windows and Linux packages are unsigned. Linux credential persistence remains disabled.
+
+Source commit: ${sha}
+
+[使用指南 / User guide](${source}/README.md)
+`)
 }
 
 module.exports = { validate, assemble, assertReleaseAvailable }

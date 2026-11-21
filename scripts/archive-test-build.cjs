@@ -8,7 +8,7 @@ async function main() {
   const version = require('../package.json').version
   const sha = process.env.GITHUB_SHA
   if (!/^[0-9]+\.[0-9]+\.[0-9]+(?:-[a-zA-Z0-9.-]+)?$/.test(version) || !/^[a-f0-9]{40}$/.test(sha || '')) throw new Error('Invalid build identity')
-  if (!(process.platform === 'darwin' && process.arch === 'arm64') && !(['win32', 'linux'].includes(process.platform) && process.arch === 'x64')) throw new Error('Unsupported test build platform/architecture')
+  if (!(process.platform === 'darwin' && process.arch === 'arm64') && !(['win32', 'linux'].includes(process.platform) && process.arch === 'x64')) throw new Error('Unsupported package platform/architecture')
   const platform = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'macos' : 'linux'
   const folder = `OCLR IRC-${process.platform}-${process.arch}`
   const source = path.resolve('release', folder)
@@ -18,12 +18,12 @@ async function main() {
   fs.mkdirSync(downloads, { recursive: true })
   const signing = platform === 'macos' ? JSON.parse(fs.readFileSync(path.join(source, 'mac-signing.json'), 'utf8')) : { signed: false, codeSigning: 'unsigned', notarized: false }
   const metadata = { version, commit: sha, platform, arch: process.arch, node: process.version, electron: require('electron/package.json').version,
-    builtAt: new Date().toISOString(), run: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`, ...signing, installer, milestoneAccepted: false }
+    builtAt: new Date().toISOString(), run: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`, ...signing, installer }
   fs.copyFileSync('THIRD_PARTY_NOTICES.md', path.join(source, 'THIRD_PARTY_NOTICES.md'))
   fs.copyFileSync('licenses/INSTALLER-LICENSES.txt', path.join(source, 'INSTALLER-LICENSES.txt'))
   fs.writeFileSync(path.join(source, 'build-info.json'), JSON.stringify(metadata, null, 2) + '\n')
-  const signingNote = signing.notarized ? 'macOS is Developer ID signed and Apple notarized; the ticket is stapled.' : 'No public identity signing/notarization; macOS uses an ad-hoc integrity signature.'
-  fs.writeFileSync(path.join(source, 'README-TESTING.txt'), `OCLR IRC ${version} — internal test build\nCommit: ${sha}\n\nExtract the entire directory before launching. This is a portable test build, not an installer. ${signingNote}\nAcceptance guide: https://github.com/OCLR-dev/OCLR-IRC/blob/${sha}/docs/m1/platform-acceptance.md\nLinux credential persistence is disabled pending provider verification.\nCI tests use synthetic IRC; real IME, OS sleep and Bancho acceptance are still required.\n`)
+  const signingNote = signing.notarized ? 'macOS is Developer ID signed and Apple notarized with a stapled ticket.' : platform === 'macos' ? 'This package has a macOS ad-hoc signature.' : 'This package is unsigned.'
+  fs.writeFileSync(path.join(source, 'README.txt'), `OCLR IRC ${version}\nCommit: ${sha}\n\nExtract the entire directory before launching the portable app.\n${signingNote}\nUser guide: https://github.com/OCLR-dev/OCLR-IRC/blob/${sha}/README.md\n${platform === 'linux' ? 'Linux credential persistence is disabled.\n' : ''}`)
   const archive = path.join(downloads, name + (platform === 'linux' ? '.tar.gz' : '.zip'))
   const result = platform === 'windows'
     ? spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', 'Compress-Archive -LiteralPath $env:OCLR_ARCHIVE_SOURCE -DestinationPath $env:OCLR_ARCHIVE_TARGET -CompressionLevel Optimal'], { stdio: 'inherit', env: { ...process.env, OCLR_ARCHIVE_SOURCE: source, OCLR_ARCHIVE_TARGET: archive } })
@@ -35,6 +35,6 @@ async function main() {
   fs.writeFileSync(path.join(downloads, 'SHA256SUMS.txt'), `${hash.digest('hex')}  ${path.basename(archive)}\n`)
   fs.writeFileSync(path.join(downloads, 'build-info.json'), JSON.stringify(metadata, null, 2) + '\n')
   if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `artifact_name=${name}\n`)
-  if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### ${name}\n\nDownload the build artifact below, then extract the inner archive. Contains SHA256SUMS.txt and build-info.json. Test build; see build-info.json for signing/notarization. Not M1 acceptance.\n`)
+  if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### ${name}\n\nDownload the build artifact and extract the inner archive. SHA256SUMS.txt lists the checksums and build-info.json records signing and notarization.\n`)
 }
 main().catch(error => { console.error(error.message); process.exitCode = 1 })

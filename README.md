@@ -4,11 +4,11 @@
 
 **osu! Chinese League Rookie（OCLR）** 賽事的裁判用 IRC 桌面客戶端，支援 Windows、macOS 與 Linux。
 
-目前為開發預覽版，完整 MVP 與三平台實機驗收尚未完成。
-
 ## 下載
 
-- [GitHub Releases](https://github.com/OCLR-dev/OCLR-IRC/releases)：已發布的預覽版、校驗碼與建置資訊。
+- [下載最新正式版](https://github.com/OCLR-dev/OCLR-IRC/releases/latest)：各平台安裝包、校驗碼與建置資訊。
+- [v0.9.0 更新說明](docs/releases/v0.9.0.md)：新增 SOCKS5 與 HTTP CONNECT 網路代理設定。
+- [版本記錄](https://github.com/OCLR-dev/OCLR-IRC/releases)：所有已發佈版本。
 - [v0.8.16 更新說明](docs/releases/v0.8.16.md)：登入與啟動恢復登入後留在裁判工作臺。
 - [v0.8.15 更新說明](docs/releases/v0.8.15.md)：聊天字型、時間戳、傳送快捷鍵、查詢回覆摺疊與桌面通知選項。
 - [v0.8.14 更新說明](docs/releases/v0.8.14.md)：新增聊天字號設定，並保存網站關聯比賽房間的一般聊天。
