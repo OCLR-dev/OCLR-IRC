@@ -26,7 +26,7 @@ App Store Connect → 使用者與存取權限 → 整合 → App Store Connect 
 - **Signed macOS build**：從 main 手動執行，建立單一 macOS arm64 正式簽章／公證測試包，不建立 tag 或 GitHub Release。
 - **Desktop test builds**：一般 push／PR 保留 ad-hoc 測試模式；手動勾選 `sign_macos` 可改用簽章 macOS job。PR 不會取得簽章 Environment。
 - **Desktop release**：預設 `dry_run=true`、`sign_macos=true`。完整簽章、公證、三平台建置與成品彙整通過後跳過 publish，供發布前演練。只有 dry-run 可取消 sign_macos。
-- **版本 tag 發布**：必須有 Developer ID signed 且 notarized 的 macOS 成品，缺憑證、公證失敗或未滿足條件都停止，不自動降級成 ad-hoc 發布。Pre-release／非 Latest 及 M1 驗收規則保持。
+- **版本 tag 發布**：macOS 成品須有 Developer ID 簽章與 Apple 公證，缺少任一條件時停止發佈。正式版與預發佈版的 tag 規則見 [Release CI](release-ci.md)。
 
 核心建置步驟共用 `.github/actions/desktop-build`，signed macOS job 使用獨立 Environment。Windows x64、Linux x64 不因 Apple 簽章變更發行身分。
 

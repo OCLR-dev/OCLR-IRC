@@ -20,7 +20,7 @@
 | [專案設計](project-design.md) | 產品範圍、架構與操作流程 |
 | [開發代理指引](../AGENTS.md) | 架構邊界、測試與交付規則 |
 | [桌面端剩餘工作](desktop-backlog.md) | 缺口設計、依賴、驗收與 GitHub issues |
-| [MVP 開發任務](mvp-plan.md) | 任務依賴、進度與尚未完成的驗收條件 |
+| [早期開發計畫](mvp-plan.md) | 歷史任務、依賴及驗收紀錄 |
 | [設計決策紀錄](design-review.md) | 已確認決策與設計審查 |
 | [建立比賽房間](m1/create-match-room.md) | 開房操作、防重送與限制 |
 | [重連與同步](m1/recovery-and-sync.md) | 房間恢復、狀態觀測與過期處理 |

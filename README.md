@@ -4,11 +4,11 @@
 
 **osu! Chinese League Rookie（OCLR）** 賽事的裁判用 IRC 桌面客戶端，支援 Windows、macOS 與 Linux。
 
-目前為開發預覽版，完整 MVP 與三平台實機驗收尚未完成。
-
 ## 下載
 
-- [GitHub Releases](https://github.com/OCLR-dev/OCLR-IRC/releases)：已發布的預覽版、校驗碼與建置資訊。
+- [下載最新正式版](https://github.com/OCLR-dev/OCLR-IRC/releases/latest)：各平台安裝包、校驗碼與建置資訊。
+- [v0.9.0 更新說明](docs/releases/v0.9.0.md)：新增 SOCKS5 與 HTTP CONNECT 網路代理設定。
+- [版本記錄](https://github.com/OCLR-dev/OCLR-IRC/releases)：所有已發佈版本。
 - [v0.8.16 更新說明](docs/releases/v0.8.16.md)：登入與啟動恢復登入後留在裁判工作臺。
 - [v0.8.15 更新說明](docs/releases/v0.8.15.md)：聊天字型、時間戳、傳送快捷鍵、查詢回覆摺疊與桌面通知選項。
 - [v0.8.14 更新說明](docs/releases/v0.8.14.md)：新增聊天字號設定，並保存網站關聯比賽房間的一般聊天。
@@ -49,6 +49,7 @@
 - **介面操作**：重新整理、同步與重試採 refresh 圖示；房間的「讀取設定」使用齒輪，「裁判名單」使用人員名單圖示。登出使用一致的 log out 圖示；已連線時的 IRC 登出由左側欄操作。滑鼠移入或鍵盤聚焦可查看操作提示。
 - **應用圖標**：採用 [Liru 角色圖標](docs/liru-app-icon.md)，同步用於應用程式、安裝包、側欄與關於頁；macOS 26+ 使用原生圖示目錄，避免角色縮在額外底框內。角色設計 JerrYamada，圖像採 CC BY 4.0。
 - **設定與恢復**：簡體中文、繁體中文、英文或跟隨系統；可調整聊天字號、字型、時間戳與比賽桌面通知，並選擇背景執行、加密憑證保存、啟動恢復上次 IRC 登入與本機日誌，斷線後不重送操作。
+- **[網路代理](docs/m1/app-settings.md#網路代理)**：在「設定 → 網路」選擇直連、SOCKS5 或 HTTP CONNECT，供新的 IRC 連線與 App 內的 OCLR／osu! 請求使用。
 
 ## 開始使用
 

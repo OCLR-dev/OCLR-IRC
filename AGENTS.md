@@ -95,6 +95,6 @@ npm run test:ui
 - 依既有交付偏好，完成工作與適當測試後 commit 並 push；使用者當次另有指示時從其指示。最終說明功能、測試結果、仍有的限制與提交識別。
 - 功能或契約變更同步 README、相關設計／驗證文件及 MVP 任務狀態。文件不足以證明功能完成，進度必須有實作與證據支持。
 - 使用者已授權 milestone 完整驗收通過後自動 tag 並 push；單項功能完成不等於 milestone 完成。有未完成的必要驗收時保持 partial，不為了發布而標記完成。
-- 建立版本 tag 前核對 `package.json`、lockfile、介面版本與 [Release CI](docs/release-ci.md)。`v*` tag 會觸發公開 GitHub Pre-release，不把它當作普通進度標籤。
+- 建立版本 tag 前核對 `package.json`、lockfile、介面版本與 [Release CI](docs/release-ci.md)。`v*` tag 會啟動公開發佈流程，從 v0.9.0 起一般版本 tag 發佈為正式版（Latest），帶預發佈後綴的 tag 發佈為 Pre-release。
 - 三平台建置與簽章設定以 workflows 為準。一般 macOS CI 為 ad-hoc，不能稱為 Developer ID 已簽章／Apple 已公證；正式簽章流程見 [Apple CI](docs/apple-signing-ci.md)。
 - 不在功能開發中修改／輸出 GitHub 或 Apple secrets，不把歷史簽章成功套用到新產物。下載與驗證結果需對應確切提交及 workflow run。

@@ -40,7 +40,7 @@ test('release preflight accepts only absent releases and fails closed without ex
 
 test('release assembly requires all three identities and hashes before producing assets', async () => {
   const temp = mkdtempSync(join(tmpdir(), 'oclr-release-')), input = join(temp, 'input'), output = join(temp, 'output')
-  const sha = 'a'.repeat(40), version = '0.4.0'
+  const sha = 'a'.repeat(40), version = '0.9.0'
   mkdirSync(input)
   let archive = '', metadataFile = ''
   try {
@@ -62,6 +62,9 @@ test('release assembly requires all three identities and hashes before producing
     assert.equal(readFileSync(join(output, 'SHA256SUMS.txt'), 'utf8').trim().split('\n').length, 5)
     assert.equal(JSON.parse(readFileSync(join(output, 'build-info.json'), 'utf8')).length, 3)
     const notes = readFileSync(join(output, 'RELEASE_NOTES.md'), 'utf8')
+    assert.match(notes, /正式版 \/ Stable release/)
+    assert.ok(notes.includes(`https://github.com/OCLR-dev/OCLR-IRC/blob/${sha}/docs/releases/v0.9.0.md`))
+    assert.doesNotMatch(notes, /Pre-release|MVP|test build/i)
     for (const [platform, arch, ext] of [['windows', 'x64', '.zip'], ['linux', 'x64', '.tar.gz'], ['macos', 'arm64', '.zip']]) {
       assert.ok(notes.includes(`https://github.com/OCLR-dev/OCLR-IRC/releases/download/v${version}/OCLR-IRC-${version}-${platform}-${arch}-${sha.slice(0, 7)}${ext}`))
     }

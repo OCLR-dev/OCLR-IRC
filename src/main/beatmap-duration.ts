@@ -37,10 +37,10 @@ export function beatmapDuration(text: string, expectedId: number): number | null
   return end > 0 && Number.isFinite(leadIn) && leadIn >= 0 && leadIn <= 60000 ? Math.ceil(end + leadIn) : null
 }
 
-export async function fetchBeatmapDuration(id: number): Promise<number | null> {
+export async function fetchBeatmapDuration(id: number, fetcher: typeof fetch = fetch): Promise<number | null> {
   if (!Number.isSafeInteger(id) || id < 1) return null
   try {
-    const response = await fetch(`https://osu.ppy.sh/osu/${id}`, { signal: AbortSignal.timeout(8000), redirect: 'error', credentials: 'omit' })
+    const response = await fetcher(`https://osu.ppy.sh/osu/${id}`, { signal: AbortSignal.timeout(8000), redirect: 'error', credentials: 'omit' })
     if (!response.ok || !response.body) return null
     const reader = response.body.getReader(), chunks: Uint8Array[] = []
     let size = 0

@@ -14,6 +14,7 @@ import { countdownEvent } from '../shared/countdown.ts'
 import { relayCommand } from '../shared/relay-command.ts'
 import { mpCommand } from '../shared/mp-command.ts'
 import net from 'node:net'
+import { BANCHO_DESTINATION, ProxyConnectionError } from './network.ts'
 import { EventEmitter } from 'node:events'
 import { randomUUID } from 'node:crypto'
 import type { Connection, Message, Pending, Room, RoomCreation, Snapshot, RoomTarget } from '../shared/types.ts'
@@ -60,7 +61,8 @@ export class IrcSession extends EventEmitter {
   private departing = new Set<string>()
   private batching = false
   private dirty = false
-  private createSocket: () => net.Socket
+  private createSocket: (signal: AbortSignal) => net.Socket | Promise<net.Socket>
+  private opening: AbortController | null = null
   private timing: Timing
   private retryAttempt = 0
   private retryAt: string | null = null
@@ -102,7 +104,7 @@ export class IrcSession extends EventEmitter {
   clearWebsiteOperations() { this.operations.clearWebsite(); this.cancelWebsiteInvite() }
   cancelWebsiteInvite(token?: string) { if (this.lobbyPreview?.source === 'oclr' && (!token || token === this.lobbyPreview.token)) this.lobbyPreview = null }
   reviewOperation(input: unknown) { if ((input as { id?: string })?.id === this.mapPlan?.state.id) this.mapPlan?.cancel(); if ((input as { id?: string })?.id === this.roomPlan?.state.id) this.roomPlan?.cancel(); this.operations.review(input) }
-  constructor(createSocket = () => net.createConnection({ host: 'irc.ppy.sh', port: 6667 }), timing: Partial<Timing> = {}, durationLookup: (id: number) => Promise<number | null> = async () => null) {
+  constructor(createSocket: IrcSession['createSocket'] = () => net.createConnection(BANCHO_DESTINATION), timing: Partial<Timing> = {}, durationLookup: (id: number) => Promise<number | null> = async () => null) {
     super()
     this.durationLookup = durationLookup
     this.createSocket = createSocket
@@ -168,6 +170,7 @@ export class IrcSession extends EventEmitter {
     if (this.heartbeat) clearInterval(this.heartbeat)
     this.retryTimer = this.stableTimer = this.pongTimer = this.workTimer = null
     this.heartbeat = null; this.pingToken = null; this.work = []; this.retryAt = null
+    this.opening?.abort(); this.opening = null
     this.socket?.destroy(); this.socket = null; this.departing.clear()
     for (const view of this.views.values()) {
       this.clearTimer(view); view.pending = null; view.collector = null; view.refsHeader = false
@@ -213,25 +216,35 @@ export class IrcSession extends EventEmitter {
     const auth = credentials(input)
     this.logout(); this.auth = auth; this.username = auth.username; this.connect()
   }
-  private connect() {
+  private async connect() {
     if (!this.auth) return
     if (this.retryTimer) clearTimeout(this.retryTimer)
     this.retryTimer = null; this.retryAt = null
-    this.connection = this.views.size ? 'reconnecting' : 'connecting'; this.publish()
     const generation = this.generation
-    const lines = new Lines()
+    const opening = new AbortController()
+    this.opening = opening
+    this.connection = this.views.size ? 'reconnecting' : 'connecting'; this.publish()
+    const stillCurrent = () => generation === this.generation && !opening.signal.aborted
+    if (!stillCurrent()) return
+    this.loginTimer = setTimeout(() => { if (stillCurrent()) this.lost('登入逾時，正在嘗試恢復連線。') }, this.timing.loginMs)
     let socket: net.Socket
-    try { socket = this.createSocket() } catch { this.lost('無法建立連線，稍後重試。'); return }
+    try { socket = await this.createSocket(opening.signal) }
+    catch (error) {
+      if (stillCurrent()) this.lost(error instanceof ProxyConnectionError ? error.message : '無法建立連線，稍後重試。')
+      return
+    }
+    if (!stillCurrent()) { socket.destroy(); return }
+    this.opening = null
     this.socket = socket
+    const lines = new Lines()
     const current = () => generation === this.generation && socket === this.socket
-    this.loginTimer = setTimeout(() => { if (current()) this.lost('登入逾時，正在嘗試恢復連線。') }, this.timing.loginMs)
-    socket.once('connect', () => {
+    const authenticate = () => {
       if (!current() || !this.auth) return
       try {
         this.send('PASS ' + this.auth.password)
         this.send('NICK ' + this.username); this.send(`USER ${this.username} 0 * :OCLR IRC`)
       } catch { if (current()) this.lost('登入連線失敗，正在重試。') }
-    })
+    }
     socket.on('data', chunk => {
       if (!current()) return
       this.batching = true
@@ -242,6 +255,8 @@ export class IrcSession extends EventEmitter {
     socket.on('error', () => { if (current()) this.lost('網路連線失敗，正在嘗試恢復。') })
     socket.on('close', () => { if (current()) this.lost('連線已中斷，正在嘗試恢復。') })
     socket.setTimeout(180000, () => { if (current()) this.lost('連線長時間沒有回應。') })
+    if (socket.connecting) socket.once('connect', authenticate)
+    else { authenticate(); socket.resume() }
   }
   private online() {
     this.clearLoginTimer(); this.connection = 'online'; this.error = null

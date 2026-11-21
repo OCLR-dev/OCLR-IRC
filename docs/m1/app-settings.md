@@ -22,9 +22,17 @@
 - 聊天原文、非系統訊息 sender、玩家／隊伍／場次／圖池自訂名稱、譜面 metadata、表單技術值與 IRC 指令保持原樣。常用訊息模板的標籤會翻譯，插入的既有聊天模板原文不改動。
 - 「關於」提供 OCLR IRC 名稱、實際套件版本、平台、MIT 授權與第三方聲明入口。Main 只開啟固定 repository／LICENSE／THIRD_PARTY_NOTICES 連結，不接受任意 URL。
 
+## 網路代理
+
+在「設定 → 網路」選擇「直連」（預設）、SOCKS5 或 HTTP CONNECT。使用代理時，分開填寫主機與連接埠，例如 `127.0.0.1` 和 `1080`，再按「儲存代理設定」。支援主機名稱、IPv4 及 IPv6，代理服務須允許免驗證連線。
+
+儲存後，新的 Bancho 登入、自動重連、OCLR API 與 osu! 頭像／譜面資料請求會採用新設定。進行中的 IRC 連線保留到下次重連。指定的代理若連不上，該請求會失敗；可在同一頁手動切回直連。HTTP 代理須允許 CONNECT 到 Bancho 的 `irc.ppy.sh:6667`，以及網站 HTTPS 使用的 `443`。網站 HTTPS 仍驗證憑證；Bancho 的 IRC 傳輸沿用官方設定，請使用信任的代理。
+
+OAuth 授權頁由系統瀏覽器依其自身的網路設定開啟，loopback 授權回呼由本機接收。
+
 ## 保存與架構
 
-Main 使用有版本且限制大小的 `preferences.json`。Schema 7 加入傳送快捷鍵和查詢回覆摺疊。Schema 6 加入桌面通知和聊天時間戳，舊設定載入時保留原有偏好，並填入上述預設值。舊 schema 1 保留背景／語言，啟動恢復保持關閉；舊 schema 2 保留原有恢復資格。兩者的 OCLR 自動更新均預設開啟。Schema 1–3 的聊天字號預設為 12 px；schema 1–4 使用預設字型。寫入先驗證完整結構，再暫存並 rename；失敗不發佈新設定。損毀／未知 schema 退回預設。Preload 提供型別化 snapshot、update、事件訂閱及固定關於連結；所有 IPC 驗證可信 sender／frame。
+Main 使用有版本且限制大小的 `preferences.json`。Schema 8 加入代理模式、主機及連接埠，舊版載入時採用直連。Schema 7 加入傳送快捷鍵和查詢回覆摺疊。Schema 6 加入桌面通知和聊天時間戳，舊設定載入時保留原有偏好，並填入上述預設值。舊 schema 1 保留背景／語言，啟動恢復保持關閉；舊 schema 2 保留原有恢復資格。兩者的 OCLR 自動更新均預設開啟。Schema 1–3 的聊天字號預設為 12 px；schema 1–4 使用預設字型。寫入先驗證完整結構，再暫存並 rename；失敗不發佈新設定。損毀／未知 schema 退回預設。Preload 提供型別化 snapshot、update、事件訂閱及固定關於連結；所有 IPC 驗證可信 sender／frame。
 
 密碼只存在 Main 目前 session 或既有系統加密憑證檔，Main 在成功登入後才將恢復資格標為有效；安全保存失敗不影響目前 IRC 連線，會提示下次手動登入。手動取消先持久化資格失效，再中止目前 session；若資格檔無法寫入，嘗試刪除加密憑證並顯示本機權限錯誤。自動登入沿用原本有界的網路重連，錯誤密碼／毀損憑證不循環觸發冷啟動恢復。
 
@@ -38,6 +46,7 @@ Main 使用有版本且限制大小的 `preferences.json`。Schema 7 加入傳�
 - `login-restore-smoke.cjs`：真實獨立程序共用合成加密資料，驗證目前登入啟用、登入途中啟用、退出後冷啟動、renderer reload 不重複登入、明確登出後下一程序不登入、取消／忘記／手動登入隔離晚到解密、錯誤密碼、毀損憑證與 provider 不可用。900×640 設定可操作，snapshot／偏好不含密碼，不送房間指令。Windows／macOS 執行 11 個階段；Linux 執行停用入口及帶入舊偏好但無 provider 的兩個階段，不冒稱 Linux 自動保存通過。
 - `background-smoke.cjs`：七個獨立程序涵蓋三種視窗狀態與背景開關、初始／三語更新／系統語言重讀後的系統匣選單，以及取消背景後關窗退出。檢查原視窗恢復、IRC 心跳、本次 IRC／OCLR session／relay 清理、系統匣銷毀及不重送聊天／房內變更，見 [背景執行](background-running.md)。
 - `settings-smoke.cjs`：實際 HeroUI 四種語言選擇、跟隨系統於回到前景更新、關於固定連結、IPC 拒絕無效輸入／來源、900×640、字面聊天／身份／譜面及草稿保留、切換不送 IRC 命令、renderer reload 與下一個原生程序重讀偏好。
+- 2026-11-21：265 項核心測試與完整 macOS Electron smoke 通過。代理測試使用本機合成 SOCKS5／HTTP CONNECT 服務，檢查 IRC 登入、App 請求、loopback、代理拒絕及取消。兩種代理也通過合成 HTTPS 連線與憑證主機名驗證。設定 smoke 檢查表單與 IPC 驗證、保存時維持已登入 IRC，以及下一個原生程序讀取代理設定。
 - 完整桌面回歸含原本七組及兩階段設定測試。2026-10-31 本機 typecheck、161 項核心、完整九階段桌面回歸與執行階段 audit（0 漏洞）通過，見 [合成紀錄](evidence/settings-smoke.json)；三平台結果仍以對應提交 CI 為準。
 
 實機系統語言變更、IME、讀屏軟體、Linux 各桌面系統匣可見性與 OS 登出／關機仍需實機驗收；合成偏好測試不解除既有 gate。
