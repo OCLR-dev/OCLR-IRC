@@ -206,7 +206,13 @@ async function main() {
     await js('Array.from(document.querySelectorAll("[role=tab]")).find(e=>e.textContent==="Players").click()')
     await until(() => js('Boolean(document.querySelector(".player-slot.occupied"))'))
     await until(() => js('(async () => { const s=await window.oclr.snapshot(); return s.room.referee==="listed" && !s.pending })()'))
-    await until(() => js('Array.from(document.querySelectorAll(".message-row.bot")).some(row => row.textContent.includes("Match referees:"))'))
+    // The setting is checked on the latest replies, even if the virtual list kept an older scroll position.
+    await until(() => js(`(() => {
+      if ([...document.querySelectorAll('.message-row.bot')].some(row => row.textContent.includes('Match referees:'))) return true
+      const scroller = document.querySelector('[data-virtuoso-scroller]')
+      if (scroller) scroller.scrollTop = scroller.scrollHeight
+      return false
+    })()`))
     assert.equal(await js('Boolean(document.querySelector(".query-replies"))'), false)
     peer.write(':系統 PRIVMSG #mp_900000008 :已連線 原文\n')
     await until(() => js('document.querySelector(".message-area").textContent.includes("已連線 原文")'))
