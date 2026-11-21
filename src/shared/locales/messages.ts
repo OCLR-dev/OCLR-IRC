@@ -1,5 +1,15 @@
 // Application-authored text only. Interpolation values and external content remain literal.
 export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
+  "網路": {"zh-Hans": "网络", "en": "Network"},
+  "網路代理": {"zh-Hans": "网络代理", "en": "Network proxy"},
+  "連線方式": {"zh-Hans": "连接方式", "en": "Connection method"},
+  "直連": {"zh-Hans": "直连", "en": "Direct connection"},
+  "代理主機": {"zh-Hans": "代理主机", "en": "Proxy host"},
+  "儲存代理設定": {"zh-Hans": "保存代理设置", "en": "Save proxy settings"},
+  "代理設定已儲存。": {"zh-Hans": "代理设置已保存。", "en": "Proxy settings saved."},
+  "套用於新的 IRC 連線、OCLR API 和 osu! 資料請求。": {"zh-Hans": "应用于新的 IRC 连接、OCLR API 和 osu! 数据请求。", "en": "Applies to new IRC connections, OCLR API requests, and osu! data requests."},
+  "請輸入有效的代理主機和連接埠（1–65535）。": {"zh-Hans": "请输入有效的代理主机和端口（1–65535）。", "en": "Enter a valid proxy host and port (1–65535)."},
+  "無法透過代理連線。請檢查代理設定。": {"zh-Hans": "无法通过代理连接。请检查代理设置。", "en": "Could not connect through the proxy. Check your proxy settings."},
   "房間正在自動核對上一筆操作，請稍候。": {"zh-Hans": "房间正在自动核对上一笔操作，请稍候。", "en": "The previous room operation is being checked automatically. Please wait."},
   "草稿過長，請分批傳送。": {"zh-Hans": "草稿过长，请分批发送。", "en": "The draft is too long. Send it in smaller batches."},
   "訊息不能包含控制字元。": {"zh-Hans": "消息不能包含控制字符。", "en": "Messages cannot contain control characters."},

@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { PreferencesStore } from '../src/main/preferences-store.ts'
 import { DEFAULT_PREFERENCES, preferencesInput, resolveLocale } from '../src/shared/preferences.ts'
 
-const { chatTimestamp, notifyPlayersReady, notifyMatchFinished, notifyOnlyInBackground, chatSendShortcut, foldBanchoQueries, ...previousDefaults } = DEFAULT_PREFERENCES
+const { chatTimestamp, notifyPlayersReady, notifyMatchFinished, notifyOnlyInBackground, chatSendShortcut, foldBanchoQueries, networkProxy, ...previousDefaults } = DEFAULT_PREFERENCES
 const newDefaults = { chatTimestamp, notifyPlayersReady, notifyMatchFinished, notifyOnlyInBackground, chatSendShortcut, foldBanchoQueries }
 
 test('preferences persist across new instances; invalid, corrupt and failed writes preserve safe state', () => {
@@ -17,7 +17,7 @@ test('preferences persist across new instances; invalid, corrupt and failed writ
     const desired = { ...DEFAULT_PREFERENCES, closeToBackground: false, language: 'en' as const, restoreIrcLogin: true, autoRefreshOclr: false, chatFontSize: 24 as const, chatFontFamily: 'serif' as const }
     store.set(desired)
     assert.deepEqual(new PreferencesStore(file).get(), desired)
-    assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), { schema: 7, preferences: desired, ircLoginActive: false })
+    assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), { schema: 8, preferences: desired, ircLoginActive: false })
     for (const bad of [null, [], {}, { ...desired, language: 'fr' }, { ...desired, closeToBackground: 'false' }, { ...desired, restoreIrcLogin: 'true' }, { ...desired, autoRefreshOclr: 'false' }, { ...desired, token: 'not-allowed' }]) {
       assert.throws(() => store.set(bad)); assert.deepEqual(store.get(), desired)
     }
@@ -80,8 +80,8 @@ test('schema 2 migration enables OCLR updates without losing existing login elig
     const restarted = new PreferencesStore(file)
     assert.equal(restarted.get().autoRefreshOclr, false)
     assert.equal(restarted.ircLoginActive, true)
-    assert.equal(JSON.parse(readFileSync(file, 'utf8')).schema, 7)
-    writeFileSync(file, JSON.stringify({ schema: 7, preferences: { ...store.get(), autoRefreshOclr: 'false' }, ircLoginActive: true }))
+    assert.equal(JSON.parse(readFileSync(file, 'utf8')).schema, 8)
+    writeFileSync(file, JSON.stringify({ schema: 8, preferences: { ...store.get(), autoRefreshOclr: 'false' }, ircLoginActive: true }))
     assert.deepEqual(new PreferencesStore(file).get(), DEFAULT_PREFERENCES)
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
@@ -121,7 +121,7 @@ test('schema 5 supplies notification and timestamp defaults and preserves explic
     const previous = { ...previousDefaults, restoreIrcLogin: true, chatFontSize: 18, chatFontFamily: 'serif' }
     writeFileSync(file, JSON.stringify({ schema: 5, preferences: previous, ircLoginActive: true }))
     const store = new PreferencesStore(file)
-    assert.deepEqual(store.get(), { ...previous, ...newDefaults })
+    assert.deepEqual(store.get(), { ...previous, ...newDefaults, networkProxy })
     const choices = { ...store.get(), chatTimestamp: 'minutes', notifyPlayersReady: false, notifyOnlyInBackground: true }
     store.set(choices)
     assert.deepEqual(new PreferencesStore(file).get(), choices)
@@ -139,10 +139,39 @@ test('schema 6 defaults to Enter and folding; both choices persist', () => {
     const previous = { ...previousDefaults, chatTimestamp: 'hidden', notifyPlayersReady: false, notifyMatchFinished: true, notifyOnlyInBackground: true }
     writeFileSync(file, JSON.stringify({ schema: 6, preferences: previous, ircLoginActive: false }))
     const store = new PreferencesStore(file)
-    assert.deepEqual(store.get(), { ...previous, chatSendShortcut: 'enter', foldBanchoQueries: true })
+    assert.deepEqual(store.get(), { ...previous, chatSendShortcut: 'enter', foldBanchoQueries: true, networkProxy })
     assert.throws(() => store.set({ ...store.get(), chatSendShortcut: 'alt-enter' }))
     assert.throws(() => store.set({ ...store.get(), foldBanchoQueries: 'false' }))
     store.set({ ...store.get(), chatSendShortcut: 'modifier-enter', foldBanchoQueries: false })
-    assert.deepEqual(new PreferencesStore(file).get(), { ...previous, chatSendShortcut: 'modifier-enter', foldBanchoQueries: false })
+    assert.deepEqual(new PreferencesStore(file).get(), { ...previous, chatSendShortcut: 'modifier-enter', foldBanchoQueries: false, networkProxy })
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('schema 7 defaults to direct without losing login eligibility; proxy addresses persist across restarts', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'oclr-proxy-settings-')), file = join(dir, 'preferences.json')
+  try {
+    const previous = { ...previousDefaults, ...newDefaults, restoreIrcLogin: true }
+    writeFileSync(file, JSON.stringify({ schema: 7, preferences: previous, ircLoginActive: true }))
+    const store = new PreferencesStore(file)
+    assert.deepEqual(store.get(), { ...previous, networkProxy: { mode: 'direct' } })
+    assert.equal(store.ircLoginActive, true)
+    store.set({ ...store.get(), networkProxy: { mode: 'socks5', host: '[0:0:0:0:0:0:0:1]', port: 1080 } })
+    const expected = { mode: 'socks5', host: '::1', port: 1080 }
+    assert.deepEqual(new PreferencesStore(file).get().networkProxy, expected)
+    for (const networkProxy of [
+      { mode: 'https', host: 'proxy.example', port: 1080 }, { mode: 'direct', host: 'proxy.example', port: 1080 },
+      ...['user:pass@proxy.example', 'http://proxy.example', 'proxy.example:8080', 'proxy.example\r\nHost: other', '::ggg', 'bad host'].map(host => ({ mode: 'http', host, port: 8080 })),
+      ...[0, 65536, 1.5, '8080'].map(port => ({ mode: 'http', host: 'proxy.example', port })),
+      { mode: 'socks5', host: 'proxy.example', port: 1080, password: 'synthetic' }
+    ]) {
+      assert.throws(() => store.set({ ...store.get(), networkProxy }))
+      assert.deepEqual(new PreferencesStore(file).get().networkProxy, expected)
+    }
+    const copy = store.get()
+    if (copy.networkProxy.mode !== 'direct') copy.networkProxy.host = 'changed.example'
+    assert.deepEqual(store.get().networkProxy, expected)
+    store.set({ ...store.get(), networkProxy: { mode: 'direct' } })
+    assert.deepEqual(new PreferencesStore(file).get(), { ...previous, networkProxy: { mode: 'direct' } })
+    assert.equal(new PreferencesStore(file).ircLoginActive, true)
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })

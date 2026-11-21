@@ -21,14 +21,16 @@ import { OclrError, publicOclrError } from './oclr-http.ts'
 import { DesktopBackground } from './background.ts'
 import { appIconPath } from './app-icon.ts'
 import { PreferencesStore } from './preferences-store.ts'
+import { NetworkTransport } from './network.ts'
 import { preferencesInput, resolveLocale } from '../shared/preferences.ts'
 
 // Preserve the existing profile (and test overrides) when changing the display name.
 app.setPath('userData', app.getPath('userData'))
 app.setName('OCLR IRC')
 
-const irc = new IrcSession(undefined, {}, fetchBeatmapDuration)
-const oclr = new OclrSession({ origin: process.env.OCLR_SERVER_ORIGIN, version: app.getVersion(), platform: process.platform, openExternal: url => shell.openExternal(url), writeClipboard: text => clipboard.writeText(text) })
+const network = new NetworkTransport()
+const irc = new IrcSession(signal => network.connectIrc(signal), {}, id => fetchBeatmapDuration(id, network.fetch))
+const oclr = new OclrSession({ origin: process.env.OCLR_SERVER_ORIGIN, version: app.getVersion(), platform: process.platform, fetcher: network.fetch, openExternal: url => shell.openExternal(url), writeClipboard: text => clipboard.writeText(text) })
 const relay = new OclrRelay(oclr, irc)
 const fixtureInvites = new FixtureInvites(oclr, irc, relay)
 const websiteRoomJoin = new WebsiteRoomJoin(irc)
@@ -63,6 +65,8 @@ function action(event: Electron.IpcMainInvokeEvent, fn: () => void) {
 }
 app.whenReady().then(() => {
   if (!primaryInstance) return
+  const preferences = new PreferencesStore(join(app.getPath('userData'), 'preferences.json'))
+  network.setProxy(preferences.get().networkProxy)
   if (process.platform === 'darwin' && !app.isPackaged) app.dock?.setIcon(appIconPath)
   const avatar = new AccountAvatar(new AvatarCache(join(app.getPath('userData'), 'avatar-cache'), bytes => {
     const image = nativeImage.createFromBuffer(bytes)
@@ -71,7 +75,7 @@ app.whenReady().then(() => {
     if (width < 1 || height < 1 || width > 2048 || height > 2048) return null
     const scale = Math.min(1, 128 / width, 128 / height)
     return image.resize({ width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)), quality: 'best' }).toPNG()
-  }))
+  }, network.fetch))
   irc.on('state', state => avatar.update(state.username, state.connection === 'online', irc.sessionGeneration))
   avatar.on('state', state => { if (window && !window.isDestroyed()) window.webContents.send('app:avatar-state', state) })
   ipcMain.handle('app:avatar', event => { trusted(event); return avatar.state })
@@ -87,7 +91,6 @@ app.whenReady().then(() => {
   ipcMain.handle('app:website-launch', event => { trusted(event); return websiteLaunch.state })
   ipcMain.handle('app:website-launch-clear', event => { trusted(event); websiteLaunch.clear() })
   ipcMain.handle('app:website-launch-continue', (event, id: unknown) => { trusted(event); return websiteLaunch.continue(id) })
-  const preferences = new PreferencesStore(join(app.getPath('userData'), 'preferences.json'))
   oclr.setAutoRefresh(preferences.get().autoRefreshOclr)
   let secureStorageAvailable = false, settingsGeneration = 0
   const settingsSnapshot = () => ({ preferences: preferences.get(), locale: resolveLocale(preferences.get().language, app.getPreferredSystemLanguages()), version: app.getVersion(), platform: process.platform, secureStorageAvailable })
@@ -121,6 +124,7 @@ app.whenReady().then(() => {
       if (value.restoreIrcLogin && !previous && !(await store.status()).available) return { ok: false, error: '系統安全儲存不可用，無法啟用自動登入。' }
       if (generation !== settingsGeneration) return { ok: false, error: '設定已變更，請重試。' }
       preferences.set(value)
+      network.setProxy(value.networkProxy)
       oclr.setAutoRefresh(value.autoRefreshOclr)
       if (value.restoreIrcLogin && !previous) autoSaveGeneration = loginGeneration
       if (previous && !value.restoreIrcLogin) { loginGeneration++; pendingSave = null; persistedLoginGeneration = null }

@@ -8,6 +8,7 @@ app.disableHardwareAcceleration()
 const profile = path.join(process.env.OCLR_QA_TEMP, 'settings')
 app.setPath('userData', profile)
 let osLanguages = ['en-US']
+const savedProxy = { mode: 'socks5', host: '127.0.0.1', port: 1080 }
 app.getPreferredSystemLanguages = () => osLanguages
 const restart = process.argv.includes('--restart-check')
 const handlers = new Map(), opened = [], sent = [], errors = []
@@ -69,6 +70,7 @@ async function main() {
   assert.equal(settings.preferences.notifyPlayersReady, true)
   assert.equal(settings.preferences.notifyMatchFinished, !restart)
   assert.equal(settings.preferences.notifyOnlyInBackground, restart)
+  assert.deepEqual(settings.preferences.networkProxy, restart ? savedProxy : { mode: 'direct' })
   assert.equal(await js('document.documentElement.lang'), 'en')
   assert.equal(await js('document.body.textContent.includes("Quit")'), false)
   assert.equal(await js('Boolean(document.querySelector(".sidebar-note"))'), false)
@@ -288,6 +290,33 @@ async function main() {
     await checkNotifications('background finish notification', ['The match has finished'])
     assert.equal((await updateSettings({notifyPlayersReady: true, notifyMatchFinished: false})).ok, true)
     window.show()
+
+    assert.equal((await updateSettings({networkProxy: {mode: 'http', host: 'http://127.0.0.1', port: 8080}})).ok, false)
+    await js('document.querySelector(".sidebar-settings button").click()')
+    await until(() => js('Array.from(document.querySelectorAll("[role=tab]")).some(tab => tab.textContent === "Network")'))
+    await js('Array.from(document.querySelectorAll("[role=tab]")).find(tab => tab.textContent === "Network").click()')
+    const mode = '.network-proxy-form button[aria-haspopup]'
+    const saveProxy = '.network-proxy-form button[type=submit]'
+    await until(() => js(`document.querySelector('${mode}')?.textContent === 'Direct connection'`))
+    await js(`document.querySelector('${mode}').click()`)
+    await until(() => js('Array.from(document.querySelectorAll("[role=option]")).some(option => option.textContent === "SOCKS5")'))
+    assert.equal(await js('Array.from(document.querySelectorAll("[role=option]")).some(option => option.textContent === "HTTP CONNECT")'), true)
+    await js('Array.from(document.querySelectorAll("[role=option]")).find(option => option.textContent === "SOCKS5").click()')
+    await until(() => js('Boolean(document.querySelector("[name=proxyPort]")) && !document.querySelector("[role=option]")'))
+    await js(`document.querySelector('${saveProxy}').click()`)
+    await until(() => js('Boolean(document.querySelector(".network-proxy-form [role=alert]"))'))
+    for (const [name, value] of [['proxyHost', savedProxy.host], ['proxyPort', String(savedProxy.port)]]) {
+      await js(`(() => {
+        const input = document.querySelector('[name=${name}]');
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(value)});
+        input.dispatchEvent(new Event('input', {bubbles: true}));
+      })()`)
+    }
+    await js(`document.querySelector('${saveProxy}').click()`)
+    await until(() => js('document.querySelector(".network-proxy-form [role=status]")?.textContent === "Proxy settings saved."'))
+    assert.deepEqual((await js('window.oclr.settings.snapshot()')).preferences.networkProxy, savedProxy)
+    assert.equal((await js('window.oclr.snapshot()')).connection, 'online')
+    assert.equal(await js('document.querySelector(".network-proxy-form").getBoundingClientRect().right <= innerWidth'), true)
   }
   assert.deepEqual(errors, [])
   assert.ok(sent.filter(line => line.includes('!mp')).every(line => /:!mp (settings|listrefs)$/.test(line)))
@@ -298,11 +327,11 @@ async function main() {
     assert.deepEqual(saved.preferences, {
       closeToBackground: false, language: 'en', restoreIrcLogin: false, autoRefreshOclr: false,
       chatFontSize: 24, chatFontFamily: 'monospace', chatTimestamp: 'minutes', chatSendShortcut: 'modifier-enter', foldBanchoQueries: false,
-      notifyPlayersReady: true, notifyMatchFinished: false, notifyOnlyInBackground: true
+      notifyPlayersReady: true, notifyMatchFinished: false, notifyOnlyInBackground: true, networkProxy: savedProxy
     })
   })
   app.on('will-quit', () => {
-    const report = { evidence: restart ? 'synthetic-settings-restart' : 'synthetic-settings-localization', passed: restart ? ['new application process restores locale, close behavior, chat display, notifications and send shortcut', 'close without background exits'] : ['HeroUI language selection for all four options', 'language changes without relogin or IRC commands', 'chat display settings and foreground/background notifications', 'send shortcut selection and query folding opt-out', 'chat, names, maps and draft remain literal', '900x640 settings, about and composer', 'no sidebar quit button', 'fixed About link allowlist', 'invalid IPC inputs and sender rejected', 'preferences survive renderer reload', 'close without background exits and cleans authentication'], limitation: 'Synthetic services and OS language. Physical tray/IME acceptance remains separate.' }
+    const report = { evidence: restart ? 'synthetic-settings-restart' : 'synthetic-settings-localization', passed: restart ? ['new application process restores locale, close behavior, chat display, notifications, send shortcut and proxy', 'close without background exits'] : ['HeroUI language selection for all four options', 'language changes without relogin or IRC commands', 'chat display settings and foreground/background notifications', 'send shortcut selection and query folding opt-out', 'proxy settings validation and save without IRC disconnect', 'chat, names, maps and draft remain literal', '900x640 settings, about and composer', 'no sidebar quit button', 'fixed About link allowlist', 'invalid IPC inputs and sender rejected', 'preferences survive renderer reload', 'close without background exits and cleans authentication'], limitation: 'Synthetic services and OS language. Physical tray/IME acceptance remains separate.' }
     fs.mkdirSync('artifacts', { recursive: true }); fs.writeFileSync(`artifacts/settings${restart ? '-restart' : ''}-smoke.json`, JSON.stringify(report, null, 2)); console.log(JSON.stringify(report))
   })
   window.close()

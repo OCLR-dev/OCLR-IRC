@@ -526,6 +526,8 @@ main { min-height: 0; overflow: auto; }
 .settings-section { padding: 24px 0; border-bottom: 1px solid var(--field-border); }
 .settings-section h2 { margin: 0 0 16px; font-size: 16px; }
 .settings-section p, .about-stack { color: var(--muted); font-size: 13px; margin-top: 10px; }
+.network-proxy-form { display: grid; gap: 14px; max-width: 420px; }
+.network-proxy-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 120px); gap: 12px; }
 .language-select { max-width: 320px; }
 .chat-font-settings { display: flex; flex-wrap: wrap; gap: 20px 24px; }
 .chat-font-settings > div { width: min(100%, 180px); }

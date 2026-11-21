@@ -1,3 +1,5 @@
+import { networkProxyInput, type NetworkProxy } from './network-proxy.ts'
+
 export const LANGUAGES = ['system', 'zh-Hans', 'zh-Hant', 'en'] as const
 export type LanguagePreference = typeof LANGUAGES[number]
 export type AppLocale = Exclude<LanguagePreference, 'system'>
@@ -23,12 +25,13 @@ export interface AppPreferences {
   notifyPlayersReady: boolean
   notifyMatchFinished: boolean
   notifyOnlyInBackground: boolean
+  networkProxy: NetworkProxy
 }
 export interface AppSettings { preferences: AppPreferences; locale: AppLocale; version: string; platform: string; secureStorageAvailable?: boolean }
 export const DEFAULT_PREFERENCES: AppPreferences = {
   closeToBackground: true, language: 'system', restoreIrcLogin: false, autoRefreshOclr: true,
   chatFontSize: 12, chatFontFamily: 'default', chatTimestamp: 'seconds', chatSendShortcut: 'enter', foldBanchoQueries: true,
-  notifyPlayersReady: true, notifyMatchFinished: true, notifyOnlyInBackground: false
+  notifyPlayersReady: true, notifyMatchFinished: true, notifyOnlyInBackground: false, networkProxy: { mode: 'direct' }
 }
 export function preferencesInput(value: unknown): AppPreferences {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('無效的設定。')
@@ -46,7 +49,8 @@ export function preferencesInput(value: unknown): AppPreferences {
     closeToBackground: data.closeToBackground, language: data.language as LanguagePreference, restoreIrcLogin: data.restoreIrcLogin, autoRefreshOclr: data.autoRefreshOclr,
     chatFontSize: data.chatFontSize as ChatFontSize, chatFontFamily: data.chatFontFamily as ChatFontFamily, chatTimestamp: data.chatTimestamp as ChatTimestamp,
     chatSendShortcut: data.chatSendShortcut as ChatSendShortcut, foldBanchoQueries: data.foldBanchoQueries,
-    notifyPlayersReady: data.notifyPlayersReady, notifyMatchFinished: data.notifyMatchFinished, notifyOnlyInBackground: data.notifyOnlyInBackground
+    notifyPlayersReady: data.notifyPlayersReady, notifyMatchFinished: data.notifyMatchFinished, notifyOnlyInBackground: data.notifyOnlyInBackground,
+    networkProxy: networkProxyInput(data.networkProxy)
   }
 }
 export function resolveLocale(language: LanguagePreference, systemLanguages: readonly string[]): AppLocale {
