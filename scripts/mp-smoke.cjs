@@ -214,12 +214,22 @@ async function main() {
     }
   }
   assert.equal(sent.filter(line => line.endsWith(':!mp listrefs')).length, 1, 'all manual operations reuse initial referee discovery')
+  // The preceding delayed start invalidates the settings snapshot. Render fresh settings before opening the cancel preview.
+  const readsBeforeCancel = settingsReads()
+  assert.equal((await js('(async () => { const s = await window.oclr.snapshot(); return window.oclr.query({roomId:s.room.id,roomEpoch:s.room.epoch,kind:"settings"}) })()')).ok, true)
+  await until(() => settingsReads() > readsBeforeCancel)
+  await until(() => js('!document.querySelector(".mp-controls > .slots-caption")'))
   await button('預覽指令')
-  await until(() => js('Boolean(document.querySelector(".mp-confirm"))'))
   const withoutHeartbeats = () => sent.filter(line => !/^(?:PING|PONG) /.test(line))
   const beforeCancel = withoutHeartbeats()
   peer.write('PING :cancel-preview-proof\n')
-  await button('取消'); await delay(100)
+  await until(() => js(`(() => {
+    const cancel = [...document.querySelectorAll('.mp-controls > .mp-confirm button')].find(button => button.textContent === '取消')
+    if (!cancel || cancel.disabled) return false
+    cancel.click()
+    return true
+  })()`))
+  await until(() => js('!document.querySelector(".mp-controls > .mp-confirm")'))
   await until(() => sent.some(line => line === 'PONG :cancel-preview-proof'))
   assert.deepEqual(withoutHeartbeats(), beforeCancel)
   assert.equal((await js('window.oclr.executeMp({roomId:900000001,roomEpoch:0,token:"forged",reviewed:true})')).ok,false)
