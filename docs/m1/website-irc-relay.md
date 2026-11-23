@@ -29,7 +29,7 @@
 
 網站領取命令前標記 sending，本機驗證前標記 consumed；不重送遺失回應的交換、不重複執行同一 command ID。每次僅一個待確認命令，15秒無明確回覆標記 unknown。失去同步不自動恢復命令傳送。
 
-本機會在傳送前讀取失效的設定與裁判名單（最長8秒），仍無法確認則拒絕。只接受 `map/set/invite/addref/timer/start/abort/aborttimer/mods` 的有限語法，禁止 raw IRC、password、close、make 或控制字元。`addref` 的房主限制仍由 Bancho 執行，網站角色不授予該權限。
+本機會在傳送前讀取失效的設定與裁判名單（最長8秒），仍無法確認則拒絕。只接受 `map/set/invite/addref/timer/start/abort/aborttimer/mods/close` 的有限語法，禁止 raw IRC、password、make 或控制字元。`addref` 的房主限制仍由 Bancho 執行，網站角色不授予該權限。
 
 目前只有含相同 beatmap ID 的後續 BanchoBot `Beatmap changed to:` 回覆，以及明確 abort/aborttimer 回覆會自動標記 confirmed；其他命令的真實回覆仍投影到網站，但不猜測成功。相同房間之外、非 BanchoBot、早於送出的訊息不能確認。地圖回覆作為 BP 確認證據由網站再次核對，不直接發布賽果。
 
@@ -145,3 +145,9 @@ v0.8.1 發布準備（2026-11-01）：依使用者要求將上述自動帳號核
 新版網站可在 bind 回覆中宣告 `scoreNotices: true`。支援比分播報的桌面端才會在 sync 帶上同名欄位，並沿用已驗證的比賽房間和裁判權限發送固定格式的 `[OCLR SCORE #…]` 聊天訊息。播報包含暫記比分及下一步 Ban／Pick 隊伍，適用於裁判確認或網站 MP 自動記分的結果。已送出的播報使用 `notified` 回報，傳送結果不明時不重送。
 
 網站與桌面端也可以在 bind／sync 協商 `namedScoreNotices: true`，比分欄會顯示 `隊名 1 - 0 隊名`。舊版連線依然會收到 `RED 1 - 0 BLUE`。
+
+## 完賽後從網站關房（2026-11-23）
+
+網站工作臺只在暫記賽程完成後提供 `!mp close`，後端於排隊及派送時重新核對完成狀態和依賴版本。桌面僅接收已授權、綁定同房間的精確 `!mp close`；保留房間／epoch、裁判資格、設定與操作互斥檢查，開賽倒數或譜面仍在進行時拒絕關房。
+
+這不新增桌面手動結構化快捷工具。離開分頁仍是 PART。socket 寫入不當作關房成功，缺乏可核對的回覆時保持 unknown，不自動重送。本次驗證使用合成 loopback，尚未操作真實房間。
