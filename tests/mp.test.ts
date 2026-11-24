@@ -524,3 +524,29 @@ test('BP notice readiness fences pending reads, cooldown and queued reads withou
     assert.equal(f.sent.filter(line=>line.includes('[OCLR BP #58]')).length,1)
   } finally {await f.close()}
 })
+
+
+test('website close keeps scoped room checks and cannot interrupt a map or countdown', async () => {
+  const f = await fixture()
+  try {
+    assert.throws(() => f.session.relaySend({...f.target(), text: '!mp close'}))
+    await f.refresh()
+    assert.throws(() => f.session.relaySend({...f.target(), roomEpoch: -1, text: '!mp close'}))
+    f.peer().write(':BanchoBot PRIVMSG #mp_9 :The match has started!\n')
+    await until(() => f.session.state.room?.phase === 'playing')
+    assert.throws(() => f.session.relaySend({...f.target(), text: '!mp close'}))
+    f.peer().write(':BanchoBot PRIVMSG #mp_9 :The match has finished!\n')
+    await until(() => f.session.state.room?.phase !== 'playing')
+    await f.refresh()
+    f.peer().write(':BanchoBot PRIVMSG #mp_9 :Queued the match to start in 10 seconds\n')
+    await until(() => f.session.state.room?.startCountdown?.status === 'active')
+    assert.throws(() => f.session.relaySend({...f.target(), text: '!mp close'}))
+    f.peer().write(':BanchoBot PRIVMSG #mp_9 :Aborted the match start timer\n')
+    await until(() => f.session.state.room?.startCountdown?.status === 'cancelled')
+    await f.refresh()
+    f.session.relaySend({...f.target(), text: '!mp close'})
+    await until(() => f.sent.includes('PRIVMSG #mp_9 :!mp close'))
+    assert.equal(f.sent.filter(line => line.endsWith(':!mp close')).length, 1)
+    assert.ok(f.session.state.messages.some(m => m.text === '!mp close' && m.delivery === 'unconfirmed'))
+  } finally { await f.close() }
+})

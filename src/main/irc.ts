@@ -833,8 +833,8 @@ export class IrcSession extends EventEmitter {
     const view = this.target(input)
     const text = relayCommand(input.text)
     this.mpReady(view, text, /^!mp (?:addref|invite|set) /.test(text))
-    if (/^!mp (?:map|mods|set|start)\b/.test(text) && view.room.startCountdown && ['active', 'unknown'].includes(view.room.startCountdown.status)) throw new Error('開賽倒數待取消或核對。')
-    if (/^!mp (?:map|mods|set|start)\b/.test(text) && (view.room.phase === 'playing' || view.room.slots.some(slot => /^playing$/i.test(slot.status)))) throw new Error('比賽進行中，請先核對或中止比賽。')
+    if (/^!mp (?:map|mods|set|start|close)\b/.test(text) && view.room.startCountdown && ['active', 'unknown'].includes(view.room.startCountdown.status)) throw new Error('開賽倒數待取消或核對。')
+    if (/^!mp (?:map|mods|set|start|close)\b/.test(text) && (view.room.phase === 'playing' || view.room.slots.some(slot => /^playing$/i.test(slot.status)))) throw new Error('比賽進行中，請先核對或中止比賽。')
     if (/^!mp (?:abort|aborttimer)$/.test(text)) { this.mapPlan?.cancel(); this.roomPlan?.cancel() }
     const operationId = this.operations.begin('oclr', text.split(' ')[1], view.room.id, view.room.epoch, this.generation, text)
     this.lastQueryAt = Date.now()
