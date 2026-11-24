@@ -25,6 +25,7 @@ import { NetworkTransport } from './network.ts'
 import { AppUpdates } from './app-updates.ts'
 import { RELEASES_URL } from './update-feed.ts'
 import { preferencesInput, resolveLocale } from '../shared/preferences.ts'
+import { version as packageVersion } from '../../package.json'
 
 // Preserve the existing profile (and test overrides) when changing the display name.
 app.setPath('userData', app.getPath('userData'))
@@ -69,7 +70,7 @@ app.whenReady().then(() => {
   if (!primaryInstance) return
   const preferences = new PreferencesStore(join(app.getPath('userData'), 'preferences.json'))
   network.setProxy(preferences.get().networkProxy)
-  const updates = new AppUpdates(network.fetch, () => preferences.get().networkProxy, app.getVersion(), state => {
+  const updates = new AppUpdates(network.fetch, () => preferences.get().networkProxy, app.isPackaged ? app.getVersion() : packageVersion, state => {
     if (window && !window.isDestroyed()) window.webContents.send('app:updates-state', state)
   })
   ipcMain.handle('app:updates', event => { trusted(event); return updates.state })

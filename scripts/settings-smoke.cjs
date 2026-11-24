@@ -5,6 +5,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const net = require('node:net')
 app.disableHardwareAcceleration()
+app.getVersion = () => '0.0' // An unpackaged Electron entry point can report this version on Linux.
 const profile = path.join(process.env.OCLR_QA_TEMP, 'settings')
 app.setPath('userData', profile)
 let osLanguages = ['en-US']
