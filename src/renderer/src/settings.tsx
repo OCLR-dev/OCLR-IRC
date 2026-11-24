@@ -20,7 +20,10 @@ function UpdateSettings() {
   }, [updates])
   async function run(action: 'check' | 'download' | 'install' | 'openReleases') {
     setError(false)
-    try { await updates?.[action]() } catch { setError(true) }
+    try {
+      const result = await updates?.[action]()
+      if (result) setState(result)
+    } catch { setError(true) }
   }
   const status = state?.status
   const version = state?.version ?? ''

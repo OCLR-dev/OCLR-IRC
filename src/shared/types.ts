@@ -69,9 +69,9 @@ export interface DesktopAPI {
   updates: {
     snapshot(): Promise<import('./app-updates.ts').AppUpdateState>
     onState(listener: (state: import('./app-updates.ts').AppUpdateState) => void): () => void
-    check(): Promise<void>
-    download(): Promise<void>
-    install(): Promise<void>
+    check(): Promise<import('./app-updates.ts').AppUpdateState>
+    download(): Promise<import('./app-updates.ts').AppUpdateState>
+    install(): Promise<import('./app-updates.ts').AppUpdateState>
     openReleases(): Promise<void>
   }
   replaceManualPool(input: ManualPoolUpdate): Promise<{ok: boolean; error?: string}>

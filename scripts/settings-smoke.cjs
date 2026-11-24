@@ -48,8 +48,12 @@ async function main() {
   require('./mock-beatmap-fetch.cjs')
   require('./mock-avatar-fetch.cjs')
   const fetch = global.fetch
-  global.fetch = (url, init) => url === 'https://api.github.com/repos/OCLR-dev/OCLR-IRC/releases/latest'
-    ? Promise.resolve(Response.json({ tag_name: 'v99.0.0', draft: false, prerelease: false })) : fetch(url, init)
+  let updateRequests = 0
+  global.fetch = (url, init) => {
+    if (url !== 'https://api.github.com/repos/OCLR-dev/OCLR-IRC/releases/latest') return fetch(url, init)
+    updateRequests++
+    return Promise.resolve(Response.json({ tag_name: 'v99.0.0', draft: false, prerelease: false }))
+  }
   require('../out/main/index.js')
   await app.whenReady()
   await until(() => BrowserWindow.getAllWindows().length)
@@ -79,7 +83,7 @@ async function main() {
   assert.equal(await js('Boolean(document.querySelector(".sidebar-note"))'), false)
   assert.throws(() => handlers.get('app:avatar')({ sender: window.webContents, senderFrame: { url: 'https://untrusted.invalid' } }), /Untrusted/)
   await assert.rejects(handlers.get('app:settings-update')({ sender: window.webContents, senderFrame: { url: 'https://untrusted.invalid' } }, settings.preferences), /Untrusted/)
-  assert.throws(() => handlers.get('app:updates-install')({ sender: window.webContents, senderFrame: { url: 'https://untrusted.invalid' } }), /Untrusted/)
+  await assert.rejects(handlers.get('app:updates-install')({ sender: window.webContents, senderFrame: { url: 'https://untrusted.invalid' } }), /Untrusted/)
   await assert.rejects(handlers.get('oclr:open-referee-panel')({ sender: window.webContents, senderFrame: { url: 'https://untrusted.invalid' } }, '00000000-0000-4000-8000-000000000101'), /Untrusted/)
   if (!restart) {
     try {
@@ -187,10 +191,17 @@ async function main() {
     await until(() => opened.length === 1)
     assert.equal(opened[0], 'https://github.com/OCLR-dev/OCLR-IRC')
     await until(() => js('!Array.from(document.querySelectorAll("button")).find(button => button.textContent === "Check for updates").disabled'))
-    await js('Array.from(document.querySelectorAll("button")).find(button => button.textContent === "Check for updates").click()')
-    await until(() => js('document.body.textContent.includes("Version 99.0.0 is available.")'))
-    assert.equal((await js('window.oclr.updates.snapshot()')).mode, 'manual')
-    await js('Array.from(document.querySelectorAll("button")).find(button => button.textContent.startsWith("GitHub downloads")).click()')
+    const pressUpdateButton = text => js(`(() => {
+      const button = [...document.querySelectorAll('section[aria-labelledby=app-updates-title] button')].find(button => button.textContent.startsWith(${JSON.stringify(text)}))
+      button.scrollIntoView({block:'nearest'}); button.click()
+    })()`)
+    await pressUpdateButton('Check for updates')
+    await until(() => js('document.body.textContent.includes("Version 99.0.0 is available.")')).catch(async error => {
+      console.error({ currentVersion: app.getVersion(), updateRequests, updates: await js('window.oclr.updates.snapshot()') })
+      throw error
+    })
+    assert.deepEqual(await js('window.oclr.updates.snapshot()'), { mode: 'manual', status: 'available', version: '99.0.0', progress: null })
+    await pressUpdateButton('GitHub downloads')
     await until(() => opened.length === 2)
     assert.equal(opened[1], 'https://github.com/OCLR-dev/OCLR-IRC/releases/latest')
     assert.equal((await js('window.oclr.settings.openAboutLink("https://untrusted.invalid")')).ok, false)
@@ -217,9 +228,10 @@ async function main() {
     await js('Array.from(document.querySelectorAll("[role=tab]")).find(e=>e.textContent==="Players").click()')
     await until(() => js('Boolean(document.querySelector(".player-slot.occupied"))'))
     await until(() => js('(async () => { const s=await window.oclr.snapshot(); return s.room.referee==="listed" && !s.pending })()'))
-    // The setting is checked on the latest replies, even if the virtual list kept an older scroll position.
+    // Either line of the reply proves it is visible with folding disabled.
     await until(() => js(`(() => {
-      if ([...document.querySelectorAll('.message-row.bot')].some(row => row.textContent.includes('Match referees:'))) return true
+      const replies = [...document.querySelectorAll('.message-row.bot > .message-text')]
+      if (replies.some(line => ['Match referees:', 'SyntheticRef'].includes(line.textContent))) return true
       const scroller = document.querySelector('[data-virtuoso-scroller]')
       if (scroller) scroller.scrollTop = scroller.scrollHeight
       return false
