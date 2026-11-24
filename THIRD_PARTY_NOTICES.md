@@ -46,6 +46,8 @@ Network proxy transport uses [socks](https://github.com/JoshGlazebrook/socks)
 and [Undici](https://github.com/nodejs/undici), both MIT. Their license notices
 are retained in the installed packages.
 
+Windows application updates use [electron-updater](https://github.com/electron-userland/electron-builder) (MIT). macOS application updates use [Sparkle 2.10.1](https://github.com/sparkle-project/Sparkle/releases/tag/2.10.1). The Sparkle license and third-party notices ship as `Sparkle-LICENSE.txt` in the macOS app bundle.
+
 ## Localization
 
 The application uses i18next 26.5.12 and react-i18next 17.1.9 (MIT), with their installed license notices retained in the distribution. The authored Simplified Chinese catalog was initially converted using OpenCC JS 1.4.2 (MIT AND Apache-2.0) during development and adapted for UI terminology. The converter is not bundled or applied to user content.

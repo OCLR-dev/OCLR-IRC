@@ -1,6 +1,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
-const { distribution, verifyDistribution } = require('./distribution.cjs')
+const { distribution, verifyDistribution, digest } = require('./distribution.cjs')
+const { writeUpdateAssets } = require('./update-assets.cjs')
 
 function validate(version, lockVersion, env, rootLockVersion = lockVersion) {
   if (!/^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/.test(version) || version !== lockVersion || version !== rootLockVersion) throw new Error('Package and lock versions must agree')
@@ -39,7 +40,10 @@ async function assemble(input, output, version, sha, requireSignedMac = false) {
   }
   fs.mkdirSync(output, { recursive: true })
   for (const item of checked) for (const file of item.files) fs.copyFileSync(path.join(item.dir, file), path.join(output, file))
-  fs.writeFileSync(path.join(output, 'SHA256SUMS.txt'), checked.flatMap(item => item.checksums).join('\n') + '\n')
+  const checksums = checked.flatMap(item => item.checksums)
+  const updateFiles = writeUpdateAssets(output, version, sha, checked[0], checked[2])
+  for (const file of updateFiles) checksums.push(`${await digest(path.join(output, file))}  ${file}`)
+  fs.writeFileSync(path.join(output, 'SHA256SUMS.txt'), checksums.join('\n') + '\n')
   fs.writeFileSync(path.join(output, 'build-info.json'), JSON.stringify(checked.map(item => item.metadata), null, 2) + '\n')
   const signedMac = checked.some(item => item.metadata.platform === 'macos' && item.metadata.signed)
   const signingNote = signedMac ? 'The macOS App and DMG are Developer ID signed and Apple notarized with stapled tickets.' : 'The macOS app uses an ad-hoc signature.'

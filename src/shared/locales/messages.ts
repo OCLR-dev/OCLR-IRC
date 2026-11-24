@@ -1,5 +1,17 @@
 // Application-authored text only. Interpolation values and external content remain literal.
 export const messages: Record<string, { 'zh-Hans': string; en: string }> = {
+  "應用程式更新": {"zh-Hans": "应用程序更新", "en": "App updates"},
+  "檢查更新": {"zh-Hans": "检查更新", "en": "Check for updates"},
+  "正在檢查更新…": {"zh-Hans": "正在检查更新…", "en": "Checking for updates…"},
+  "目前已是最新版本。": {"zh-Hans": "当前已是最新版本。", "en": "You're up to date."},
+  "已有新版本 {{v0}}。": {"zh-Hans": "已有新版本 {{v0}}。", "en": "Version {{v0}} is available."},
+  "下載更新": {"zh-Hans": "下载更新", "en": "Download update"},
+  "正在下載更新（{{v0}}%）…": {"zh-Hans": "正在下载更新（{{v0}}%）…", "en": "Downloading update ({{v0}}%)…"},
+  "版本 {{v0}} 已下載。": {"zh-Hans": "版本 {{v0}} 已下载。", "en": "Version {{v0}} has been downloaded."},
+  "重新啟動並安裝": {"zh-Hans": "重新启动并安装", "en": "Restart and install"},
+  "正在重新啟動並安裝…": {"zh-Hans": "正在重新启动并安装…", "en": "Restarting to install the update…"},
+  "GitHub 下載頁": {"zh-Hans": "GitHub 下载页", "en": "GitHub downloads"},
+  "更新未完成，請重試或前往 GitHub 下載。": {"zh-Hans": "更新未完成，请重试或前往 GitHub 下载。", "en": "The update couldn't complete. Try again or download it from GitHub."},
   "網路": {"zh-Hans": "网络", "en": "Network"},
   "網路代理": {"zh-Hans": "网络代理", "en": "Network proxy"},
   "連線方式": {"zh-Hans": "连接方式", "en": "Connection method"},

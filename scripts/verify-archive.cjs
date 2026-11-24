@@ -99,6 +99,15 @@ async function main() {
       }
     }
     const executable = process.platform === 'darwin' ? path.join(app, 'Contents/MacOS/OCLR IRC') : path.join(folder, process.platform === 'win32' ? 'OCLR IRC.exe' : 'OCLR IRC')
+    if (process.platform === 'darwin' && metadata.updatePublicKey) {
+      const plist = path.join(app, 'Contents', 'Info.plist')
+      const key = execFileSync('/usr/libexec/PlistBuddy', ['-c', 'Print :SUPublicEDKey', plist], { encoding: 'utf8' }).trim()
+      if (key !== metadata.updatePublicKey) throw new Error('Sparkle updater key mismatch')
+      const bridge = path.join(app, 'Contents', 'Resources', 'oclr-sparkle.node')
+      execFileSync(executable, ['-e', 'const bridge = require(process.argv[1]); if (typeof bridge.start !== "function" || bridge.check() !== false) process.exit(1)', bridge], {
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, timeout: 20000
+      })
+    } else if (process.platform === 'win32' && fs.existsSync(path.join(folder, 'resources', 'oclr-update-key.txt'))) throw new Error('The portable Windows archive must use manual downloads')
     verifyPackagedIcons(folder, process.platform)
     await verifyStartup(executable, path.join(temp, 'profile'), metadata)
     fs.mkdirSync('artifacts', { recursive: true })

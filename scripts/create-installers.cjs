@@ -3,6 +3,7 @@ const path = require('node:path')
 const { execFileSync } = require('node:child_process')
 const { distribution, digest } = require('./distribution.cjs')
 const { appleVerify } = require('./apple-verify.cjs')
+const { releases, updatePublicKey } = require('./update-assets.cjs')
 
 function windowsConfiguration(filename, output) {
   return {
@@ -27,7 +28,21 @@ async function main() {
   if (platform === 'windows') {
     const { build, Platform, Arch } = require('electron-builder')
     const output = path.resolve('release/installer-output')
-    await build({ prepackaged: source, targets: Platform.WINDOWS.createTarget(['nsis'], Arch.x64), config: windowsConfiguration(expected.installer.file, output), publish: 'never' })
+    const publicKey = updatePublicKey()
+    const keyFile = path.join(source, 'resources', 'oclr-update-key.txt')
+    const updateConfig = path.join(source, 'resources', 'app-update.yml')
+    const created = []
+    try {
+      if (publicKey) {
+        fs.writeFileSync(keyFile, publicKey, { flag: 'wx' })
+        created.push(keyFile)
+        fs.writeFileSync(updateConfig, `provider: generic\nurl: ${releases}/latest/download/\nupdaterCacheDirName: oclr-irc-updater\n`, { flag: 'wx' })
+        created.push(updateConfig)
+      }
+      await build({ prepackaged: source, targets: Platform.WINDOWS.createTarget(['nsis'], Arch.x64), config: windowsConfiguration(expected.installer.file, output), publish: 'never' })
+    } finally {
+      for (const file of created) fs.rmSync(file, { force: true })
+    }
     fs.copyFileSync(path.join(output, expected.installer.file), target)
   } else {
     const staging = path.resolve('release/dmg-stage')

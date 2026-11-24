@@ -47,6 +47,9 @@ async function main() {
   net.createConnection = options => { assert.equal(options.host, 'irc.ppy.sh'); return connect({ host: '127.0.0.1', port: server.address().port }) }
   require('./mock-beatmap-fetch.cjs')
   require('./mock-avatar-fetch.cjs')
+  const fetch = global.fetch
+  global.fetch = (url, init) => url === 'https://api.github.com/repos/OCLR-dev/OCLR-IRC/releases/latest'
+    ? Promise.resolve(Response.json({ tag_name: 'v99.0.0', draft: false, prerelease: false })) : fetch(url, init)
   require('../out/main/index.js')
   await app.whenReady()
   await until(() => BrowserWindow.getAllWindows().length)
@@ -76,6 +79,7 @@ async function main() {
   assert.equal(await js('Boolean(document.querySelector(".sidebar-note"))'), false)
   assert.throws(() => handlers.get('app:avatar')({ sender: window.webContents, senderFrame: { url: 'https://untrusted.invalid' } }), /Untrusted/)
   await assert.rejects(handlers.get('app:settings-update')({ sender: window.webContents, senderFrame: { url: 'https://untrusted.invalid' } }, settings.preferences), /Untrusted/)
+  assert.throws(() => handlers.get('app:updates-install')({ sender: window.webContents, senderFrame: { url: 'https://untrusted.invalid' } }), /Untrusted/)
   await assert.rejects(handlers.get('oclr:open-referee-panel')({ sender: window.webContents, senderFrame: { url: 'https://untrusted.invalid' } }, '00000000-0000-4000-8000-000000000101'), /Untrusted/)
   if (!restart) {
     try {
@@ -182,6 +186,13 @@ async function main() {
     await js('Array.from(document.querySelectorAll(".about-links button")).find(e=>e.textContent.includes("Project website")).click()')
     await until(() => opened.length === 1)
     assert.equal(opened[0], 'https://github.com/OCLR-dev/OCLR-IRC')
+    await until(() => js('!Array.from(document.querySelectorAll("button")).find(button => button.textContent === "Check for updates").disabled'))
+    await js('Array.from(document.querySelectorAll("button")).find(button => button.textContent === "Check for updates").click()')
+    await until(() => js('document.body.textContent.includes("Version 99.0.0 is available.")'))
+    assert.equal((await js('window.oclr.updates.snapshot()')).mode, 'manual')
+    await js('Array.from(document.querySelectorAll("button")).find(button => button.textContent.startsWith("GitHub downloads")).click()')
+    await until(() => opened.length === 2)
+    assert.equal(opened[1], 'https://github.com/OCLR-dev/OCLR-IRC/releases/latest')
     assert.equal((await js('window.oclr.settings.openAboutLink("https://untrusted.invalid")')).ok, false)
     assert.equal((await js('window.oclr.settings.update({closeToBackground:"false",language:"en"})')).ok, false)
     assert.equal((await js('window.oclr.settings.snapshot()')).preferences.closeToBackground, false)

@@ -2,6 +2,10 @@ name: Signed macOS build
 
 on:
   workflow_call:
+    inputs:
+      update_public_key:
+        type: string
+        default: ''
     secrets:
       MAC_CERTIFICATE_P12_BASE64:
         required: true
@@ -49,3 +53,4 @@ jobs:
           api_key_id: ${{ secrets.APPLE_API_KEY_ID }}
           api_issuer_id: ${{ secrets.APPLE_API_ISSUER_ID }}
           team_id: ${{ vars.MAC_TEAM_ID }}
+          update_public_key: ${{ inputs.update_public_key }}

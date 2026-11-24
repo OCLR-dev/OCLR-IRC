@@ -3,6 +3,7 @@ const path = require('node:path')
 const { spawnSync } = require('node:child_process')
 const { createHash } = require('node:crypto')
 const { distribution } = require('./distribution.cjs')
+const { updatePublicKey } = require('./update-assets.cjs')
 
 async function main() {
   const version = require('../package.json').version
@@ -19,6 +20,8 @@ async function main() {
   const signing = platform === 'macos' ? JSON.parse(fs.readFileSync(path.join(source, 'mac-signing.json'), 'utf8')) : { signed: false, codeSigning: 'unsigned', notarized: false }
   const metadata = { version, commit: sha, platform, arch: process.arch, node: process.version, electron: require('electron/package.json').version,
     builtAt: new Date().toISOString(), run: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`, ...signing, installer }
+  const key = platform === 'linux' ? '' : updatePublicKey()
+  if (key) metadata.updatePublicKey = key
   fs.copyFileSync('THIRD_PARTY_NOTICES.md', path.join(source, 'THIRD_PARTY_NOTICES.md'))
   fs.copyFileSync('licenses/INSTALLER-LICENSES.txt', path.join(source, 'INSTALLER-LICENSES.txt'))
   fs.writeFileSync(path.join(source, 'build-info.json'), JSON.stringify(metadata, null, 2) + '\n')

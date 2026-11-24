@@ -41,6 +41,18 @@ const api: DesktopAPI = {
     },
     openAboutLink: kind => ipcRenderer.invoke('app:about-link', kind)
   },
+  updates: {
+    snapshot: () => ipcRenderer.invoke('app:updates'),
+    onState: listener => {
+      const handler = (_event: Electron.IpcRendererEvent, state: import('../shared/app-updates.ts').AppUpdateState) => listener(state)
+      ipcRenderer.on('app:updates-state', handler)
+      return () => ipcRenderer.removeListener('app:updates-state', handler)
+    },
+    check: () => ipcRenderer.invoke('app:updates-check'),
+    download: () => ipcRenderer.invoke('app:updates-download'),
+    install: () => ipcRenderer.invoke('app:updates-install'),
+    openReleases: () => ipcRenderer.invoke('app:updates-releases')
+  },
   replaceManualPool: input => ipcRenderer.invoke('irc:manual-pool-replace', input),
   previewPoolEntry: input => ipcRenderer.invoke('irc:pool-entry-preview', input),
   previewRoomPlan: input => ipcRenderer.invoke('irc:room-plan-preview', input),

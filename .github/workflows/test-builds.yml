@@ -17,6 +17,9 @@ on:
       sign_macos:
         type: boolean
         default: false
+      update_public_key:
+        type: string
+        default: ''
   workflow_dispatch:
     inputs:
       sign_macos:
@@ -74,9 +77,12 @@ jobs:
       - uses: ./.github/actions/desktop-build
         with:
           command: ${{ matrix.command }}
+          update_public_key: ${{ matrix.platform == 'windows' && inputs.update_public_key || '' }}
   signed-macos:
     if: inputs.sign_macos
     uses: ./.github/workflows/macos-signed.yml
+    with:
+      update_public_key: ${{ inputs.update_public_key }}
     secrets:
       MAC_CERTIFICATE_P12_BASE64: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
       MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}

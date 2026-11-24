@@ -280,7 +280,7 @@ async function main() {
   await button('開始套用')
   await until(() => js('(async () => (await window.oclr.snapshot()).mapPlan?.state === "observed")()'), 120)
   assert.equal(sent.filter(line => /:!mp (map|mods) /.test(line)).length, profileBefore + 2)
-  await until(() => js('document.querySelector(".profile-progress").textContent.includes("已核對設定")'))
+  await until(() => js('document.querySelector(".profile-progress")?.textContent.includes("已核對設定")'))
   assert.equal(await js('document.querySelector(".composer").getBoundingClientRect().bottom <= innerHeight'), true)
   fs.writeFileSync(path.join(output, 'map-profile-synthetic.png'), (await capture()).toPNG())
   await js('document.querySelector(".map-profile").open = false')

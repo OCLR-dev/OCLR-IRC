@@ -57,6 +57,7 @@ jobs:
       APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
     with:
       sign_macos: ${{ github.event_name == 'push' || inputs.sign_macos }}
+      update_public_key: ${{ (github.event_name == 'push' || !inputs.dry_run) && !contains(github.ref_name, '-') && vars.OCLR_UPDATE_PUBLIC_KEY || '' }}
   assemble:
     needs: [validate, build]
     runs-on: ubuntu-22.04
@@ -78,6 +79,8 @@ jobs:
       - name: Verify all archives and prepare release assets
         env:
           REQUIRE_SIGNED_MAC: ${{ github.event_name == 'push' || inputs.sign_macos }}
+          OCLR_UPDATE_PUBLIC_KEY: ${{ (github.event_name == 'push' || !inputs.dry_run) && !contains(github.ref_name, '-') && vars.OCLR_UPDATE_PUBLIC_KEY || '' }}
+          OCLR_UPDATE_PRIVATE_KEY: ${{ (github.event_name == 'push' || !inputs.dry_run) && !contains(github.ref_name, '-') && secrets.OCLR_UPDATE_PRIVATE_KEY || '' }}
         run: node scripts/prepare-release.cjs assemble
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -117,6 +120,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
+          update_assets=()
+          for file in release-assets/appcast.xml release-assets/windows-update.json; do
+            if [[ -f "$file" ]]; then update_assets+=("$file"); fi
+          done
           prerelease=false
           latest=true
           if [[ "$RELEASE_TAG" == *-* ]]; then
@@ -127,7 +134,7 @@ jobs:
             --title "OCLR IRC $RELEASE_TAG" \
             --notes-file release-assets/RELEASE_NOTES.md \
             release-assets/*.zip release-assets/*.tar.gz release-assets/*.exe release-assets/*.dmg \
-            release-assets/SHA256SUMS.txt release-assets/build-info.json
+            release-assets/SHA256SUMS.txt release-assets/build-info.json "${update_assets[@]}"
           gh release edit "$RELEASE_TAG" --draft=false --prerelease="$prerelease" --latest="$latest"
           echo "### Published OCLR IRC $RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"
           echo "https://github.com/$GITHUB_REPOSITORY/releases/tag/$RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"

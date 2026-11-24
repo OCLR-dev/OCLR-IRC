@@ -2,6 +2,8 @@ const { appleVerify } = require('./apple-verify.cjs')
 const { execFileSync } = require('node:child_process')
 const path = require('node:path')
 const fs = require('node:fs')
+const { packageSparkle } = require('./package-sparkle.cjs')
+const { updatePublicKey } = require('./update-assets.cjs')
 
 async function main() {
   if (process.platform !== 'darwin') throw new Error('macOS packaging/signing must run on macOS')
@@ -10,6 +12,7 @@ async function main() {
   const signed = mode === 'developer-id'
   if (signed && (!/^[a-f0-9]{40}$/i.test(process.env.MAC_SIGNING_IDENTITY || '') || !/^[A-Z0-9]{10}$/.test(process.env.MAC_TEAM_ID || '') || !process.env.MAC_KEYCHAIN_PATH || !process.env.MAC_NOTARY_PROFILE)) throw new Error('Developer ID signing setup is incomplete; refusing ad-hoc fallback')
   const { packager } = await import('@electron/packager')
+  const sparkle = packageSparkle(updatePublicKey())
   const outputs = await packager({
     dir: '.', name: 'OCLR IRC', platform: 'darwin', arch: 'arm64',
     appBundleId: 'org.oclr.ref-tools',
@@ -18,15 +21,16 @@ async function main() {
     icon: ['resources/icons/icon.icns', 'resources/icons/OCLR.icon'],
     protocols: [{name: 'OCLR IRC', schemes: ['oclr-irc']}],
     out: 'release', overwrite: true,
+    ...sparkle.options,
     ignore: [/^\/(?:release(?:-input|-assets)?|spikes|docs|tests|src|scripts|artifacts|\.github)(?:\/|$)/],
     osxSign: {
       identity: signed ? process.env.MAC_SIGNING_IDENTITY : '-', keychain: signed ? process.env.MAC_KEYCHAIN_PATH : undefined, identityValidation: signed, continueOnError: false,
       preAutoEntitlements: false, preEmbedProvisioningProfile: false,
       // Hardened runtime + secure timestamp for notarized Developer ID builds.
-      optionsForFile: () => ({ hardenedRuntime: signed, entitlements: ['com.apple.security.cs.allow-jit'] })
+      optionsForFile: file => ({ hardenedRuntime: signed, entitlements: file.includes('/Sparkle.framework/') ? [] : ['com.apple.security.cs.allow-jit'] })
     },
     osxNotarize: signed ? { keychainProfile: process.env.MAC_NOTARY_PROFILE, keychain: process.env.MAC_KEYCHAIN_PATH } : undefined
-  })
+  }).finally(sparkle.cleanup)
   for (const output of outputs) {
     const app = path.join(output, 'OCLR IRC.app')
     execFileSync('codesign', ['--verify', '--deep', '--strict', '--verbose=2', app], { stdio: 'inherit' })
