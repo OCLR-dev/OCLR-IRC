@@ -66,6 +66,14 @@ export interface DesktopAPI {
     onState(listener: (state: AppSettings) => void): () => void
     openAboutLink(kind: 'repository' | 'license' | 'notices'): Promise<{ ok: boolean; error?: string }>
   }
+  updates: {
+    snapshot(): Promise<import('./app-updates.ts').AppUpdateState>
+    onState(listener: (state: import('./app-updates.ts').AppUpdateState) => void): () => void
+    check(): Promise<import('./app-updates.ts').AppUpdateState>
+    download(): Promise<import('./app-updates.ts').AppUpdateState>
+    install(): Promise<import('./app-updates.ts').AppUpdateState>
+    openReleases(): Promise<void>
+  }
   replaceManualPool(input: ManualPoolUpdate): Promise<{ok: boolean; error?: string}>
   previewPoolEntry(input: RoomTarget & {revision: string; entryId: string}): Promise<{ok: boolean; preview?: MapPlanPreview; error?: string}>
   previewRoomPlan(input: RoomTarget & { plan: RoomPlanInput }): Promise<{ok: boolean; preview?: RoomPlanPreview; error?: string}>

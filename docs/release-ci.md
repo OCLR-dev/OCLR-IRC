@@ -1,5 +1,7 @@
 # GitHub Release CI
 
+2026-11-24 v0.9.1：加入 GitHub 正式版更新入口、macOS Sparkle 與 Windows 安裝版更新支援。見 [更新說明](releases/v0.9.1.md)。
+
 2026-11-21 v0.9.0：OCLR IRC 的首個正式版，新增 SOCKS5／HTTP CONNECT 網路代理。見 [更新說明](releases/v0.9.0.md)。
 
 2026-11-17 v0.8.16：手動登入 IRC 或啟動恢復登入後留在裁判工作臺。從網站選擇重新加入房間仍會開啟指定房間。見 [更新說明](releases/v0.8.16.md)。
@@ -51,6 +53,14 @@ macOS 建置自 #95 使用 `macos-26` arm64 runner 與 Xcode 26+，在簽章前�
 4. 發布前再次確認遠端 tag 對應建置 commit，並再次驗證壓縮包 SHA-256。
 5. 先建立 draft 並上傳全部 assets，成功後才依版本 tag 公開。若有同名 Release，流程會停止。上傳途中失敗時，維護者先檢查並處理留下的 draft，再重跑。
 6. 相同 ref 的 Release runs 序列執行，不在上傳途中被新 run 自動取消。
+
+## 應用程式更新資產
+
+啟用前，在安全環境產生並備份 Ed25519 金鑰。Sparkle 2.10.1 的 `generate_keys` 可產生金鑰，並以 `-x` 匯出私鑰供 CI 使用。將 Base64 公鑰配置為 repository variable `OCLR_UPDATE_PUBLIC_KEY`，並將 Base64 編碼的 32-byte 私鑰 seed 配置為 Actions secret `OCLR_UPDATE_PRIVATE_KEY`。正式發佈會核對金鑰配對。私鑰只由彙整工作讀取，備份與輪換需考量已安裝版本信任的公鑰。
+
+正式版有配置金鑰時，簽章的 macOS App 會內嵌 Sparkle 框架與公鑰。Windows NSIS 安裝版會內嵌同一公鑰。彙整工作驗證三平台成品後，產生含 DMG Ed25519 簽章的 `appcast.xml` 與含 Windows 安裝器 SHA-512、檔案大小及簽章的 `windows-update.json`。兩份更新資產隨正式版一同公開，客戶端由 `releases/latest/download/` 讀取。Windows 安裝器沿用目前的封裝方式，更新信任根為內嵌的 Ed25519 公鑰。
+
+兩個設定均空白時，流程仍可發佈供手動下載的版本。已啟用更新的版本要持續取得新版，後續正式發佈也需提供更新資產。預發佈、一般 PR 測試包與 Linux 維持手動更新。發佈第一個含更新器的版本後，須從該版本安裝並驗證能升至後續版本。
 
 ## 驗證紀錄
 

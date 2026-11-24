@@ -19,6 +19,8 @@ inputs:
     description: Team API issuer ID
   team_id:
     description: Expected Apple Team ID
+  update_public_key:
+    description: Public Ed25519 key for packaged desktop updates
 runs:
   using: composite
   steps:
@@ -57,13 +59,18 @@ runs:
     - name: Package native test app
       env:
         MAC_SIGNING_MODE: ${{ inputs.mac_signing_mode }}
+        OCLR_UPDATE_PUBLIC_KEY: ${{ inputs.update_public_key }}
       shell: bash
       run: npm run ${{ inputs.command }}
     - name: Archive and checksum
       id: archive
+      env:
+        OCLR_UPDATE_PUBLIC_KEY: ${{ inputs.update_public_key }}
       shell: bash
       run: node scripts/archive-test-build.cjs
     - name: Create native installers
+      env:
+        OCLR_UPDATE_PUBLIC_KEY: ${{ inputs.update_public_key }}
       shell: bash
       run: node scripts/create-installers.cjs
     - name: Verify native installer and installed app

@@ -22,7 +22,10 @@ import { DesktopBackground } from './background.ts'
 import { appIconPath } from './app-icon.ts'
 import { PreferencesStore } from './preferences-store.ts'
 import { NetworkTransport } from './network.ts'
+import { AppUpdates } from './app-updates.ts'
+import { RELEASES_URL } from './update-feed.ts'
 import { preferencesInput, resolveLocale } from '../shared/preferences.ts'
+import { version as packageVersion } from '../../package.json'
 
 // Preserve the existing profile (and test overrides) when changing the display name.
 app.setPath('userData', app.getPath('userData'))
@@ -67,6 +70,16 @@ app.whenReady().then(() => {
   if (!primaryInstance) return
   const preferences = new PreferencesStore(join(app.getPath('userData'), 'preferences.json'))
   network.setProxy(preferences.get().networkProxy)
+  const updates = new AppUpdates(network.fetch, () => preferences.get().networkProxy, app.isPackaged ? app.getVersion() : packageVersion, state => {
+    if (window && !window.isDestroyed()) window.webContents.send('app:updates-state', state)
+  })
+  ipcMain.handle('app:updates', event => { trusted(event); return updates.state })
+  ipcMain.handle('app:updates-check', async event => { trusted(event); await updates.check(); return updates.state })
+  ipcMain.handle('app:updates-download', async event => { trusted(event); await updates.download(); return updates.state })
+  ipcMain.handle('app:updates-install', async event => { trusted(event); await updates.install(); return updates.state })
+  ipcMain.handle('app:updates-releases', event => { trusted(event); return shell.openExternal(`${RELEASES_URL}/latest`) })
+  if (app.isPackaged && !process.env.OCLR_QA_TEMP) updates.start()
+  app.on('before-quit', () => updates.stop())
   if (process.platform === 'darwin' && !app.isPackaged) app.dock?.setIcon(appIconPath)
   const avatar = new AccountAvatar(new AvatarCache(join(app.getPath('userData'), 'avatar-cache'), bytes => {
     const image = nativeImage.createFromBuffer(bytes)

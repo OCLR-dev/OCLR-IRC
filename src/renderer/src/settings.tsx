@@ -1,10 +1,50 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button, Input, Label, Tabs, TextField } from '@heroui/react'
 import { WorkspaceCheckbox, WorkspaceSelect } from './controls'
 import { tr } from './i18n'
 import { BrandIcon } from './brand'
 import { CHAT_FONT_FAMILIES, CHAT_FONT_SIZES, CHAT_SEND_SHORTCUTS, CHAT_TIMESTAMPS, modifiedEnterLabel, type AppPreferences, type AppSettings, type LanguagePreference } from '../../shared/preferences'
 import { networkProxyInput, PROXY_MODES, type NetworkProxy } from '../../shared/network-proxy'
+import type { AppUpdateState } from '../../shared/app-updates'
+
+function UpdateSettings() {
+  const [state, setState] = useState<AppUpdateState | null>(null)
+  const [error, setError] = useState(false)
+  const updates = window.oclr?.updates
+  useEffect(() => {
+    if (!updates) return
+    let active = true, received = false
+    const unsubscribe = updates.onState(value => { received = true; setState(value) })
+    void updates.snapshot().then(value => { if (active && !received) setState(value) }, () => { if (active) setError(true) })
+    return () => { active = false; unsubscribe() }
+  }, [updates])
+  async function run(action: 'check' | 'download' | 'install' | 'openReleases') {
+    setError(false)
+    try {
+      const result = await updates?.[action]()
+      if (result) setState(result)
+    } catch { setError(true) }
+  }
+  const status = state?.status
+  const version = state?.version ?? ''
+  const descriptions = {
+    idle: '', checking: tr('正在檢查更新…'), current: tr('目前已是最新版本。'),
+    available: tr('已有新版本 {{v0}}。', { v0: version }), downloading: tr('正在下載更新（{{v0}}%）…', { v0: state?.progress ?? 0 }),
+    ready: tr('版本 {{v0}} 已下載。', { v0: version }), installing: tr('正在重新啟動並安裝…'), error: ''
+  }
+  const busy = status === 'checking' || status === 'downloading' || status === 'installing'
+  return <section className="settings-section" aria-labelledby="app-updates-title">
+    <h2 id="app-updates-title">{tr('應用程式更新')}</h2>
+    <div className="about-links">
+      {status === 'ready' ? <Button variant="primary" onPress={() => void run('install')}>{tr('重新啟動並安裝')}</Button>
+        : state?.mode === 'windows' && status === 'available' ? <Button variant="primary" onPress={() => void run('download')}>{tr('下載更新')}</Button>
+        : <Button variant="secondary" isDisabled={!state || busy} onPress={() => void run('check')}>{tr('檢查更新')}</Button>}
+      <Button variant="ghost" isDisabled={!updates} onPress={() => void run('openReleases')}>{tr('GitHub 下載頁')} ↗</Button>
+    </div>
+    {status && descriptions[status] && <p role="status">{descriptions[status]}</p>}
+    {(status === 'error' || error) && <div role="alert" className="error-message">{tr('更新未完成，請重試或前往 GitHub 下載。')}</div>}
+  </section>
+}
 
 function NetworkSettings({ proxy, disabled, save }: { proxy: NetworkProxy; disabled: boolean; save: (proxy: NetworkProxy) => Promise<boolean> }) {
   const [mode, setMode] = useState(proxy.mode)
@@ -141,6 +181,7 @@ export function SettingsView({ settings, onChange }: { settings: AppSettings; on
         <dl className="about-details"><div><dt>{tr('版本')}</dt><dd>{settings.version}</dd></div><div><dt>{tr('作業系統')}</dt><dd>{({ darwin: 'macOS', win32: 'Windows', linux: 'Linux' })[settings.platform as 'darwin' | 'win32' | 'linux'] ?? settings.platform}</dd></div><div><dt>{tr('授權')}</dt><dd>MIT</dd></div></dl>
         <div className="about-links"><Button variant="secondary" onPress={() => void open('repository')}>{tr('專案網站')} ↗</Button><Button variant="ghost" onPress={() => void open('license')}>{tr('開源授權')} ↗</Button><Button variant="ghost" onPress={() => void open('notices')}>{tr('第三方聲明')} ↗</Button></div>
         <p className="about-stack">Electron · React · HeroUI · i18next</p>
+        <UpdateSettings />
       </Tabs.Panel>
     </Tabs>
     {error && <p role="alert" className="error-message">{tr(error)}</p>}

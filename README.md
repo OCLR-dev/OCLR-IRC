@@ -7,6 +7,7 @@
 ## 下載
 
 - [下載最新正式版](https://github.com/OCLR-dev/OCLR-IRC/releases/latest)：各平台安裝包、校驗碼與建置資訊。
+- [v0.9.1 更新說明](docs/releases/v0.9.1.md)：應用程式內的更新入口與網站授權的房間關閉流程。
 - [v0.9.0 更新說明](docs/releases/v0.9.0.md)：新增 SOCKS5 與 HTTP CONNECT 網路代理設定。
 - [版本記錄](https://github.com/OCLR-dev/OCLR-IRC/releases)：所有已發佈版本。
 - [v0.8.16 更新說明](docs/releases/v0.8.16.md)：登入與啟動恢復登入後留在裁判工作臺。
@@ -51,6 +52,7 @@
 - **應用圖標**：採用 [Liru 角色圖標](docs/liru-app-icon.md)，同步用於應用程式、安裝包、側欄與關於頁；macOS 26+ 使用原生圖示目錄，避免角色縮在額外底框內。角色設計 JerrYamada，圖像採 CC BY 4.0。
 - **設定與恢復**：簡體中文、繁體中文、英文或跟隨系統；可調整聊天字號、字型、時間戳與比賽桌面通知，並選擇背景執行、加密憑證保存、啟動恢復上次 IRC 登入與本機日誌，斷線後不重送操作。
 - **[網路代理](docs/m1/app-settings.md#網路代理)**：在「設定 → 網路」選擇直連、SOCKS5 或 HTTP CONNECT，供新的 IRC 連線與 App 內的 OCLR／osu! 請求使用。
+- **[應用程式更新](docs/m1/app-settings.md#應用程式更新)**：在「設定 → 關於」檢查 GitHub 正式版。支援更新的 macOS 與 Windows 安裝版會自動檢查，並可在程式內確認安裝。Linux 和 Windows 可攜版提供手動查詢與下載。
 
 ## 開始使用
 
