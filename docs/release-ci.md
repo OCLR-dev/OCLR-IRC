@@ -1,5 +1,7 @@
 # GitHub Release CI
 
+2026-11-24 v0.9.1：加入 GitHub 正式版更新入口、macOS Sparkle 與 Windows 安裝版更新支援。見 [更新說明](releases/v0.9.1.md)。
+
 2026-11-21 v0.9.0：OCLR IRC 的首個正式版，新增 SOCKS5／HTTP CONNECT 網路代理。見 [更新說明](releases/v0.9.0.md)。
 
 2026-11-17 v0.8.16：手動登入 IRC 或啟動恢復登入後留在裁判工作臺。從網站選擇重新加入房間仍會開啟指定房間。見 [更新說明](releases/v0.8.16.md)。

@@ -7,6 +7,7 @@
 ## 下載
 
 - [下載最新正式版](https://github.com/OCLR-dev/OCLR-IRC/releases/latest)：各平台安裝包、校驗碼與建置資訊。
+- [v0.9.1 更新說明](docs/releases/v0.9.1.md)：應用程式內的更新入口與網站授權的房間關閉流程。
 - [v0.9.0 更新說明](docs/releases/v0.9.0.md)：新增 SOCKS5 與 HTTP CONNECT 網路代理設定。
 - [版本記錄](https://github.com/OCLR-dev/OCLR-IRC/releases)：所有已發佈版本。
 - [v0.8.16 更新說明](docs/releases/v0.8.16.md)：登入與啟動恢復登入後留在裁判工作臺。
