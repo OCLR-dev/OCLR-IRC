@@ -16,11 +16,18 @@ async function verifyStartup(executable, profile, metadata) {
   let child, ws
   try {
     let endpoint, stderr = '', launchError
-    child = spawn(executable, ['--remote-debugging-port=0', `--user-data-dir=${profile}`], { stdio: ['ignore', 'ignore', 'pipe'] })
+    child = spawn(executable, ['--remote-debugging-port=0', `--user-data-dir=${profile}`], { stdio: ['ignore', 'ignore', 'pipe'], env: { ...process.env, OCLR_QA_TEMP: profile } })
     child.on('error', error => { launchError = error.message })
     child.stderr.on('data', chunk => { stderr = (stderr + chunk.toString()).slice(-16384); endpoint = /DevTools listening on (ws:\/\/127\.0\.0\.1:\d+\/[^\s]+)/.exec(stderr)?.[1] })
-    for (let i = 0; i < 100 && !endpoint && !launchError && child.exitCode === null; i++) await delay(100)
-    if (!endpoint || launchError) throw new Error('Extracted app failed to start: ' + (launchError || stderr.slice(-2000)))
+    for (let i = 0; i < 100 && !endpoint && !launchError && child.exitCode === null; i++) {
+      // Windows GUI executables may not emit the DevTools port on the stderr pipe.
+      try {
+        const [port, target] = fs.readFileSync(path.join(profile, 'DevToolsActivePort'), 'utf8').trim().split(/\r?\n/)
+        if (/^[1-9]\d{0,4}$/.test(port) && /^\/devtools\/browser\/[a-f\d-]+$/.test(target)) endpoint = `ws://127.0.0.1:${port}${target}`
+      } catch { /* The browser has not written its debugger endpoint yet. */ }
+      if (!endpoint) await delay(100)
+    }
+    if (!endpoint || launchError) throw new Error(`Extracted app failed to start (exit ${child.exitCode ?? 'pending'}): ${launchError || stderr.slice(-2000)}`)
     ws = new WebSocket(endpoint)
     await new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('Packaged debugger connection timed out')), 5000)

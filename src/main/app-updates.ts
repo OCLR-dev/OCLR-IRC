@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { NsisUpdater, Provider } from 'electron-updater'
+import type { NsisUpdater } from 'electron-updater'
 import type { ProviderRuntimeOptions } from 'electron-updater/out/providers/Provider'
 import type { AppUpdateState } from '../shared/app-updates.ts'
 import type { NetworkProxy } from '../shared/network-proxy.ts'
@@ -35,6 +35,7 @@ export class AppUpdates {
     const installDirectory = dirname(process.execPath)
     if (!existsSync(join(installDirectory, 'Uninstall OCLR IRC.exe'))) return
     const publicKey = decodeUpdatePublicKey(readFileSync(join(process.resourcesPath, 'oclr-update-key.txt'), 'utf8'))
+    const { NsisUpdater, Provider } = require('electron-updater') as typeof import('electron-updater')
     const fetcher = this.fetcher
     class GitHubUpdates extends Provider<WindowsInfo> {
       constructor(_options: unknown, _updater: unknown, options: ProviderRuntimeOptions) { super(options) }
