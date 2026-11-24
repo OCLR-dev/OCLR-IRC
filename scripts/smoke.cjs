@@ -103,6 +103,16 @@ async function main() {
     window.webContents.sendInputEvent({ type: 'keyDown', keyCode, modifiers })
     window.webContents.sendInputEvent({ type: 'keyUp', keyCode, modifiers })
   }
+  async function focusFirstRoomQuery() {
+    app.focus({steal:true}); window.show(); window.focus(); window.webContents.focus()
+    await until(() => window.isFocused())
+    await until(() => js(`(() => {
+      const buttons = [...document.querySelectorAll('.query-actions button')]
+      if (!document.hasFocus() || buttons.length !== 2 || buttons.some(button => button.disabled)) return false
+      buttons[0].focus()
+      return document.activeElement === buttons[0]
+    })()`))
+  }
   await fill('input[name=username]', 'SyntheticRef')
   await fill('input[name=password]', 'SYNTHETIC_PASSWORD_ONLY')
   assert.equal(await js('document.querySelector("button[type=submit]").disabled'), false)
@@ -122,8 +132,7 @@ async function main() {
   const queryIcons = () => js('Array.from(document.querySelectorAll(".query-actions button svg")).map(svg => svg.innerHTML)')
   const idleQueryIcons = await queryIcons()
   assert.equal(new Set(idleQueryIcons).size, 2, 'room settings and referee queries must have distinct icons')
-  app.focus({steal:true}); window.show(); window.focus(); window.webContents.focus(); await until(() => window.isFocused())
-  await js('document.querySelectorAll(".query-actions button")[0].focus()')
+  await focusFirstRoomQuery()
   pressKey('Tab')
   await until(() => js('document.activeElement?.getAttribute("aria-label") === "裁判名單" && document.querySelector("[role=tooltip]")?.textContent === "裁判名單"')).catch(async error => {console.error(await js('JSON.stringify({active:document.activeElement?.outerHTML,tooltips:Array.from(document.querySelectorAll("[role=tooltip]")).map(e=>e.textContent),focus:document.hasFocus(),buttons:Array.from(document.querySelectorAll(".query-actions button")).map(e=>({label:e.ariaLabel,disabled:e.disabled}))})'));throw error})
   pressKey('Tab', ['shift'])
@@ -145,8 +154,7 @@ async function main() {
   assert.equal(await js('document.querySelector(".player-slot[data-team=red]").textContent.includes("房主")'), true)
   await delay(1100)
   await until(() => js('document.querySelectorAll(".query-actions button")[1]?.disabled === false'))
-  app.focus({steal:true}); window.show(); window.focus(); window.webContents.focus(); await until(() => window.isFocused())
-  await js('document.querySelectorAll(".query-actions button")[0].focus()')
+  await focusFirstRoomQuery()
   pressKey('Tab')
   await until(() => js('document.activeElement?.getAttribute("aria-label") === "裁判名單" && document.querySelector("[role=tooltip]")?.textContent === "裁判名單"')).catch(async error => {console.error(await js('JSON.stringify({active:document.activeElement?.outerHTML,tooltips:Array.from(document.querySelectorAll("[role=tooltip]")).map(e=>e.textContent),focus:document.hasFocus(),buttons:Array.from(document.querySelectorAll(".query-actions button")).map(e=>({label:e.ariaLabel,disabled:e.disabled}))})'));throw error})
   const beforeRefs = sent.length
